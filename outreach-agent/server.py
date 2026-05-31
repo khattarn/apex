@@ -14,11 +14,14 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-app = FastAPI(title="PracticeDesk Admin API", version="1.0.0")
+app = FastAPI(title="Apex Admin API", version="1.0.0")
+
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -242,6 +245,13 @@ async def put_setting(key: str, body: SettingUpdate, _=Depends(verify_token)):
     return {"key": key, "value": body.value}
 
 
+# ── Health ────────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+async def health_simple():
+    return {"status": "ok"}
+
+
 # ── API health ────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
@@ -291,4 +301,5 @@ async def danger_reset_outreach(_=Depends(verify_token)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
