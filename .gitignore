@@ -26,6 +26,7 @@ venv/
 # Logs
 *.log
 *.txt
+!requirements.txt
 npm-debug.log*
 
 # OS
