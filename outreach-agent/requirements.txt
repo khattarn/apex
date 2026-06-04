@@ -7,3 +7,6 @@ googlemaps==4.10.0
 requests==2.32.3
 python-dotenv==1.0.1
 python-multipart==0.0.9
+dnspython==2.6.1
+twilio==9.3.0
+pytz==2024.1

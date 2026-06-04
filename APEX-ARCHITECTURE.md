@@ -12,7 +12,7 @@
 | Nyaya Saathi — Citizen | legalaidai.in/citizen | India (1.4B citizens) | Live (Beta 3) | Freemium — ₹499/mo premium |
 | Nyaya Saathi — Advocate | legalaidai.in/advocate | India (1.7M advocates) | Live (Beta 3) | ₹2,500/mo · ₹5,000 renewal |
 | Nyaya Saathi — Corporate | legalaidai.in/corporate | India (corporates) | Live (Beta 3) | ₹5,000+/mo |
-| PracticeDesk | practicedesk.netlify.app | AU / USA / Global | Live (Beta) | $250/mo with discounts |
+| PracticeDesk | practicedesk.netlify.app | AU / USA / Global | Live (Beta) | $49 · $99 · $180/mo |
 | **Apex** | TBD (internal) | All markets | **Building now** | Internal tool — drives all above |
 
 ---
@@ -299,7 +299,7 @@ apex/
 
 ### PracticeDesk Pricing (confirmed)
 
-- **Entry price:** $250/month
+- **Pricing:** $49/month Starter · $99/month Growth · $180/month Pro · 14-day free trial
 - **Market:** AU / USA / Global
 - **Affiliate commission:** $15 on conversion + $15 on renewal (TBC)
 

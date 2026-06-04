@@ -3,6 +3,16 @@ from supabase import create_client
 
 _client = None
 
+# Email sequence: (template_number, day_from_start)
+EMAIL_SEQUENCE = [
+    (1,  0),
+    (2,  3),
+    (3,  6),
+    (4,  9),
+    (5, 12),
+    (6, 30),
+]
+
 
 def get_client():
     global _client
@@ -15,7 +25,10 @@ def get_client():
     return _client
 
 
-def get_leads(business_type=None, status=None, city=None, outreach_sent=None, limit=25, offset=0, search=None):
+# ── Leads ─────────────────────────────────────────────────────────────────────
+
+def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
+              limit=25, offset=0, search=None):
     db = get_client()
     query = db.table("leads").select("*", count="exact")
     if business_type:
@@ -75,29 +88,158 @@ def mark_contacted(lead_id, message):
     })
 
 
-def get_stats():
+# ── Enrichment ────────────────────────────────────────────────────────────────
+
+def get_leads_for_enrichment(limit=100):
+    """Only leads that have never been attempted for email scraping."""
     db = get_client()
-    leads = db.table("leads").select("status, business_type, city").execute().data
-    total = len(leads)
-    by_status = {}
-    by_type = {}
-    by_city = {}
-    for lead in leads:
-        s = lead.get("status", "new")
-        bt = lead.get("business_type") or "unknown"
-        city = lead.get("city") or "unknown"
-        by_status[s] = by_status.get(s, 0) + 1
-        by_type[bt] = by_type.get(bt, 0) + 1
-        by_city[city] = by_city.get(city, 0) + 1
-    return {
-        "total_leads": total,
-        "contacted": by_status.get("contacted", 0),
-        "replied": by_status.get("replied", 0),
-        "converted": by_status.get("converted", 0),
-        "by_business_type": by_type,
-        "by_city": by_city,
+    result = (
+        db.table("leads")
+        .select("id, name, website, email")
+        .not_.is_("website", "null")
+        .neq("website", "")
+        .eq("scrape_attempted", False)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
+def mark_scrape_attempted(lead_id: str, email: str | None):
+    """Mark a lead as attempted. If email found, queue it for Email 1."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    update = {
+        "scrape_attempted": True,
+        "scrape_attempted_at": now,
+    }
+    if email:
+        update["email"] = email
+        update["next_email_due_at"] = now  # eligible for Email 1 immediately
+        update["email_sequence_step"] = 0
+        update["email_sequence_paused"] = False
+    update_lead(lead_id, update)
+
+
+# ── Email sequence ────────────────────────────────────────────────────────────
+
+def get_leads_due_for_email(limit=50):
+    """Leads where next_email_due_at <= now, not paused, not dead, have email."""
+    from datetime import datetime, timezone
+    db = get_client()
+    now = datetime.now(timezone.utc).isoformat()
+    result = (
+        db.table("leads")
+        .select("*")
+        .lte("next_email_due_at", now)
+        .eq("email_sequence_paused", False)
+        .neq("status", "dead")
+        .not_.is_("email", "null")
+        .neq("email", "")
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
+def advance_email_sequence(lead_id: str, step_just_sent: int):
+    """Update sequence state after sending step N. Sets next_email_due_at for step N+1."""
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    next_step = step_just_sent + 1
+
+    update = {
+        "email_sequence_step": step_just_sent,
+        "email_last_sent_at": now.isoformat(),
+        "email_sent": True,
+        "email_sent_date": now.isoformat(),
     }
 
+    if next_step <= len(EMAIL_SEQUENCE):
+        current_days = EMAIL_SEQUENCE[step_just_sent - 1][1]
+        next_days    = EMAIL_SEQUENCE[next_step - 1][1]
+        interval     = next_days - current_days
+        update["next_email_due_at"] = (now + timedelta(days=interval)).isoformat()
+    else:
+        update["email_sequence_paused"] = True
+        update["next_email_due_at"]     = None
+
+    update_lead(lead_id, update)
+
+
+def mark_emailed(lead_id: str):
+    """Legacy single-send mark — also advances sequence from step 0 → 1."""
+    advance_email_sequence(lead_id, 1)
+
+
+def pause_sequence(lead_id: str, reason: str = ""):
+    update_lead(lead_id, {"email_sequence_paused": True, "next_email_due_at": None})
+    if reason:
+        log_activity(lead_id, "sequence_paused", {"reason": reason})
+
+
+# ── Activity log ──────────────────────────────────────────────────────────────
+
+def log_activity(lead_id: str, activity_type: str, detail: dict = None):
+    from datetime import datetime, timezone
+    try:
+        get_client().table("lead_activities").insert({
+            "lead_id": lead_id,
+            "type": activity_type,
+            "detail": detail or {},
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:
+        pass  # non-critical
+
+
+# ── Stats ─────────────────────────────────────────────────────────────────────
+
+def get_stats():
+    db = get_client()
+    leads = db.table("leads").select(
+        "status, business_type, city, email_sent, outreach_sent, "
+        "email_opened, email_clicked, email_sequence_step, email_sequence_paused"
+    ).execute().data
+    total = len(leads)
+    by_status = {}
+    by_type   = {}
+    by_city   = {}
+    emailed = wa_sent = email_opened = email_clicked = 0
+    in_sequence = sequence_complete = 0
+
+    for lead in leads:
+        s  = lead.get("status", "new")
+        bt = lead.get("business_type") or "unknown"
+        city = lead.get("city") or "unknown"
+        by_status[s]   = by_status.get(s, 0) + 1
+        by_type[bt]    = by_type.get(bt, 0) + 1
+        by_city[city]  = by_city.get(city, 0) + 1
+        if lead.get("email_sent"):        emailed += 1
+        if lead.get("outreach_sent"):     wa_sent += 1
+        if lead.get("email_opened"):      email_opened += 1
+        if lead.get("email_clicked"):     email_clicked += 1
+        step   = lead.get("email_sequence_step") or 0
+        paused = lead.get("email_sequence_paused") or False
+        if step > 0 and not paused:  in_sequence += 1
+        if paused and step >= len(EMAIL_SEQUENCE): sequence_complete += 1
+
+    return {
+        "total_leads":       total,
+        "emailed":           emailed,
+        "wa_sent":           wa_sent,
+        "email_opened":      email_opened,
+        "email_clicked":     email_clicked,
+        "replied":           by_status.get("replied", 0),
+        "converted":         by_status.get("converted", 0),
+        "in_sequence":       in_sequence,
+        "sequence_complete": sequence_complete,
+        "by_business_type":  by_type,
+        "by_city":           by_city,
+    }
+
+
+# ── Campaigns ─────────────────────────────────────────────────────────────────
 
 def get_campaigns(limit=50):
     db = get_client()
@@ -117,6 +259,8 @@ def save_campaign_run(data):
     return result.data[0] if result.data else None
 
 
+# ── Settings ──────────────────────────────────────────────────────────────────
+
 def get_setting(key):
     db = get_client()
     result = db.table("settings").select("value").eq("key", key).execute()
@@ -124,14 +268,15 @@ def get_setting(key):
 
 
 def save_setting(key, value):
-    db = get_client()
     from datetime import datetime, timezone
-    db.table("settings").upsert({
+    get_client().table("settings").upsert({
         "key": key,
         "value": value,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
 
+
+# ── Danger zone ───────────────────────────────────────────────────────────────
 
 def clear_all_leads():
     db = get_client()

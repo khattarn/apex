@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { getLeads, patchLead, deleteLead, previewMessage, sendToLead } from '../api'
+import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X, Phone, Mail, RefreshCw } from 'lucide-react'
+import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, streamEnrich, emailLead, streamEmailCampaign } from '../api'
 import StatusBadge from '../components/StatusBadge'
 
 const PAGE_SIZE = 25
@@ -41,6 +41,10 @@ export default function LeadsTable() {
   const [preview, setPreview] = useState(null)
   const [editNotes, setEditNotes] = useState(null)
   const [notesVal, setNotesVal] = useState('')
+  const [enrich, setEnrich] = useState(null)   // null | { running, logs, done }
+  const enrichAbort = useRef(null)
+  const [campaign, setCampaign] = useState(null) // null | { running, logs, done }
+  const campaignAbort = useRef(null)
   const searchTimer = useRef(null)
 
   const load = useCallback(() => {
@@ -92,6 +96,56 @@ export default function LeadsTable() {
     }
   }
 
+  async function handleCall(lead) {
+    if (!confirm(`Place outbound call to ${lead.name} at ${lead.phone}?`)) return
+    try {
+      await callLead(lead.id)
+      load()
+    } catch (e) {
+      alert(`Call failed: ${e.message}`)
+    }
+  }
+
+  function startEmailCampaign() {
+    if (!confirm('Send personalised emails to all leads that have an email address?')) return
+    setCampaign({ running: true, logs: [], done: null })
+    campaignAbort.current = streamEmailCampaign(
+      (line) => setCampaign((c) => ({ ...c, logs: [...c.logs, line] })),
+      (result) => { setCampaign((c) => ({ ...c, running: false, done: result })); load() },
+      (err) => setCampaign((c) => ({ ...c, running: false, logs: [...c.logs, `Error: ${err}`] })),
+    )
+  }
+
+  function closeCampaign() {
+    if (campaignAbort.current) campaignAbort.current()
+    setCampaign(null)
+  }
+
+  async function handleEmailLead(lead) {
+    if (!confirm(`Send email to ${lead.name} at ${lead.email}?`)) return
+    try {
+      await emailLead(lead.id)
+      load()
+    } catch (e) {
+      alert(`Failed: ${e.message}`)
+    }
+  }
+
+  function startEnrich() {
+    if (!confirm('Scrape and validate emails for all leads with a website but no email?')) return
+    setEnrich({ running: true, logs: [], done: null })
+    enrichAbort.current = streamEnrich(
+      (line) => setEnrich((e) => ({ ...e, logs: [...e.logs, line] })),
+      (result) => { setEnrich((e) => ({ ...e, running: false, done: result })); load() },
+      (err) => setEnrich((e) => ({ ...e, running: false, logs: [...e.logs, `Error: ${err}`] })),
+    )
+  }
+
+  function closeEnrich() {
+    if (enrichAbort.current) enrichAbort.current()
+    setEnrich(null)
+  }
+
   async function saveNotes() {
     if (!editNotes) return
     await patchLead(editNotes.id, { notes: notesVal })
@@ -135,7 +189,23 @@ export default function LeadsTable() {
           <option value="true">Sent</option>
           <option value="false">Not sent</option>
         </select>
-        <p className="ml-auto text-xs text-slate-500 self-center">{count} leads</p>
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={startEnrich}
+            className="flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors"
+          >
+            <RefreshCw size={12} />
+            Enrich emails
+          </button>
+          <button
+            onClick={startEmailCampaign}
+            className="flex items-center gap-1.5 text-xs bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-1.5 rounded transition-colors"
+          >
+            <Mail size={12} />
+            Email campaign
+          </button>
+          <p className="text-xs text-slate-500">{count} leads</p>
+        </div>
       </div>
 
       {/* Table */}
@@ -144,17 +214,17 @@ export default function LeadsTable() {
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="border-b border-slate-700/40 text-slate-400 text-xs">
-                {['Name', 'City', 'Type', 'Phone', 'Website', 'Status', 'Outreach', 'Added', 'Actions'].map((h) => (
+                {['Name', 'City', 'Type', 'Phone', 'Email', 'Website', 'Status', 'WA', 'Emailed', 'Added', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
+                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
               )}
               {!loading && leads.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500 text-xs">No leads found</td></tr>
+                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500 text-xs">No leads found</td></tr>
               )}
               {leads.map((lead) => (
                 <tr key={lead.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
@@ -162,6 +232,11 @@ export default function LeadsTable() {
                   <td className="px-4 py-2.5 text-slate-400">{lead.city}</td>
                   <td className="px-4 py-2.5 text-slate-400 capitalize">{lead.business_type}</td>
                   <td className="px-4 py-2.5 text-slate-400 text-xs">{lead.phone || '—'}</td>
+                  <td className="px-4 py-2.5 text-xs">
+                    {lead.email
+                      ? <a href={`mailto:${lead.email}`} className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1"><Mail size={11} />{lead.email}</a>
+                      : <span className="text-slate-600">—</span>}
+                  </td>
                   <td className="px-4 py-2.5">
                     {lead.website
                       ? <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-xs"><ExternalLink size={11} /> Link</a>
@@ -171,7 +246,18 @@ export default function LeadsTable() {
                   <td className="px-4 py-2.5 text-xs">
                     {lead.outreach_sent
                       ? <span className="text-green-400">Sent</span>
-                      : <span className="text-slate-600">No</span>}
+                      : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs">
+                    {lead.email_bounced
+                      ? <span className="text-red-400" title="Email bounced">Bounced</span>
+                      : lead.email_clicked
+                        ? <span className="text-green-400" title="Clicked a link">Clicked</span>
+                        : lead.email_opened
+                          ? <span className="text-yellow-400" title="Opened email">Opened</span>
+                          : lead.email_sent
+                            ? <span className="text-indigo-400" title={lead.email_sent_date ? fmt(lead.email_sent_date) : ''}>Sent</span>
+                            : <span className="text-slate-600">—</span>}
                   </td>
                   <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">{fmt(lead.created_at)}</td>
                   <td className="px-4 py-2.5">
@@ -190,6 +276,24 @@ export default function LeadsTable() {
                           className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-green-400 transition-colors"
                         >
                           <Send size={13} />
+                        </button>
+                      )}
+                      {lead.phone && (
+                        <button
+                          onClick={() => handleCall(lead)}
+                          title="Place voice call"
+                          className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-indigo-400 transition-colors"
+                        >
+                          <Phone size={13} />
+                        </button>
+                      )}
+                      {lead.email && (
+                        <button
+                          onClick={() => handleEmailLead(lead)}
+                          title="Send email"
+                          className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-indigo-400 transition-colors"
+                        >
+                          <Mail size={13} />
                         </button>
                       )}
                       <button
@@ -238,6 +342,76 @@ export default function LeadsTable() {
             <p className="text-sm text-slate-200 leading-6 bg-slate-800 rounded p-4 border border-slate-700">
               {preview.message}
             </p>
+          )}
+        </Modal>
+      )}
+
+      {/* Enrich debug modal */}
+      {enrich && (
+        <Modal title="Email Enrichment — Debug Log" onClose={closeEnrich}>
+          <div className="bg-slate-900 rounded p-3 h-64 overflow-y-auto font-mono text-xs text-slate-300 space-y-0.5">
+            {enrich.logs.map((line, i) => (
+              <p key={i} className={
+                line.includes('✓') ? 'text-green-400' :
+                line.includes('✗') ? 'text-red-400' :
+                line.startsWith('→') ? 'text-indigo-300 font-bold mt-1' :
+                line.includes('Saved:') ? 'text-green-300' :
+                line.includes('Error') ? 'text-red-400' :
+                'text-slate-400'
+              }>{line}</p>
+            ))}
+            {enrich.running && <p className="text-slate-500 animate-pulse">Running…</p>}
+          </div>
+          {enrich.done && (
+            <div className="mt-3 text-xs flex gap-4">
+              {enrich.done.enriched != null ? (
+                <>
+                  <span className="text-green-400">Enriched: {enrich.done.enriched}</span>
+                  <span className="text-slate-400">Checked: {enrich.done.total}</span>
+                </>
+              ) : (
+                <span className="text-slate-400">Complete — check Email column for results</span>
+              )}
+            </div>
+          )}
+          {!enrich.running && (
+            <div className="flex justify-end mt-3">
+              <button onClick={closeEnrich} className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors">
+                Close
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Email campaign modal */}
+      {campaign && (
+        <Modal title="Email Campaign" onClose={closeCampaign}>
+          <div className="bg-slate-900 rounded p-3 h-56 overflow-y-auto font-mono text-xs text-slate-300 space-y-0.5">
+            {campaign.logs.map((line, i) => (
+              <p key={i} className={line.includes('✓') ? 'text-green-400' : line.includes('✗') ? 'text-red-400' : ''}>{line}</p>
+            ))}
+            {campaign.running && <p className="text-slate-500 animate-pulse">Running…</p>}
+          </div>
+          {campaign.done && (
+            <div className="mt-3 text-xs flex gap-4">
+              {campaign.done.sent != null ? (
+                <>
+                  <span className="text-green-400">Sent: {campaign.done.sent}</span>
+                  <span className="text-red-400">Failed: {campaign.done.failed}</span>
+                  <span className="text-slate-400">Total: {campaign.done.total}</span>
+                </>
+              ) : (
+                <span className="text-slate-400">Complete — check Campaigns tab for stats</span>
+              )}
+            </div>
+          )}
+          {!campaign.running && (
+            <div className="flex justify-end mt-3">
+              <button onClick={closeCampaign} className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors">
+                Close
+              </button>
+            </div>
           )}
         </Modal>
       )}

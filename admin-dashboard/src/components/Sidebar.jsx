@@ -1,11 +1,14 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone } from 'lucide-react'
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/pipeline', icon: Play, label: 'Run Pipeline' },
   { to: '/leads', icon: Users, label: 'Leads' },
   { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+  { to: '/agents', icon: Bot, label: 'Agents' },
+  { to: '/products', icon: Package, label: 'Products' },
+  { to: '/dialpad', icon: Phone, label: 'Dialpad' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

@@ -15,74 +15,106 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
     from agents.prospector import find_businesses
     from agents.personalizer import generate_message
     from agents.outreach import send_whatsapp_message
-    from database.client import get_lead_by_place_id, save_lead, mark_contacted
+    from agents.email_scraper import scrape_email
+    from database.client import get_lead_by_place_id, save_lead, update_lead, mark_contacted
 
-    yield f"[{_ts()}] Pipeline started — {business_type} in {city} (max {max_prospects})"
+    cities = [c.strip() for c in city.split(",") if c.strip()]
+    multi = len(cities) > 1
+
+    yield f"[{_ts()}] Pipeline started — {business_type} in {city} (max {max_prospects} per city)"
     yield f"[{_ts()}] Mode: {'LIVE (WhatsApp on)' if send_whatsapp else 'DRY RUN (no sends)'}"
 
-    # ── Step 1: Prospect ──────────────────────────────────────────────────────
-    yield f"[{_ts()}] Searching Google Maps for {business_type} businesses in {city}..."
-    try:
-        businesses = find_businesses(business_type, city, max_prospects)
-    except Exception as exc:
-        yield f"[{_ts()}] ERROR during prospecting: {exc}"
-        return
+    total_found = 0
+    total_new_leads = 0
+    total_messages_sent = 0
 
-    yield f"[{_ts()}] Found {len(businesses)} businesses"
+    for current_city in cities:
+        if multi:
+            yield f"\n[{_ts()}] ── {current_city} ──"
 
-    new_leads = 0
-    messages_sent = 0
-
-    for biz in businesses:
-        name = biz.get("name", "Unknown")
-
-        # ── Step 2: De-duplicate ──────────────────────────────────────────────
-        existing = get_lead_by_place_id(biz["place_id"])
-        if existing:
-            yield f"  — {name}: already in database, skipping"
-            continue
-
-        lead_data = {
-            **biz,
-            "business_type": business_type,
-            "city": city,
-            "status": "new",
-            "outreach_sent": False,
-        }
-        lead = save_lead(lead_data)
-        new_leads += 1
-        yield f"  + {name}: saved as new lead"
-
-        if not send_whatsapp:
-            continue
-
-        if not biz.get("phone"):
-            yield f"  ! {name}: no phone number, skipping send"
-            continue
-
-        # ── Step 3: Personalise ───────────────────────────────────────────────
-        yield f"  > Generating message for {name}..."
+        # ── Step 1: Prospect ──────────────────────────────────────────────────
+        yield f"[{_ts()}] Searching Google Maps for {business_type} businesses in {current_city}..."
         try:
-            message = generate_message(name, business_type, city)
+            businesses = find_businesses(business_type, current_city, max_prospects)
         except Exception as exc:
-            yield f"  ! {name}: message generation failed — {exc}"
+            yield f"[{_ts()}] ERROR during prospecting in {current_city}: {exc}"
             continue
 
-        # ── Step 4: Send ──────────────────────────────────────────────────────
-        yield f"  > Sending WhatsApp to {name} ({biz['phone']})..."
-        try:
-            send_whatsapp_message(biz["phone"], message)
-            if lead:
-                mark_contacted(lead["id"], message)
-            messages_sent += 1
-            yield f"  ✓ Message sent to {name}"
-        except Exception as exc:
-            yield f"  ✗ Failed to send to {name}: {exc}"
+        yield f"[{_ts()}] Found {len(businesses)} businesses"
+        total_found += len(businesses)
 
-        # Rate-limit guard — 2 s between sends (do not remove)
-        await asyncio.sleep(2)
+        new_leads = 0
+        messages_sent = 0
+
+        for biz in businesses:
+            name = biz.get("name", "Unknown")
+
+            # ── Step 2: De-duplicate ──────────────────────────────────────────
+            existing = get_lead_by_place_id(biz["place_id"])
+            if existing:
+                yield f"  — {name}: already in database, skipping"
+                continue
+
+            lead_data = {
+                **biz,
+                "business_type": business_type,
+                "city": current_city,
+                "status": "new",
+                "outreach_sent": False,
+            }
+            lead = save_lead(lead_data)
+            new_leads += 1
+
+            # ── Step 2b: Scrape email ─────────────────────────────────────────
+            if biz.get("website") and lead:
+                try:
+                    email = await asyncio.to_thread(scrape_email, biz["website"])
+                    if email:
+                        try:
+                            update_lead(lead["id"], {"email": email})
+                            yield f"  + {name}: saved (email: {email})"
+                        except Exception:
+                            yield f"  + {name}: saved — email found but DB column missing (run migration)"
+                    else:
+                        yield f"  + {name}: saved as new lead"
+                except Exception:
+                    yield f"  + {name}: saved as new lead"
+            else:
+                yield f"  + {name}: saved as new lead"
+
+            if not send_whatsapp:
+                continue
+
+            if not biz.get("phone"):
+                yield f"  ! {name}: no phone number, skipping send"
+                continue
+
+            # ── Step 3: Personalise ───────────────────────────────────────────
+            yield f"  > Generating message for {name}..."
+            try:
+                message = generate_message(name, business_type, current_city)
+            except Exception as exc:
+                yield f"  ! {name}: message generation failed — {exc}"
+                continue
+
+            # ── Step 4: Send ──────────────────────────────────────────────────
+            yield f"  > Sending WhatsApp to {name} ({biz['phone']})..."
+            try:
+                send_whatsapp_message(biz["phone"], message)
+                if lead:
+                    mark_contacted(lead["id"], message)
+                messages_sent += 1
+                yield f"  ✓ Message sent to {name}"
+            except Exception as exc:
+                yield f"  ✗ Failed to send to {name}: {exc}"
+
+            # Rate-limit guard — 2 s between sends (do not remove)
+            await asyncio.sleep(2)
+
+        total_new_leads += new_leads
+        total_messages_sent += messages_sent
 
     yield (
         f"\n[{_ts()}] DONE — "
-        f"{len(businesses)} found, {new_leads} new leads, {messages_sent} messages sent"
+        f"{total_found} found, {total_new_leads} new leads, {total_messages_sent} messages sent"
     )

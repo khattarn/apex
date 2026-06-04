@@ -30,7 +30,7 @@ It contains everything needed to continue work without losing context.
 - **Market:** Australia · USA · Global
 - **Verticals:** Dentists · Salons · Accountants · Physiotherapists
 - **Stack:** Netlify (static + Node.js functions) · Supabase (PostgreSQL) · JWT auth · Anthropic Claude · Meta WhatsApp API · Vapi.ai + Twilio + Deepgram · Cal.com · Stripe (stubbed)
-- **Pricing:** $250/month with discounts
+- **Pricing:** $49/month Starter · $99/month Growth · $180/month Pro · 14-day free trial
 - **Pending:** Stripe billing not wired · Supertonic TTS not deployed · medical_migration.sql not run
 
 ### 3. Apex (THIS REPO)

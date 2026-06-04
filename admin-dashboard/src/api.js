@@ -63,11 +63,125 @@ export const putSetting = (key, value) =>
 
 export const getHealth = () => request('/api/health')
 
+export const fetchAgentStats = (token) => request('/api/agents/stats')
+
+export const fetchProductStats = (token) => request('/api/products/stats')
+
+export const previewEmail = (emailNum, businessType, market) =>
+  request(`/api/preview/email?email_num=${emailNum}&business_type=${businessType}&market=${market}`)
+
 export const clearAllLeads = () =>
   request('/api/admin/leads', { method: 'DELETE' })
 
 export const resetOutreach = () =>
   request('/api/admin/reset-outreach', { method: 'POST' })
+
+export const callLead = (id) => request(`/api/leads/${id}/call`, { method: 'POST' })
+
+export const fetchTwilioToken = () => request('/api/twilio/token')
+
+export const getTemplateStatuses = () => request('/api/templates')
+
+export const submitTemplates = (name = 'all') =>
+  request('/api/templates/submit', { method: 'POST', body: JSON.stringify({ name }) })
+
+export function streamEnrich(onLine, onDone, onError) {
+  const token = localStorage.getItem('pd_token')
+  const ctrl = new AbortController()
+
+  fetch(`${BASE}/api/leads/enrich-emails`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      Accept: 'text/event-stream',
+    },
+    signal: ctrl.signal,
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error('Enrich request failed')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let resolved = false
+      function processBuffer(flush) {
+        const parts = buffer.split('\n\n')
+        buffer = flush ? '' : parts.pop()
+        for (const part of parts) {
+          const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
+          if (!dataLine) continue
+          try {
+            const msg = JSON.parse(dataLine.slice(5).trim())
+            if (msg.type === 'log') onLine(msg.line)
+            else if (msg.type === 'done') { resolved = true; onDone(msg) }
+            else if (msg.type === 'error') { resolved = true; onError(msg.message) }
+          } catch { /* ignore malformed */ }
+        }
+      }
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (value) buffer += decoder.decode(value, { stream: !done })
+          processBuffer(done)
+          if (done) { if (!resolved) onDone({}); return }
+          read()
+        })
+      }
+      read()
+    })
+    .catch((err) => { if (err.name !== 'AbortError') onError(err.message) })
+
+  return () => ctrl.abort()
+}
+
+export const emailLead = (id) => request(`/api/leads/${id}/email`, { method: 'POST' })
+
+export function streamEmailCampaign(onLine, onDone, onError) {
+  const token = localStorage.getItem('pd_token')
+  const ctrl = new AbortController()
+
+  fetch(`${BASE}/api/leads/email-campaign`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      Accept: 'text/event-stream',
+    },
+    signal: ctrl.signal,
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error('Email campaign request failed')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let resolved = false
+      function processBuffer(flush) {
+        const parts = buffer.split('\n\n')
+        buffer = flush ? '' : parts.pop()
+        for (const part of parts) {
+          const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
+          if (!dataLine) continue
+          try {
+            const msg = JSON.parse(dataLine.slice(5).trim())
+            if (msg.type === 'log') onLine(msg.line)
+            else if (msg.type === 'done') { resolved = true; onDone(msg) }
+            else if (msg.type === 'error') { resolved = true; onError(msg.message) }
+          } catch { /* ignore malformed */ }
+        }
+      }
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (value) buffer += decoder.decode(value, { stream: !done })
+          processBuffer(done)
+          if (done) { if (!resolved) onDone({}); return }
+          read()
+        })
+      }
+      read()
+    })
+    .catch((err) => { if (err.name !== 'AbortError') onError(err.message) })
+
+  return () => ctrl.abort()
+}
 
 export function streamPipeline(payload, onLine, onDone, onError) {
   const token = localStorage.getItem('pd_token')
@@ -88,25 +202,26 @@ export function streamPipeline(payload, onLine, onDone, onError) {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-
+      let resolved = false
+      function processBuffer(flush) {
+        const parts = buffer.split('\n\n')
+        buffer = flush ? '' : parts.pop()
+        for (const part of parts) {
+          const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
+          if (!dataLine) continue
+          try {
+            const msg = JSON.parse(dataLine.slice(5).trim())
+            if (msg.type === 'log') onLine(msg.line)
+            else if (msg.type === 'done') { resolved = true; onDone(msg) }
+            else if (msg.type === 'error') { resolved = true; onError(msg.message) }
+          } catch { /* ignore malformed */ }
+        }
+      }
       function read() {
         reader.read().then(({ done, value }) => {
-          if (done) return
-          buffer += decoder.decode(value, { stream: true })
-          const parts = buffer.split('\n\n')
-          buffer = parts.pop()
-          for (const part of parts) {
-            const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
-            if (!dataLine) continue
-            try {
-              const msg = JSON.parse(dataLine.slice(5).trim())
-              if (msg.type === 'log') onLine(msg.line)
-              else if (msg.type === 'done') onDone(msg)
-              else if (msg.type === 'error') onError(msg.message)
-            } catch {
-              // ignore malformed
-            }
-          }
+          if (value) buffer += decoder.decode(value, { stream: !done })
+          processBuffer(done)
+          if (done) { if (!resolved) onDone({}); return }
           read()
         })
       }

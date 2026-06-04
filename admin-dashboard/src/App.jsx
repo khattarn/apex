@@ -7,6 +7,11 @@ import RunPipeline from './views/RunPipeline'
 import LeadsTable from './views/LeadsTable'
 import Campaigns from './views/Campaigns'
 import Settings from './views/Settings'
+import Agents from './views/Agents'
+import AgentDetail from './views/AgentDetail'
+import Products from './views/Products'
+import ProductDetail from './views/ProductDetail'
+import Dialpad from './views/Dialpad'
 
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('pd_token'))
@@ -36,6 +41,11 @@ export default function App() {
             <Route path="/leads" element={<LeadsTable />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/agents" element={<Agents />} />
+            <Route path="/agents/:agentId" element={<AgentDetail />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:productId" element={<ProductDetail />} />
+            <Route path="/dialpad" element={<Dialpad />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

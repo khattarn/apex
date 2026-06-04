@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Plus, MessageSquare, Mail } from 'lucide-react'
 import { getCampaigns } from '../api'
 
 function fmt(ts) {
@@ -8,6 +8,21 @@ function fmt(ts) {
   return new Date(ts).toLocaleString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
+}
+
+function TypeBadge({ type }) {
+  if (type === 'email') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium bg-indigo-900/50 text-indigo-300">
+        <Mail size={10} /> Email
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium bg-green-900/50 text-green-300">
+      <MessageSquare size={10} /> WA
+    </span>
+  )
 }
 
 export default function Campaigns() {
@@ -39,41 +54,46 @@ export default function Campaigns() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700/40 text-slate-400 text-xs">
-              {['Date', 'Business Type', 'City', 'Mode', 'Prospects', 'New Leads', 'Sent'].map((h) => (
+              {['Date', 'Channel', 'Business Type', 'City', 'Mode', 'Prospects', 'New Leads', 'Sent'].map((h) => (
                 <th key={h} className="text-left px-4 py-2.5 font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
             )}
             {!loading && campaigns.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-xs">
                   No campaigns yet — run the pipeline to see results here
                 </td>
               </tr>
             )}
-            {campaigns.map((c) => (
-              <tr key={c.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
-                <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{fmt(c.created_at)}</td>
-                <td className="px-4 py-2.5 capitalize">{c.business_type}</td>
-                <td className="px-4 py-2.5 text-slate-400">{c.city}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                    c.mode === 'live'
-                      ? 'bg-green-900/50 text-green-300'
-                      : 'bg-slate-700 text-slate-300'
-                  }`}>
-                    {c.mode === 'live' ? 'Live' : 'Dry Run'}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-center">{c.prospects_found ?? 0}</td>
-                <td className="px-4 py-2.5 text-center text-indigo-400">{c.new_leads ?? 0}</td>
-                <td className="px-4 py-2.5 text-center text-green-400">{c.messages_sent ?? 0}</td>
-              </tr>
-            ))}
+            {campaigns.map((c) => {
+              const isEmail = c.type === 'email'
+              const sent = isEmail ? (c.emails_sent ?? 0) : (c.messages_sent ?? 0)
+              return (
+                <tr key={c.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                  <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{fmt(c.created_at)}</td>
+                  <td className="px-4 py-2.5"><TypeBadge type={c.type} /></td>
+                  <td className="px-4 py-2.5 capitalize">{c.business_type}</td>
+                  <td className="px-4 py-2.5 text-slate-400">{c.city}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                      c.mode === 'live'
+                        ? 'bg-slate-700 text-slate-300'
+                        : 'bg-slate-700 text-slate-300'
+                    }`}>
+                      {c.mode === 'live' ? 'Live' : 'Dry Run'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-center">{c.prospects_found ?? 0}</td>
+                  <td className="px-4 py-2.5 text-center text-indigo-400">{isEmail ? '—' : (c.new_leads ?? 0)}</td>
+                  <td className="px-4 py-2.5 text-center text-green-400">{sent}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
