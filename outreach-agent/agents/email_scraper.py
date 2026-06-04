@@ -69,7 +69,7 @@ def validate_email(email: str) -> tuple[bool, str]:
 
 def _check_mx(domain: str) -> tuple[bool, str]:
     try:
-        answers = dns.resolver.resolve(domain, 'MX', lifetime=5)
+        answers = dns.resolver.resolve(domain, 'MX', lifetime=3)
         if answers:
             return True, ""
         return False, f"no MX records for '{domain}'"
@@ -78,7 +78,7 @@ def _check_mx(domain: str) -> tuple[bool, str]:
     except dns.resolver.NoAnswer:
         # Some domains use implicit MX (A record fallback) — try A record
         try:
-            dns.resolver.resolve(domain, 'A', lifetime=5)
+            dns.resolver.resolve(domain, 'A', lifetime=3)
             return True, ""
         except Exception:
             return False, f"no MX or A record for '{domain}'"
@@ -97,7 +97,7 @@ def scrape_email(website_url: str, timeout: int = 6) -> str | None:
     return result
 
 
-def scrape_email_debug(website_url: str, timeout: int = 6) -> tuple[str | None, list[str]]:
+def scrape_email_debug(website_url: str, timeout: int = 3) -> tuple[str | None, list[str]]:
     """
     Returns (best_email | None, debug_lines).
     debug_lines contains a human-readable trace of every candidate found
@@ -110,7 +110,7 @@ def scrape_email_debug(website_url: str, timeout: int = 6) -> tuple[str | None, 
         return None, logs
 
     base = website_url.rstrip('/')
-    pages = [base, f"{base}/contact", f"{base}/contact-us"]
+    pages = [base, f"{base}/contact"]
     all_candidates: list[str] = []
 
     for url in pages:

@@ -176,15 +176,26 @@ async def enrich_emails(_=Depends(verify_token)):
 
         _running["email_scraper"] = {"total": total, "started": _time.time()}
 
-        enriched = 0
-        for lead in candidates:
-            name    = lead["name"]
-            website = lead["website"]
-            yield {"data": json.dumps({"type": "log", "line": f"\n→ {name}"})}
-            yield {"data": json.dumps({"type": "log", "line": f"  Scraping {website}"})}
-
+        async def _scrape_one(website: str) -> tuple[str | None, list[str]]:
             try:
-                email, debug_lines = await asyncio.to_thread(scrape_email_debug, website)
+                return await asyncio.wait_for(
+                    asyncio.to_thread(scrape_email_debug, website),
+                    timeout=8,
+                )
+            except asyncio.TimeoutError:
+                return None, [f"  timeout after 8s"]
+            except Exception as exc:
+                return None, [f"  error: {exc}"]
+
+        BATCH = 5
+        enriched = 0
+        for batch_start in range(0, total, BATCH):
+            batch = candidates[batch_start:batch_start + BATCH]
+            results = await asyncio.gather(*[_scrape_one(l["website"]) for l in batch])
+
+            for lead, (email, debug_lines) in zip(batch, results):
+                name = lead["name"]
+                yield {"data": json.dumps({"type": "log", "line": f"\n→ {name}"})}
                 for line in debug_lines:
                     yield {"data": json.dumps({"type": "log", "line": line})}
 
@@ -195,9 +206,6 @@ async def enrich_emails(_=Depends(verify_token)):
                 else:
                     mark_scrape_attempted(lead["id"], None)
                     yield {"data": json.dumps({"type": "log", "line": f"  No email found"})}
-            except Exception as exc:
-                mark_scrape_attempted(lead["id"], None)
-                yield {"data": json.dumps({"type": "log", "line": f"  Error: {exc}"})}
 
             await asyncio.sleep(0)
 
