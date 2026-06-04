@@ -54,25 +54,29 @@ export default function Campaigns() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700/40 text-slate-400 text-xs">
-              {['Date', 'Channel', 'Business Type', 'City', 'Mode', 'Prospects', 'New Leads', 'Sent'].map((h) => (
+              {['Date', 'Channel', 'Business Type', 'City', 'Mode', 'Prospects', 'New Leads', 'Sent', 'Opened', 'Clicked'].map((h) => (
                 <th key={h} className="text-left px-4 py-2.5 font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
+              <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
             )}
             {!loading && campaigns.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-xs">
+                <td colSpan={10} className="px-4 py-8 text-center text-slate-500 text-xs">
                   No campaigns yet — run the pipeline to see results here
                 </td>
               </tr>
             )}
             {campaigns.map((c) => {
               const isEmail = c.type === 'email'
-              const sent = isEmail ? (c.emails_sent ?? 0) : (c.messages_sent ?? 0)
+              const sent    = isEmail ? (c.emails_sent ?? 0) : (c.messages_sent ?? 0)
+              const opened  = c.emails_opened ?? 0
+              const clicked = c.emails_clicked ?? 0
+              const openRate   = sent > 0 ? Math.round((opened  / sent) * 100) : null
+              const clickRate  = sent > 0 ? Math.round((clicked / sent) * 100) : null
               return (
                 <tr key={c.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
                   <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{fmt(c.created_at)}</td>
@@ -80,17 +84,27 @@ export default function Campaigns() {
                   <td className="px-4 py-2.5 capitalize">{c.business_type}</td>
                   <td className="px-4 py-2.5 text-slate-400">{c.city}</td>
                   <td className="px-4 py-2.5">
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                      c.mode === 'live'
-                        ? 'bg-slate-700 text-slate-300'
-                        : 'bg-slate-700 text-slate-300'
-                    }`}>
+                    <span className="text-xs px-2 py-0.5 rounded font-medium bg-slate-700 text-slate-300">
                       {c.mode === 'live' ? 'Live' : 'Dry Run'}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-center">{c.prospects_found ?? 0}</td>
                   <td className="px-4 py-2.5 text-center text-indigo-400">{isEmail ? '—' : (c.new_leads ?? 0)}</td>
                   <td className="px-4 py-2.5 text-center text-green-400">{sent}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {isEmail ? (
+                      <span className={opened > 0 ? 'text-amber-400' : 'text-slate-600'}>
+                        {opened}{openRate !== null ? <span className="text-slate-500 text-[10px] ml-1">{openRate}%</span> : null}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {isEmail ? (
+                      <span className={clicked > 0 ? 'text-indigo-400' : 'text-slate-600'}>
+                        {clicked}{clickRate !== null ? <span className="text-slate-500 text-[10px] ml-1">{clickRate}%</span> : null}
+                      </span>
+                    ) : '—'}
+                  </td>
                 </tr>
               )
             })}

@@ -262,6 +262,60 @@ def save_campaign_run(data):
     return result.data[0] if result.data else None
 
 
+def update_campaign_run(run_id: str, data: dict):
+    get_client().table("campaign_runs").update(data).eq("id", run_id).execute()
+
+
+def save_email_send(lead_id: str, campaign_run_id: str, resend_email_id: str,
+                    email_number: int, sequence_step: int):
+    """Record a sent email and store resend_email_id on the lead for webhook lookup."""
+    try:
+        get_client().table("email_sends").insert({
+            "lead_id": lead_id,
+            "campaign_run_id": campaign_run_id,
+            "resend_email_id": resend_email_id,
+            "email_number": email_number,
+            "sequence_step": sequence_step,
+        }).execute()
+    except Exception:
+        pass
+    update_lead(lead_id, {"resend_email_id": resend_email_id})
+
+
+def get_email_send_by_resend_id(resend_email_id: str):
+    result = (
+        get_client()
+        .table("email_sends")
+        .select("lead_id, campaign_run_id")
+        .eq("resend_email_id", resend_email_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+def record_email_opened(lead_id: str, campaign_run_id: str | None, opened_at=None):
+    from datetime import datetime, timezone
+    ts = opened_at or datetime.now(timezone.utc).isoformat()
+    update_lead(lead_id, {"email_opened": True, "email_opened_at": ts})
+    if campaign_run_id:
+        db = get_client()
+        row = db.table("campaign_runs").select("emails_opened").eq("id", campaign_run_id).single().execute()
+        current = (row.data.get("emails_opened") or 0) if row.data else 0
+        db.table("campaign_runs").update({"emails_opened": current + 1}).eq("id", campaign_run_id).execute()
+
+
+def record_email_clicked(lead_id: str, campaign_run_id: str | None, link: str = "", clicked_at=None):
+    from datetime import datetime, timezone
+    ts = clicked_at or datetime.now(timezone.utc).isoformat()
+    update_lead(lead_id, {"email_clicked": True, "email_clicked_at": ts, "email_clicked_link": link})
+    if campaign_run_id:
+        db = get_client()
+        row = db.table("campaign_runs").select("emails_clicked").eq("id", campaign_run_id).single().execute()
+        current = (row.data.get("emails_clicked") or 0) if row.data else 0
+        db.table("campaign_runs").update({"emails_clicked": current + 1}).eq("id", campaign_run_id).execute()
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 def get_setting(key):

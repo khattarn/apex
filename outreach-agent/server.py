@@ -235,10 +235,21 @@ async def email_campaign(_=Depends(verify_token)):
             return
 
         _running["email_campaign"] = {"total": len(leads), "started": _time.time()}
+
+        # Create campaign run now so we have an ID to link each email_send record
+        from database.client import save_campaign_run, update_campaign_run, save_email_send
+        run_record = save_campaign_run({
+            "type": "email", "business_type": "all", "city": "all",
+            "max_prospects": len(leads), "mode": "live",
+            "prospects_found": len(leads), "new_leads": 0,
+            "messages_sent": 0, "emails_sent": 0, "log": "In progress…",
+        })
+        run_id = run_record["id"] if run_record else None
+
         test_recipient = get_setting("test_recipient_email") or ""
         test_copy_sent = False
-
         sent = skipped = failed = 0
+
         for lead in leads:
             name   = lead["name"]
             city   = lead.get("city", "")
@@ -247,7 +258,6 @@ async def email_campaign(_=Depends(verify_token)):
             if not is_email_window(city, market):
                 win = window_description(city, market)
                 yield {"data": json.dumps({"type": "log", "line": f"  ⏰ {name} — outside window ({win}), sending anyway (manual)"})}
-
 
             current_step = lead.get("email_sequence_step") or 0
             next_step    = current_step + 1
@@ -262,13 +272,14 @@ async def email_campaign(_=Depends(verify_token)):
                 subject, html, email_num_used, variant = await asyncio.to_thread(
                     generate_email, lead, email_number=email_num
                 )
-                await asyncio.to_thread(send_email, lead["email"], subject, html)
+                send_result = await asyncio.to_thread(send_email, lead["email"], subject, html)
+                resend_id   = (send_result or {}).get("id", "")
+                if resend_id and run_id:
+                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step)
                 advance_email_sequence(lead["id"], next_step)
                 log_activity(lead["id"], "email_sent", {
-                    "email_number": email_num_used,
-                    "subject": subject,
-                    "variant": variant,
-                    "sequence_step": next_step,
+                    "email_number": email_num_used, "subject": subject,
+                    "variant": variant, "sequence_step": next_step,
                 })
                 sent += 1
                 yield {"data": json.dumps({"type": "log", "line": f"  ✓ {name} ({lead['email']}) — variant {variant}"})}
@@ -277,7 +288,7 @@ async def email_campaign(_=Depends(verify_token)):
                     try:
                         await asyncio.to_thread(send_email, test_recipient, f"[TEST COPY] {subject}", html)
                         test_copy_sent = True
-                        yield {"data": json.dumps({"type": "log", "line": f"  📋 Test copy → {test_recipient}"})}
+                        yield {"data": json.dumps({"type": "log", "line": f"  \U0001f4cb Test copy → {test_recipient}"})}
                     except Exception:
                         pass
             except Exception as exc:
@@ -286,28 +297,68 @@ async def email_campaign(_=Depends(verify_token)):
 
             await asyncio.sleep(0.3)
 
-        try:
-            from database.client import save_campaign_run
-            save_campaign_run({
-                "type": "email",
-                "business_type": "all",
-                "city": "all",
-                "max_prospects": len(leads),
-                "mode": "live",
-                "prospects_found": len(leads),
-                "new_leads": 0,
-                "messages_sent": 0,
-                "emails_sent": sent,
-                "log": f"Sent: {sent}, Skipped (window): {skipped}, Failed: {failed}",
-            })
-        except Exception:
-            pass
+        if run_id:
+            try:
+                update_campaign_run(run_id, {
+                    "emails_sent": sent,
+                    "log": f"Sent: {sent}, Skipped: {skipped}, Failed: {failed}",
+                })
+            except Exception:
+                pass
 
         _running.pop("email_campaign", None)
         yield {"data": json.dumps({"type": "done", "sent": sent, "skipped": skipped, "failed": failed, "total": len(leads)})}
         await asyncio.sleep(0.1)
 
-    return EventSourceResponse(generate())
+    return EventSourceResponse(generate(), headers={"X-Accel-Buffering": "no"})
+
+
+# ── Resend webhook (open / click / bounce tracking) ───────────────────────────
+
+@app.post("/api/webhooks/resend")
+async def resend_webhook(request: Request):
+    import hmac as _hmac, hashlib as _hashlib, base64 as _base64
+    body   = await request.body()
+    secret = os.getenv("RESEND_WEBHOOK_SECRET", "")
+
+    if secret:
+        svix_id        = request.headers.get("svix-id", "")
+        svix_timestamp = request.headers.get("svix-timestamp", "")
+        svix_signature = request.headers.get("svix-signature", "")
+        to_sign        = f"{svix_id}.{svix_timestamp}.{body.decode()}"
+        raw_secret     = secret.removeprefix("whsec_")
+        decoded_secret = _base64.b64decode(raw_secret)
+        computed       = "v1," + _base64.b64encode(
+            _hmac.new(decoded_secret, to_sign.encode(), _hashlib.sha256).digest()
+        ).decode()
+        if computed not in svix_signature.split(" "):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    payload    = json.loads(body)
+    event_type = payload.get("type", "")
+    data       = payload.get("data", {})
+    resend_id  = data.get("email_id", "")
+
+    if not resend_id:
+        return {"ok": True}
+
+    from database.client import (
+        get_email_send_by_resend_id, record_email_opened,
+        record_email_clicked, update_lead,
+    )
+    send_record = get_email_send_by_resend_id(resend_id)
+    lead_id     = send_record["lead_id"]     if send_record else None
+    campaign_id = send_record["campaign_run_id"] if send_record else None
+
+    if event_type == "email.opened" and lead_id:
+        record_email_opened(lead_id, campaign_id, data.get("created_at"))
+    elif event_type == "email.clicked" and lead_id:
+        link = data.get("click", {}).get("link", "")
+        record_email_clicked(lead_id, campaign_id, link, data.get("created_at"))
+    elif event_type in ("email.bounced", "email.delivery_delayed") and lead_id:
+        update_lead(lead_id, {"email_bounced": True})
+
+    return {"ok": True}
 
 
 # ── Cron: email sequence (called by Railway scheduled job) ────────────────────
