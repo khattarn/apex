@@ -168,6 +168,7 @@ export default function LeadsTable() {
           className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
         />
         <select
+          value={filters.business_type}
           onChange={(e) => setFilter('business_type', e.target.value)}
           className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
         >
@@ -175,6 +176,7 @@ export default function LeadsTable() {
           {BUSINESS_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
         </select>
         <select
+          value={filters.status}
           onChange={(e) => setFilter('status', e.target.value)}
           className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
         >
@@ -182,6 +184,7 @@ export default function LeadsTable() {
           {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <select
+          value={filters.outreach_sent}
           onChange={(e) => setFilter('outreach_sent', e.target.value)}
           className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
         >

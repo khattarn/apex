@@ -37,8 +37,11 @@ def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
         query = query.eq("status", status)
     if city:
         query = query.ilike("city", f"%{city}%")
-    if outreach_sent is not None:
-        query = query.eq("outreach_sent", outreach_sent)
+    if outreach_sent is True:
+        query = query.eq("outreach_sent", True)
+    elif outreach_sent is False:
+        # NULL rows also count as "not sent"
+        query = query.or_("outreach_sent.eq.false,outreach_sent.is.null")
     if search:
         query = query.or_(f"name.ilike.%{search}%,city.ilike.%{search}%")
     result = (
