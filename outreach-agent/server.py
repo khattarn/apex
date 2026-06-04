@@ -126,7 +126,7 @@ async def run_pipeline(body: PipelineRequest, _=Depends(verify_token)):
             _running.pop("pipeline", None)
             yield {"data": json.dumps({"type": "error", "message": str(exc)})}
 
-    return EventSourceResponse(event_generator())
+    return EventSourceResponse(event_generator(), headers={"X-Accel-Buffering": "no"})
 
 
 # ── Leads ─────────────────────────────────────────────────────────────────────
