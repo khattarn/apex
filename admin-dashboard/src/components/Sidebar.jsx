@@ -1,5 +1,25 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
+function LiveClock() {
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const date = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+
+  return (
+    <div className="mx-2 mb-2 rounded bg-slate-800/60 border border-slate-700/50 px-3 py-2.5 text-center">
+      <p className="text-indigo-300 font-mono text-base font-semibold tracking-wider leading-none">{time}</p>
+      <p className="text-slate-500 text-xs mt-1">{date}</p>
+    </div>
+  )
+}
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -39,6 +59,8 @@ export default function Sidebar({ onLogout }) {
           </NavLink>
         ))}
       </nav>
+
+      <LiveClock />
 
       <div className="p-2 border-t border-slate-700/50">
         <button
