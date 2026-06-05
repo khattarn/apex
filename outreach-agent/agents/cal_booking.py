@@ -117,11 +117,16 @@ def get_available_slots(event_type_id: int, around: datetime, tz_name: str, wind
         log.error("Cal.com slots error: %s", resp.text)
         return []
 
-    # Response: {"data": {"2025-01-10": [{"time": "2025-01-10T10:00:00Z"}, ...], ...}}
+    # API returns {"data": {"slots": {"2026-06-08": [{"time":"..."}, ...], ...}}}
+    payload = resp.json().get("data", {})
+    slots_by_date = payload.get("slots", payload)   # handle both v1 and v2 response shapes
     slots: list[str] = []
-    for date_slots in resp.json().get("data", {}).values():
-        for slot in date_slots:
-            slots.append(slot["time"])
+    for date_slots in slots_by_date.values():
+        if isinstance(date_slots, list):
+            for slot in date_slots:
+                t = slot.get("time", "") if isinstance(slot, dict) else slot
+                if t:
+                    slots.append(t)
     return sorted(slots)
 
 
