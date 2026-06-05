@@ -276,12 +276,95 @@ STYLE RULES
 """
 
 
+def _normalize_phone(phone: str, city: str = "") -> str:
+    """Convert a local phone number to E.164 format using city context for country code."""
+    if not phone:
+        return ""
+    digits = "".join(c for c in phone if c.isdigit())
+    if not digits:
+        return ""
+    # Already has country code (starts with +)
+    if phone.strip().startswith("+"):
+        return f"+{digits}"
+    from utils.timezone import CITY_TZ
+    tz = CITY_TZ.get(city, "")
+    if "Australia" in tz:
+        # Strip leading 0 (area code zero), prepend +61
+        if digits.startswith("0"):
+            digits = digits[1:]
+        return f"+61{digits}"
+    elif "Europe/London" in tz:
+        # UK: strip leading 0, prepend +44
+        if digits.startswith("0"):
+            digits = digits[1:]
+        return f"+44{digits}"
+    elif "America" in tz:
+        # North America: 10-digit → prepend +1
+        if len(digits) == 10:
+            return f"+1{digits}"
+        if len(digits) == 11 and digits.startswith("1"):
+            return f"+{digits}"
+    # Fallback
+    return f"+{digits}"
+
+
 def _build_assistant(business_type: str, server_url: str) -> dict:
     script = _SCRIPTS.get(business_type.lower(), _DEFAULT_SCRIPT)
     prompt = _SYSTEM_PROMPT.format(
         insight=script["insight"],
         pain_question=script["pain_question"],
     )
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "schedule_callback",
+                "description": (
+                    "Schedule a callback for a prospect who is busy or not ready to decide. "
+                    "Call this when they agree to a specific callback day and time."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "preferred_day":  {"type": "string", "description": "Day of the week, e.g. 'Monday'"},
+                        "preferred_time": {"type": "string", "description": "Time of day, e.g. '2pm', 'morning'"},
+                    },
+                    "required": ["preferred_day", "preferred_time"],
+                },
+            },
+            "server": {"url": f"{server_url}/api/webhooks/vapi"},
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "request_callback",
+                "description": "Flag that the prospect wants a human team member to call them back.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+            "server": {"url": f"{server_url}/api/webhooks/vapi"},
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "book_demo",
+                "description": (
+                    "Book a PracticeDesk demo on Cal.com. "
+                    "Call only after you have both the prospect's preferred time AND email."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "preferred_time":  {"type": "string", "description": "Preferred day and time, e.g. 'Friday at 2pm'"},
+                        "attendee_email":  {"type": "string", "description": "Prospect's email for the calendar invite"},
+                        "attendee_name":   {"type": "string", "description": "Prospect's name"},
+                    },
+                    "required": ["preferred_time", "attendee_email"],
+                },
+            },
+            "server": {"url": f"{server_url}/api/webhooks/vapi"},
+        },
+    ]
 
     return {
         "name": "Aria — PracticeDesk Sales",
@@ -291,71 +374,13 @@ def _build_assistant(business_type: str, server_url: str) -> dict:
             "model": "claude-haiku-4-5-20251001",
             "systemPrompt": prompt,
             "temperature": 0.65,
+            "tools": tools,   # tools belong inside model, not at assistant level
         },
         "voice": {
             "provider": "openai",
             "voiceId": "nova",
             "speed": 1.15,
         },
-        "tools": [
-            {
-                "type": "function",
-                "function": {
-                    "name": "schedule_callback",
-                    "description": (
-                        "Schedule a callback for a prospect who is busy or not ready to decide. "
-                        "Call this when they agree to a specific callback day and time."
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "preferred_day":  {"type": "string", "description": "Day of the week, e.g. 'Monday', 'Thursday'"},
-                            "preferred_time": {"type": "string", "description": "Time of day, e.g. '2pm', '10am', 'morning'"},
-                        },
-                        "required": ["preferred_day", "preferred_time"],
-                    },
-                },
-                "server": {"url": f"{server_url}/api/webhooks/vapi"},
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "request_callback",
-                    "description": "Flag that the prospect wants a human team member to call them back.",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-                "server": {"url": f"{server_url}/api/webhooks/vapi"},
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "book_demo",
-                    "description": (
-                        "Book a PracticeDesk demo on Cal.com. "
-                        "Call only after you have the prospect's preferred time AND email."
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "preferred_time": {
-                                "type": "string",
-                                "description": "Preferred day and time, e.g. 'Friday at 2pm'",
-                            },
-                            "attendee_email": {
-                                "type": "string",
-                                "description": "Prospect's email address for the calendar invite",
-                            },
-                            "attendee_name": {
-                                "type": "string",
-                                "description": "Prospect's name",
-                            },
-                        },
-                        "required": ["preferred_time", "attendee_email"],
-                    },
-                },
-                "server": {"url": f"{server_url}/api/webhooks/vapi"},
-            },
-        ],
         "serverUrl": f"{server_url}/api/webhooks/vapi",
         "artifactPlan": {"recordingEnabled": True},
         "endCallMessage": "Thanks for your time. Have a wonderful day!",
@@ -382,10 +407,11 @@ def place_click_call(lead: dict) -> dict:
     if not server_url:
         raise RuntimeError("SERVER_BASE_URL not set")
 
-    phone = lead.get("phone", "")
-    cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
-    if not cleaned.startswith("+"):
-        cleaned = "+" + cleaned
+    phone   = lead.get("phone", "")
+    city    = lead.get("city", "")
+    cleaned = _normalize_phone(phone, city)
+    if not cleaned or cleaned in ("+", ""):
+        raise RuntimeError(f"Could not normalise phone '{phone}' for {lead.get('name')}")
 
     payload = {
         "phoneNumberId": phone_number_id,
