@@ -105,7 +105,7 @@ export function streamEnrich(onLine, onDone, onError) {
       let buffer = ''
       let resolved = false
       function processBuffer(flush) {
-        const parts = buffer.split('\n\n')
+        const parts = buffer.split(/\r?\n\r?\n/)
         buffer = flush ? '' : parts.pop()
         for (const part of parts) {
           const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
@@ -155,7 +155,7 @@ export function streamEmailCampaign(onLine, onDone, onError) {
       let buffer = ''
       let resolved = false
       function processBuffer(flush) {
-        const parts = buffer.split('\n\n')
+        const parts = buffer.split(/\r?\n\r?\n/)
         buffer = flush ? '' : parts.pop()
         for (const part of parts) {
           const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
@@ -204,7 +204,7 @@ export function streamPipeline(payload, onLine, onDone, onError) {
       let buffer = ''
       let resolved = false
       function processBuffer(flush) {
-        const parts = buffer.split('\n\n')
+        const parts = buffer.split(/\r?\n\r?\n/)
         buffer = flush ? '' : parts.pop()
         for (const part of parts) {
           const dataLine = part.split('\n').find((l) => l.startsWith('data:'))
