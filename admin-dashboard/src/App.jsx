@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
+import TopBar from './components/TopBar'
 import Login from './views/Login'
 import Dashboard from './views/Dashboard'
 import RunPipeline from './views/RunPipeline'
@@ -34,7 +35,9 @@ export default function App() {
     <BrowserRouter>
       <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
         <Sidebar onLogout={handleLogout} />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <TopBar />
+          <div className="flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/pipeline" element={<RunPipeline />} />
@@ -48,6 +51,7 @@ export default function App() {
             <Route path="/dialpad" element={<Dialpad />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </div>
         </main>
       </div>
     </BrowserRouter>
