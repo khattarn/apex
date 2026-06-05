@@ -138,6 +138,14 @@ class LeadUpdate(BaseModel):
     email: Optional[str] = None
 
 
+@app.get("/api/leads/called-ids")
+async def get_called_ids(_=Depends(verify_token)):
+    """Returns set of lead IDs that have received an outbound Aria call."""
+    from database.client import get_client
+    rows = get_client().table("lead_activities").select("lead_id").eq("type", "outbound_call").execute().data or []
+    return {"ids": list({str(r["lead_id"]) for r in rows})}
+
+
 @app.get("/api/active-calls")
 async def get_active_calls(_=Depends(verify_token)):
     """Returns calls currently in progress (tracked in memory via Vapi call-started webhook)."""
@@ -151,6 +159,7 @@ async def list_leads(
     city: Optional[str] = None,
     outreach_sent: Optional[bool] = None,
     email_engagement: Optional[str] = None,
+    voice_called: Optional[bool] = None,
     search: Optional[str] = None,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -163,6 +172,7 @@ async def list_leads(
         city=city,
         outreach_sent=outreach_sent,
         email_engagement=email_engagement,
+        voice_called=voice_called,
         search=search,
         limit=limit,
         offset=offset,

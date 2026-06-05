@@ -237,3 +237,4 @@ export function streamPipeline(payload, onLine, onDone, onError) {
 }
 
 export const getActiveCalls = () => request('/api/active-calls')
+export const getCalledIds = () => request('/api/leads/called-ids')

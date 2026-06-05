@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X, Phone, Mail, RefreshCw, Activity } from 'lucide-react'
-import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, streamEnrich, emailLead, streamEmailCampaign, getLeadActivities } from '../api'
+import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, streamEnrich, emailLead, streamEmailCampaign, getLeadActivities, getCalledIds } from '../api'
 import StatusBadge from '../components/StatusBadge'
 
 const PAGE_SIZE = 25
@@ -35,7 +35,8 @@ export default function LeadsTable() {
   const [leads, setLeads] = useState([])
   const [count, setCount] = useState(0)
   const [page, setPage] = useState(0)
-  const [filters, setFilters] = useState({ business_type: '', status: '', city: '', outreach_sent: '', email_engagement: '' })
+  const [filters, setFilters] = useState({ business_type: '', status: '', city: '', outreach_sent: '', email_engagement: '', voice_called: '' })
+  const [calledIds, setCalledIds] = useState(new Set())
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [preview, setPreview] = useState(null)
@@ -61,6 +62,7 @@ export default function LeadsTable() {
       ...(filters.city && { city: filters.city }),
       ...(filters.outreach_sent !== '' && { outreach_sent: filters.outreach_sent === 'true' }),
       ...(filters.email_engagement && { email_engagement: filters.email_engagement }),
+      ...(filters.voice_called !== '' && { voice_called: filters.voice_called === 'true' }),
       ...(search && { search }),
     }
 
@@ -68,7 +70,11 @@ export default function LeadsTable() {
       .then((res) => { setLeads(res.data || []); setCount(res.count || 0) })
       .catch((err) => { console.error(err); setLoadError(err.message || 'Failed to load leads') })
       .finally(() => setLoading(false))
-  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, filters.email_engagement, search])
+  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, filters.email_engagement, filters.voice_called, search])
+
+  useEffect(() => {
+    getCalledIds().then(r => setCalledIds(new Set(r?.ids || []))).catch(() => {})
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -217,6 +223,15 @@ export default function LeadsTable() {
           <option value="clicked">Clicked a link</option>
           <option value="opened">Opened only</option>
           <option value="sent">Sent (any)</option>
+        </select>
+        <select
+          value={filters.voice_called}
+          onChange={(e) => setFilter('voice_called', e.target.value)}
+          className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+        >
+          <option value="">Aria calls — all</option>
+          <option value="true">Called by Aria</option>
+          <option value="false">Not yet called</option>
         </select>
         <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
           <button
@@ -384,8 +399,8 @@ export default function LeadsTable() {
                       {lead.phone && (
                         <button
                           onClick={() => handleCall(lead)}
-                          title="Place voice call"
-                          className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-indigo-400 transition-colors"
+                          title={calledIds.has(String(lead.id)) ? 'Called by Aria — place another call' : 'Place voice call'}
+                          className={`p-1.5 rounded transition-colors ${calledIds.has(String(lead.id)) ? 'text-green-400 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-700 hover:text-indigo-400'}`}
                         >
                           <Phone size={13} />
                         </button>
@@ -409,7 +424,13 @@ export default function LeadsTable() {
                       <button
                         onClick={() => openActivity(lead)}
                         title="View activity"
-                        className={`p-1.5 rounded transition-colors ${lead.status === 'replied' || lead.status === 'converted' ? 'text-indigo-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-700 hover:text-slate-400'}`}
+                        className={`p-1.5 rounded transition-colors ${
+                          lead.status === 'replied' || lead.status === 'converted'
+                            ? 'text-indigo-400 hover:bg-slate-700'
+                            : calledIds.has(String(lead.id)) || lead.email_clicked
+                              ? 'text-sky-500 hover:bg-slate-700'
+                              : 'text-slate-600 hover:bg-slate-700 hover:text-slate-400'
+                        }`}
                       >
                         <Activity size={13} />
                       </button>

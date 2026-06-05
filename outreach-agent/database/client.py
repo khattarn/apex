@@ -28,8 +28,15 @@ def get_client():
 # ── Leads ─────────────────────────────────────────────────────────────────────
 
 def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
-              email_engagement=None, limit=25, offset=0, search=None):
+              email_engagement=None, voice_called=None, limit=25, offset=0, search=None):
     db = get_client()
+
+    # Resolve voice_called filter via lead_activities lookup
+    called_ids = None
+    if voice_called is not None:
+        rows = db.table("lead_activities").select("lead_id").eq("type", "outbound_call").execute().data or []
+        called_ids = list({str(r["lead_id"]) for r in rows})
+
     query = db.table("leads").select("*", count="exact")
     if business_type:
         query = query.eq("business_type", business_type)
@@ -47,6 +54,13 @@ def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
         query = query.eq("email_opened", True).or_("email_clicked.eq.false,email_clicked.is.null")
     elif email_engagement == "sent":
         query = query.eq("email_sent", True)
+    if voice_called is True and called_ids:
+        query = query.in_("id", called_ids)
+    elif voice_called is True and called_ids is not None and len(called_ids) == 0:
+        return {"data": [], "count": 0}  # no calls placed yet
+    elif voice_called is False and called_ids is not None:
+        if called_ids:
+            query = query.not_.in_("id", called_ids)
     if search:
         query = query.or_(f"name.ilike.%{search}%,city.ilike.%{search}%")
     result = (
