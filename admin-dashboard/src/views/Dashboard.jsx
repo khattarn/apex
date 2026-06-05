@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Users, Mail, Eye, CornerDownRight, TrendingUp } from 'lucide-react'
+import { Users, Mail, Eye, CornerDownRight, TrendingUp, MousePointerClick, Phone } from 'lucide-react'
 import { getStats, getLeads } from '../api'
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
@@ -43,10 +43,14 @@ export default function Dashboard() {
       <h2 className="text-base font-semibold">Dashboard</h2>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard label="Total Leads" value={stats.total_leads} icon={Users} />
         <StatCard label="Emailed" value={stats.emailed ?? 0} icon={Mail} color="blue" />
         <StatCard label="Opened" value={stats.email_opened ?? 0} icon={Eye} color="yellow" />
+        <StatCard label="Clicked" value={stats.email_clicked ?? 0} icon={MousePointerClick} color="yellow" />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+        <StatCard label="Aria Called" value={stats.aria_called ?? 0} icon={Phone} color="blue" />
         <StatCard label="Replied" value={stats.replied ?? 0} icon={CornerDownRight} color="yellow" />
         <StatCard label="Converted" value={stats.converted ?? 0} icon={TrendingUp} color="green" />
       </div>

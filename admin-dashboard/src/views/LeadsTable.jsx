@@ -356,7 +356,19 @@ export default function LeadsTable() {
                       ? <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-xs"><ExternalLink size={11} /> Link</a>
                       : <span className="text-slate-600 text-xs">—</span>}
                   </td>
-                  <td className="px-4 py-2.5"><StatusBadge status={lead.status} /></td>
+                  <td className="px-4 py-2.5">
+                    <select
+                      value={lead.status}
+                      onChange={async (e) => {
+                        await patchLead(lead.id, { status: e.target.value })
+                        load()
+                      }}
+                      className="bg-transparent border-0 text-xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-0"
+                      style={{ color: { new:'#94a3b8', contacted:'#818cf8', replied:'#fbbf24', converted:'#4ade80', dead:'#f87171' }[lead.status] || '#94a3b8' }}
+                    >
+                      {STATUSES.map(s => <option key={s} value={s} className="bg-slate-800 text-white">{s}</option>)}
+                    </select>
+                  </td>
                   <td className="px-4 py-2.5 text-xs">
                     {lead.outreach_sent
                       ? <span className="text-green-400">Sent</span>
