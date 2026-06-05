@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X, Phone, Mail, RefreshCw } from 'lucide-react'
-import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, streamEnrich, emailLead, streamEmailCampaign } from '../api'
+import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X, Phone, Mail, RefreshCw, Activity } from 'lucide-react'
+import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, streamEnrich, emailLead, streamEmailCampaign, getLeadActivities } from '../api'
 import StatusBadge from '../components/StatusBadge'
 
 const PAGE_SIZE = 25
@@ -41,6 +41,7 @@ export default function LeadsTable() {
   const [preview, setPreview] = useState(null)
   const [editNotes, setEditNotes] = useState(null)
   const [notesVal, setNotesVal] = useState('')
+  const [activityModal, setActivityModal] = useState(null) // null | { lead, loading, items }
   const [enrich, setEnrich] = useState(null)   // null | { running, logs, done }
   const enrichAbort = useRef(null)
   const [campaign, setCampaign] = useState(null) // null | { running, logs, done }
@@ -147,6 +148,16 @@ export default function LeadsTable() {
   function closeEnrich() {
     if (enrichAbort.current) enrichAbort.current()
     setEnrich(null)
+  }
+
+  async function openActivity(lead) {
+    setActivityModal({ lead, loading: true, items: [] })
+    try {
+      const { data } = await getLeadActivities(lead.id)
+      setActivityModal((m) => ({ ...m, loading: false, items: data }))
+    } catch (e) {
+      setActivityModal((m) => ({ ...m, loading: false, error: e.message }))
+    }
   }
 
   async function saveNotes() {
@@ -315,6 +326,13 @@ export default function LeadsTable() {
                       >
                         <Edit3 size={13} />
                       </button>
+                      <button
+                        onClick={() => openActivity(lead)}
+                        title="View activity"
+                        className={`p-1.5 rounded transition-colors ${lead.status === 'replied' || lead.status === 'converted' ? 'text-indigo-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-700 hover:text-slate-400'}`}
+                      >
+                        <Activity size={13} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -425,6 +443,63 @@ export default function LeadsTable() {
               </button>
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* Activity modal */}
+      {activityModal && (
+        <Modal title={`Activity — ${activityModal.lead.name}`} onClose={() => setActivityModal(null)}>
+          {activityModal.loading && <p className="text-xs text-slate-400">Loading…</p>}
+          {activityModal.error && <p className="text-xs text-red-400">{activityModal.error}</p>}
+          {!activityModal.loading && activityModal.items.length === 0 && (
+            <p className="text-xs text-slate-500">No activity recorded yet.</p>
+          )}
+          <div className="space-y-3 max-h-72 overflow-y-auto">
+            {activityModal.items.map((item) => {
+              const d = item.detail || {}
+              const ts = new Date(item.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+              if (item.type === 'inbound_call') return (
+                <div key={item.id} className="bg-slate-800 rounded p-3 text-xs space-y-1 border-l-2 border-indigo-500">
+                  <div className="flex items-center justify-between">
+                    <span className="text-indigo-300 font-medium flex items-center gap-1"><Phone size={11} /> Inbound call</span>
+                    <span className="text-slate-500">{ts}</span>
+                  </div>
+                  {d.caller && <p className="text-slate-400">From: {d.caller}</p>}
+                  {d.ended_reason && <p className="text-slate-400">Ended: {d.ended_reason}</p>}
+                  {d.summary && <p className="text-slate-300 italic">"{d.summary}"</p>}
+                  {d.recording_url && (
+                    <a href={d.recording_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline">
+                      Listen to recording →
+                    </a>
+                  )}
+                </div>
+              )
+              if (item.type === 'email_sent') return (
+                <div key={item.id} className="bg-slate-800 rounded p-3 text-xs space-y-1 border-l-2 border-green-600">
+                  <div className="flex items-center justify-between">
+                    <span className="text-green-400 font-medium flex items-center gap-1"><Mail size={11} /> Email sent</span>
+                    <span className="text-slate-500">{ts}</span>
+                  </div>
+                  {d.subject && <p className="text-slate-400">{d.subject}</p>}
+                  {d.email_num != null && <p className="text-slate-500">Sequence #{d.email_num}</p>}
+                </div>
+              )
+              return (
+                <div key={item.id} className="bg-slate-800 rounded p-3 text-xs border-l-2 border-slate-600">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-medium capitalize">{item.type.replace(/_/g, ' ')}</span>
+                    <span className="text-slate-500">{ts}</span>
+                  </div>
+                  {d.reason && <p className="text-slate-500">{d.reason}</p>}
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex justify-end mt-3">
+            <button onClick={() => setActivityModal(null)} className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition-colors">
+              Close
+            </button>
+          </div>
         </Modal>
       )}
 

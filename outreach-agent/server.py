@@ -126,7 +126,7 @@ async def run_pipeline(body: PipelineRequest, _=Depends(verify_token)):
             _running.pop("pipeline", None)
             yield {"data": json.dumps({"type": "error", "message": str(exc)})}
 
-    return EventSourceResponse(event_generator(), headers={"X-Accel-Buffering": "no"})
+    return EventSourceResponse(event_generator(), headers={"X-Accel-Buffering": "no"}, ping=20)
 
 
 # ── Leads ─────────────────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ async def enrich_emails(_=Depends(verify_token)):
         _running.pop("email_scraper", None)
         yield {"data": json.dumps({"type": "done", "enriched": enriched, "total": total, "queued": enriched})}
 
-    return EventSourceResponse(generate())
+    return EventSourceResponse(generate(), ping=20)
 
 
 @app.post("/api/leads/email-campaign")
@@ -310,7 +310,7 @@ async def email_campaign(_=Depends(verify_token)):
         yield {"data": json.dumps({"type": "done", "sent": sent, "skipped": skipped, "failed": failed, "total": len(leads)})}
         await asyncio.sleep(0.1)
 
-    return EventSourceResponse(generate(), headers={"X-Accel-Buffering": "no"})
+    return EventSourceResponse(generate(), headers={"X-Accel-Buffering": "no"}, ping=20)
 
 
 # ── Resend webhook (open / click / bounce tracking) ───────────────────────────
@@ -357,6 +357,57 @@ async def resend_webhook(request: Request):
         record_email_clicked(lead_id, campaign_id, link, data.get("created_at"))
     elif event_type in ("email.bounced", "email.delivery_delayed") and lead_id:
         update_lead(lead_id, {"email_bounced": True})
+
+    return {"ok": True}
+
+
+# ── Vapi webhook (inbound call tracking) ──────────────────────────────────────
+
+@app.post("/api/webhooks/vapi")
+async def vapi_webhook(request: Request):
+    payload = await request.json()
+    msg_type = payload.get("message", {}).get("type", "")
+
+    if msg_type != "end-of-call-report":
+        return {"ok": True}
+
+    msg       = payload["message"]
+    call      = msg.get("call", {})
+    caller_no = call.get("customer", {}).get("number", "")
+    rec_url   = msg.get("recordingUrl", "")
+    transcript= msg.get("transcript", "")
+    summary   = msg.get("summary", "")
+    ended_rsn = msg.get("endedReason", "")
+
+    if not caller_no:
+        return {"ok": True}
+
+    from database.client import get_client, update_lead, log_activity
+    db = get_client()
+
+    # Normalise number: strip spaces/dashes, ensure leading +
+    digits = "".join(c for c in caller_no if c.isdigit())
+    result = db.table("leads").select("id, status").or_(
+        f"phone.eq.{caller_no},phone.ilike.%{digits[-9:]}%"
+    ).limit(1).execute()
+
+    if not result.data:
+        return {"ok": True}   # unknown caller — not one of our leads
+
+    lead = result.data[0]
+    lead_id = lead["id"]
+
+    update_lead(lead_id, {
+        "status": "replied",
+        "notes": f"Inbound call received. Reason ended: {ended_rsn}. Recording: {rec_url or 'n/a'}",
+    })
+    log_activity(lead_id, "inbound_call", {
+        "caller": caller_no,
+        "ended_reason": ended_rsn,
+        "recording_url": rec_url,
+        "summary": summary[:500] if summary else "",
+        "transcript": transcript[:1000] if transcript else "",
+    })
 
     return {"ok": True}
 
@@ -446,6 +497,21 @@ async def remove_lead(lead_id: str, _=Depends(verify_token)):
     from database.client import delete_lead
     delete_lead(lead_id)
     return {"ok": True}
+
+
+@app.get("/api/leads/{lead_id}/activities")
+async def get_lead_activities(lead_id: str, _=Depends(verify_token)):
+    from database.client import get_client
+    result = (
+        get_client()
+        .table("lead_activities")
+        .select("id, type, detail, created_at")
+        .eq("lead_id", lead_id)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+    return {"data": result.data or []}
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────

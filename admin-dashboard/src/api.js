@@ -78,6 +78,8 @@ export const resetOutreach = () =>
 
 export const callLead = (id) => request(`/api/leads/${id}/call`, { method: 'POST' })
 
+export const getLeadActivities = (id) => request(`/api/leads/${id}/activities`)
+
 export const fetchTwilioToken = () => request('/api/twilio/token')
 
 export const getTemplateStatuses = () => request('/api/templates')
