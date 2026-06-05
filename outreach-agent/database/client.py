@@ -370,7 +370,7 @@ def get_leads_due_callback() -> list[dict]:
 
     result = (
         db.table("leads")
-        .select("id, name, phone, city, business_type, market, status")
+        .select("id, name, phone, city, business_type, status")
         .in_("id", remaining)
         .not_.in_("status", ["dead", "converted"])
         .execute()
@@ -391,7 +391,7 @@ def get_clicked_uncalled_leads() -> list[dict]:
     # Leads who clicked
     clicked = (
         db.table("leads")
-        .select("id, name, phone, city, business_type, status, market")
+        .select("id, name, phone, city, business_type, status")
         .eq("email_clicked", True)
         .not_.in_("status", ["dead", "converted"])
         .execute()

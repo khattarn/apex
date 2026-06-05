@@ -235,3 +235,5 @@ export function streamPipeline(payload, onLine, onDone, onError) {
 
   return () => ctrl.abort()
 }
+
+export const getActiveCalls = () => request('/api/active-calls')

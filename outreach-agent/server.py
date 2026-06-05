@@ -16,7 +16,8 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-_running: dict = {}  # tracks which agents are currently executing
+_running: dict = {}       # tracks which pipeline agents are currently executing
+_active_calls: dict = {}  # call_id → {lead_name, phone, started_at, direction}
 
 app = FastAPI(title="Apex Admin API", version="1.0.0")
 
@@ -135,6 +136,12 @@ class LeadUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
     email: Optional[str] = None
+
+
+@app.get("/api/active-calls")
+async def get_active_calls(_=Depends(verify_token)):
+    """Returns calls currently in progress (tracked in memory via Vapi call-started webhook)."""
+    return {"calls": list(_active_calls.values()), "count": len(_active_calls)}
 
 
 @app.get("/api/leads")
@@ -386,6 +393,34 @@ async def vapi_webhook(request: Request):
     msg     = payload.get("message", {})
     msg_type = msg.get("type", "")
 
+    # ── Call started — track in memory for dashboard ─────────────────────────
+    if msg_type == "call-started":
+        call = msg.get("call", {})
+        call_id   = call.get("id", "")
+        direction = call.get("type", "")
+        metadata  = call.get("metadata", {})
+        phone     = call.get("customer", {}).get("number", "")
+        lead_name = call.get("customer", {}).get("name", "")
+        if not lead_name and metadata.get("lead_id"):
+            try:
+                from database.client import get_lead_by_id
+                lead_rec = get_lead_by_id(metadata["lead_id"])
+                if lead_rec:
+                    lead_name = lead_rec.get("name", "")
+            except Exception:
+                pass
+        if call_id:
+            from datetime import datetime, timezone
+            _active_calls[call_id] = {
+                "call_id":    call_id,
+                "lead_name":  lead_name or phone,
+                "phone":      phone,
+                "direction":  "inbound" if "inbound" in direction.lower() else "outbound",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "lead_id":    metadata.get("lead_id", ""),
+            }
+        return {"ok": True}
+
     # ── Tool call: prospect requested a human callback ────────────────────────
     if msg_type == "tool-calls":
         tool_calls = msg.get("toolCalls", [])
@@ -444,6 +479,7 @@ async def vapi_webhook(request: Request):
     call      = msg.get("call", {})
     call_type = call.get("type", "")          # inboundPhoneCall | outboundPhoneCall
     metadata  = call.get("metadata", {})
+    _active_calls.pop(call.get("id", ""), None)  # clear from live tracker
     rec_url   = msg.get("recordingUrl", "")
     transcript= msg.get("transcript", "")
     summary   = msg.get("summary", "")
