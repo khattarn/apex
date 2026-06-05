@@ -169,6 +169,10 @@ def advance_email_sequence(lead_id: str, step_just_sent: int):
 
     update_lead(lead_id, update)
 
+    # First email = first contact — promote status from new → contacted
+    if step_just_sent == 1:
+        get_client().table("leads").update({"status": "contacted"}).eq("id", lead_id).eq("status", "new").execute()
+
 
 def mark_emailed(lead_id: str):
     """Legacy single-send mark — also advances sequence from step 0 → 1."""

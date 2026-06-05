@@ -936,6 +936,22 @@ async def danger_reset_outreach(_=Depends(verify_token)):
     return {"ok": True}
 
 
+@app.post("/api/admin/backfill-contacted")
+async def backfill_contacted(_=Depends(verify_token)):
+    """One-off: set status=contacted for any lead that has email_sent=true but status=new."""
+    from database.client import get_client
+    result = (
+        get_client()
+        .table("leads")
+        .update({"status": "contacted"})
+        .eq("status", "new")
+        .eq("email_sent", True)
+        .execute()
+    )
+    updated = len(result.data) if result.data else 0
+    return {"ok": True, "updated": updated}
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))

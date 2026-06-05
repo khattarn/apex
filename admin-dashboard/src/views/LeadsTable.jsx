@@ -202,9 +202,9 @@ export default function LeadsTable() {
           onChange={(e) => setFilter('outreach_sent', e.target.value)}
           className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
         >
-          <option value="">Outreach — all</option>
-          <option value="true">Sent</option>
-          <option value="false">Not sent</option>
+          <option value="">WA outreach — all</option>
+          <option value="true">WA sent</option>
+          <option value="false">WA not sent</option>
         </select>
         <div className="ml-auto flex items-center gap-3">
           <button
