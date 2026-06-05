@@ -38,8 +38,8 @@ export default function Campaigns() {
   }, [])
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-base font-semibold">Campaigns</h2>
         <button
           onClick={() => navigate('/pipeline')}
@@ -51,7 +51,8 @@ export default function Campaigns() {
       </div>
 
       <div className="bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b border-slate-700/40 text-slate-400 text-xs">
               {['Date', 'Channel', 'Business Type', 'City', 'Mode', 'Prospects', 'New Leads', 'Sent', 'Opened', 'Clicked'].map((h) => (
@@ -114,6 +115,7 @@ export default function Campaigns() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

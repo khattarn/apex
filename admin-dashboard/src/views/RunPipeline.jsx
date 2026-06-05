@@ -147,10 +147,10 @@ export default function RunPipeline() {
   }[phase]
 
   return (
-    <div className="p-6 flex gap-6 items-start">
+    <div className="p-4 md:p-6 flex flex-col lg:flex-row gap-6 items-start">
 
       {/* ── LEFT ─────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 space-y-5">
+      <div className="flex-1 min-w-0 w-full space-y-5">
         <h2 className="text-base font-semibold">Run Pipeline</h2>
 
         <div className="bg-[#1e293b] rounded-lg p-5 border border-slate-700/40 space-y-4">
@@ -216,7 +216,7 @@ export default function RunPipeline() {
           {/* Mode */}
           <div>
             <label className="block text-xs text-slate-400 mb-2">Mode</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {[false, true].map(live => (
                 <button
                   key={String(live)}
@@ -305,7 +305,7 @@ export default function RunPipeline() {
               <CheckCircle size={14} className="text-green-400" />
               <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Run Complete</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Prospecting */}
               <div className="bg-slate-800/50 rounded-lg p-3">
                 <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide mb-2">Phase 1 — Prospecting</p>
@@ -345,7 +345,7 @@ export default function RunPipeline() {
       </div>
 
       {/* ── RIGHT: city picker ───────────────────────────── */}
-      <div className="w-64 shrink-0 bg-[#1e293b] border border-slate-700/40 rounded-lg overflow-hidden sticky top-6">
+      <div className="w-full lg:w-64 lg:shrink-0 bg-[#1e293b] border border-slate-700/40 rounded-lg overflow-hidden lg:sticky lg:top-6">
         <div className="px-4 pt-4 pb-2 border-b border-slate-700/40">
           <p className="text-xs font-semibold text-slate-300 mb-3">Cities</p>
           <div className="flex gap-1">
@@ -373,7 +373,7 @@ export default function RunPipeline() {
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
+        <div className="overflow-y-auto max-h-64 lg:max-h-[calc(100vh-280px)]">
           {filteredCities.map(city => {
             const count = cityStats[city] || cityStats[city.toLowerCase()] || 0
             const isSelected = selected.includes(city.toLowerCase())

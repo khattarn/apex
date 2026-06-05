@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone } from 'lucide-react'
+import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone, X } from 'lucide-react'
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -12,20 +12,34 @@ const NAV = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
-export default function Sidebar({ onLogout }) {
+export default function Sidebar({ isOpen, onClose, onLogout }) {
   return (
-    <aside className="w-52 shrink-0 bg-[#1e293b] flex flex-col h-full border-r border-slate-700/50">
-      <div className="px-4 py-5 border-b border-slate-700/50">
-        <p className="text-indigo-400 font-semibold text-sm tracking-widest uppercase">PracticeDesk</p>
-        <p className="text-slate-500 text-xs mt-0.5">Outreach Console</p>
+    <aside className={`
+      fixed lg:static inset-y-0 left-0 z-40
+      w-52 shrink-0 bg-[#1e293b] flex flex-col h-full border-r border-slate-700/50
+      transition-transform duration-200 ease-in-out
+      ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+    `}>
+      <div className="px-4 py-5 border-b border-slate-700/50 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-indigo-400 font-semibold text-sm tracking-widest uppercase truncate">PracticeDesk</p>
+          <p className="text-slate-500 text-xs mt-0.5">Outreach Console</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="lg:hidden shrink-0 p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 transition-colors"
+        >
+          <X size={16} />
+        </button>
       </div>
 
-      <nav className="flex-1 p-2 space-y-0.5">
+      <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors ${
                 isActive

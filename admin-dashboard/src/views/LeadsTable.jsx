@@ -9,9 +9,9 @@ const STATUSES = ['new', 'contacted', 'replied', 'converted', 'dead']
 
 function Modal({ title, children, onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={onClose}>
       <div
-        className="bg-[#1e293b] border border-slate-700 rounded-lg w-full max-w-md p-5 shadow-xl"
+        className="bg-[#1e293b] border border-slate-700 rounded-lg w-full max-w-md p-5 shadow-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -172,7 +172,7 @@ export default function LeadsTable() {
   const totalPages = Math.ceil(count / PAGE_SIZE)
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
       <h2 className="text-base font-semibold">Leads</h2>
 
       {/* Filters */}
@@ -181,7 +181,7 @@ export default function LeadsTable() {
           type="search"
           placeholder="Search name or city…"
           onChange={(e) => handleSearch(e.target.value)}
-          className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-full sm:w-auto"
         />
         <select
           value={filters.business_type}
@@ -218,7 +218,7 @@ export default function LeadsTable() {
           <option value="opened">Opened only</option>
           <option value="sent">Sent (any)</option>
         </select>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
           <button
             onClick={startEnrich}
             className="flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded transition-colors"
@@ -243,8 +243,72 @@ export default function LeadsTable() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">
+      {/* Mobile card list — shown below md */}
+      <div className="md:hidden space-y-3">
+        {loading && <p className="text-xs text-slate-500 text-center py-6">Loading…</p>}
+        {!loading && leads.length === 0 && <p className="text-xs text-slate-500 text-center py-6">No leads found</p>}
+        {leads.map((lead) => (
+          <div key={lead.id} className="bg-[#1e293b] border border-slate-700/40 rounded-lg p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white truncate">{lead.name}</p>
+                <p className="text-xs text-slate-400 mt-0.5 capitalize">{lead.city} · {lead.business_type}</p>
+              </div>
+              <StatusBadge status={lead.status} />
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+              {lead.phone && <span>{lead.phone}</span>}
+              {lead.email
+                ? <a href={`mailto:${lead.email}`} className="text-indigo-400 truncate max-w-[180px]">{lead.email}</a>
+                : null}
+              {lead.website
+                ? <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-indigo-400 flex items-center gap-0.5"><ExternalLink size={10} /> Site</a>
+                : null}
+            </div>
+            <div className="flex items-center gap-0.5 pt-1 border-t border-slate-700/40">
+              <button onClick={() => openPreview(lead)} title="Preview message" className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">
+                <Eye size={13} />
+              </button>
+              {!lead.outreach_sent && (
+                <button onClick={() => handleSend(lead)} title="Send WA" className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-green-400 transition-colors">
+                  <Send size={13} />
+                </button>
+              )}
+              {lead.phone && (
+                <button onClick={() => handleCall(lead)} title="Call" className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-indigo-400 transition-colors">
+                  <Phone size={13} />
+                </button>
+              )}
+              {lead.email && (
+                <button onClick={() => handleEmailLead(lead)} title="Send email" className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-indigo-400 transition-colors">
+                  <Mail size={13} />
+                </button>
+              )}
+              <button onClick={() => { setEditNotes(lead); setNotesVal(lead.notes || '') }} title="Edit notes" className="p-1.5 rounded text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">
+                <Edit3 size={13} />
+              </button>
+              <button onClick={() => openActivity(lead)} title="Activity" className={`p-1.5 rounded transition-colors ${lead.status === 'replied' || lead.status === 'converted' ? 'text-indigo-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-700 hover:text-slate-400'}`}>
+                <Activity size={13} />
+              </button>
+              <span className="ml-auto text-[11px] text-slate-600">{fmt(lead.created_at)}</span>
+            </div>
+          </div>
+        ))}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-3 justify-center py-2">
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="p-1.5 rounded text-slate-400 hover:bg-slate-700 disabled:opacity-30 transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <p className="text-xs text-slate-400">Page {page + 1} of {totalPages}</p>
+            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="p-1.5 rounded text-slate-400 hover:bg-slate-700 disabled:opacity-30 transition-colors">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Table — hidden on mobile, shown on md+ */}
+      <div className="hidden md:block bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[900px]">
             <thead>

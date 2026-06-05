@@ -39,11 +39,11 @@ export default function Dashboard() {
   const byCityData = Object.entries(stats.by_city || {}).slice(0, 10).map(([name, count]) => ({ name, count }))
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <h2 className="text-base font-semibold">Dashboard</h2>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         <StatCard label="Total Leads" value={stats.total_leads} icon={Users} />
         <StatCard label="Emailed" value={stats.emailed ?? 0} icon={Mail} color="blue" />
         <StatCard label="Opened" value={stats.email_opened ?? 0} icon={Eye} color="yellow" />
@@ -52,7 +52,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-[#1e293b] rounded-lg p-4 border border-slate-700/40">
           <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-4">By Business Type</p>
           <ResponsiveContainer width="100%" height={180}>
@@ -83,7 +83,8 @@ export default function Dashboard() {
         <div className="px-4 py-3 border-b border-slate-700/40">
           <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Recent Activity</p>
         </div>
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[480px]">
           <thead>
             <tr className="border-b border-slate-700/40 text-slate-400 text-xs">
               <th className="text-left px-4 py-2 font-medium">Name</th>
@@ -112,6 +113,7 @@ export default function Dashboard() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

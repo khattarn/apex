@@ -38,6 +38,7 @@ function LiveCallBanner({ calls }) {
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('pd_token'))
   const [activeCalls, setActiveCalls] = useState([])
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -64,9 +65,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
-        <Sidebar onLogout={handleLogout} />
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <TopBar />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} />
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <TopBar onMenuClick={() => setSidebarOpen(true)} />
           <LiveCallBanner calls={activeCalls} />
           <div className="flex-1 overflow-y-auto">
           <Routes>

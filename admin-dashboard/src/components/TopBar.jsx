@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
+import { Menu } from 'lucide-react'
 
 const ZONES = [
-  { label: 'New York',  short: 'ET',  zone: 'America/New_York',    flag: '🇺🇸', color: 'indigo'  },
-  { label: 'Chicago',   short: 'CT',  zone: 'America/Chicago',     flag: '🇺🇸', color: 'violet'  },
-  { label: 'Los Angeles', short: 'PT', zone: 'America/Los_Angeles', flag: '🇺🇸', color: 'rose'    },
-  { label: 'Toronto',   short: 'ET',  zone: 'America/Toronto',     flag: '🇨🇦', color: 'amber'   },
-  { label: 'London',    short: 'GMT', zone: 'Europe/London',       flag: '🇬🇧', color: 'emerald' },
-  { label: 'Sydney',    short: 'AET', zone: 'Australia/Sydney',    flag: '🇦🇺', color: 'cyan'    },
+  { label: 'New York',    short: 'NY',  zone: 'America/New_York',    flag: '🇺🇸', color: 'indigo'  },
+  { label: 'Chicago',     short: 'CHI', zone: 'America/Chicago',     flag: '🇺🇸', color: 'violet'  },
+  { label: 'Los Angeles', short: 'LA',  zone: 'America/Los_Angeles', flag: '🇺🇸', color: 'rose'    },
+  { label: 'Toronto',     short: 'TOR', zone: 'America/Toronto',     flag: '🇨🇦', color: 'amber'   },
+  { label: 'London',      short: 'LON', zone: 'Europe/London',       flag: '🇬🇧', color: 'emerald' },
+  { label: 'Sydney',      short: 'SYD', zone: 'Australia/Sydney',    flag: '🇦🇺', color: 'cyan'    },
 ]
 
 const PALETTES = {
@@ -34,7 +35,6 @@ function ClockCard({ label, short, zone, flag, color }) {
     timeZone: zone, weekday: 'short', month: 'short', day: 'numeric',
   })
 
-  // split "09:41:05 AM" → hm = "09:41", sec = "05", ampm = "AM"
   const parts = timeStr.split(':')
   const hm   = `${parts[0]}:${parts[1]}`
   const rest  = parts[2].split(' ')
@@ -42,27 +42,36 @@ function ClockCard({ label, short, zone, flag, color }) {
   const ampm  = rest[1]
 
   return (
-    <div className={`flex-1 min-w-0 rounded-lg border ${p.bg} ${p.border} px-3 py-2.5 flex flex-col items-center`}>
-      <p className="text-xs font-semibold text-white/90 whitespace-nowrap tracking-wide">
-        {flag} {label}
+    <div className={`rounded-lg border ${p.bg} ${p.border} px-2 py-2 flex flex-col items-center`}>
+      <p className="text-xs font-semibold text-white/90 tracking-wide truncate w-full text-center">
+        {flag} <span className="hidden sm:inline">{label}</span><span className="sm:hidden">{short}</span>
       </p>
-      <div className="flex items-baseline gap-0.5 mt-1">
-        <span className={`font-mono font-bold text-xl leading-none ${p.time} tracking-tight`}>{hm}</span>
-        <span className={`font-mono text-sm leading-none ${p.accent} ml-0.5`}>:{sec}</span>
-        <span className={`font-mono text-sm font-semibold text-white/80 ml-1`}>{ampm}</span>
+      <div className="flex items-baseline gap-0.5 mt-0.5">
+        <span className={`font-mono font-bold text-sm sm:text-xl leading-none ${p.time} tracking-tight`}>{hm}</span>
+        <span className={`font-mono text-xs leading-none ${p.accent} ml-0.5 hidden sm:inline`}>:{sec}</span>
+        <span className={`font-mono text-xs font-semibold text-white/80 ml-0.5`}>{ampm}</span>
       </div>
-      <p className="text-[11px] mt-1 text-slate-300 font-medium">{dateStr}</p>
+      <p className="text-[10px] mt-0.5 text-slate-300 font-medium hidden sm:block truncate w-full text-center">{dateStr}</p>
     </div>
   )
 }
 
-export default function TopBar() {
+export default function TopBar({ onMenuClick }) {
   return (
-    <div className="shrink-0 border-b border-slate-700/50 bg-[#0f172a]/80 backdrop-blur px-4 py-2">
-      <div className="flex gap-2">
-        {ZONES.map((z) => (
-          <ClockCard key={z.zone} {...z} />
-        ))}
+    <div className="shrink-0 border-b border-slate-700/50 bg-[#0f172a]/80 backdrop-blur px-3 py-2">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700/60 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={18} />
+        </button>
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 flex-1">
+          {ZONES.map((z) => (
+            <ClockCard key={z.zone} {...z} />
+          ))}
+        </div>
       </div>
     </div>
   )
