@@ -47,8 +47,11 @@ export default function LeadsTable() {
   const campaignAbort = useRef(null)
   const searchTimer = useRef(null)
 
+  const [loadError, setLoadError] = useState(null)
+
   const load = useCallback(() => {
     setLoading(true)
+    setLoadError(null)
     const params = {
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
@@ -60,9 +63,9 @@ export default function LeadsTable() {
     }
     getLeads(params)
       .then((res) => { setLeads(res.data || []); setCount(res.count || 0) })
-      .catch(console.error)
+      .catch((err) => { console.error(err); setLoadError(err.message || 'Failed to load leads') })
       .finally(() => setLoading(false))
-  }, [page, filters, search])
+  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, search])
 
   useEffect(() => { load() }, [load])
 
@@ -210,6 +213,12 @@ export default function LeadsTable() {
           <p className="text-xs text-slate-500">{count} leads</p>
         </div>
       </div>
+
+      {loadError && (
+        <div className="text-xs text-red-400 bg-red-900/20 border border-red-700/40 rounded px-3 py-2">
+          Filter error: {loadError}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">
