@@ -143,6 +143,7 @@ async def list_leads(
     status: Optional[str] = None,
     city: Optional[str] = None,
     outreach_sent: Optional[bool] = None,
+    email_engagement: Optional[str] = None,
     search: Optional[str] = None,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -154,6 +155,7 @@ async def list_leads(
         status=status,
         city=city,
         outreach_sent=outreach_sent,
+        email_engagement=email_engagement,
         search=search,
         limit=limit,
         offset=offset,
@@ -257,7 +259,10 @@ async def email_campaign(_=Depends(verify_token)):
         test_copy_sent = False
         sent = skipped = failed = 0
 
-        for lead in leads:
+        from agents.email_sender import QuotaExceededError
+        quota_hit = False
+
+        for i, lead in enumerate(leads):
             name   = lead["name"]
             city   = lead.get("city", "")
             market = detect_market(lead.get("phone", ""), lead.get("address", ""))
@@ -298,6 +303,11 @@ async def email_campaign(_=Depends(verify_token)):
                         yield {"data": json.dumps({"type": "log", "line": f"  \U0001f4cb Test copy → {test_recipient}"})}
                     except Exception:
                         pass
+            except QuotaExceededError:
+                quota_hit = True
+                remaining = len(leads) - i
+                yield {"data": json.dumps({"type": "log", "line": f"  ⛔ Resend daily quota reached — {remaining} lead(s) deferred to next run"})}
+                break
             except Exception as exc:
                 failed += 1
                 yield {"data": json.dumps({"type": "log", "line": f"  ✗ Failed {name}: {exc}"})}
@@ -368,40 +378,88 @@ async def resend_webhook(request: Request):
     return {"ok": True}
 
 
-# ── Vapi webhook (inbound call tracking) ──────────────────────────────────────
+# ── Vapi webhook (inbound + outbound call tracking, tool calls) ────────────────
 
 @app.post("/api/webhooks/vapi")
 async def vapi_webhook(request: Request):
     payload = await request.json()
-    msg_type = payload.get("message", {}).get("type", "")
+    msg     = payload.get("message", {})
+    msg_type = msg.get("type", "")
+
+    # ── Tool call: prospect requested a human callback ────────────────────────
+    if msg_type == "tool-calls":
+        tool_calls = msg.get("toolCalls", [])
+        call       = msg.get("call", {})
+        metadata   = call.get("metadata", {})
+        lead_id    = metadata.get("lead_id", "")
+
+        results = []
+        for tc in tool_calls:
+            fn_name = tc.get("function", {}).get("name", "")
+            args_raw = tc.get("function", {}).get("arguments", "{}")
+            import json as _json
+            args = _json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+
+            if fn_name == "request_callback" and lead_id:
+                from database.client import update_lead, log_activity
+                update_lead(lead_id, {"callback_requested": True})
+                log_activity(lead_id, "callback_requested", {
+                    "source": "outbound_click_call",
+                    "note": "Prospect requested human callback during Aria call",
+                })
+                _notify_callback_requested(lead_id)
+                results.append({"toolCallId": tc.get("id", ""), "result": "done"})
+
+            elif fn_name == "book_demo":
+                result_str = _handle_book_demo(lead_id, call, args)
+                results.append({"toolCallId": tc.get("id", ""), "result": result_str})
+
+            else:
+                results.append({"toolCallId": tc.get("id", ""), "result": "done"})
+
+        return {"results": results}
 
     if msg_type != "end-of-call-report":
         return {"ok": True}
 
-    msg       = payload["message"]
+    # ── End-of-call report ────────────────────────────────────────────────────
     call      = msg.get("call", {})
-    caller_no = call.get("customer", {}).get("number", "")
+    call_type = call.get("type", "")          # inboundPhoneCall | outboundPhoneCall
+    metadata  = call.get("metadata", {})
     rec_url   = msg.get("recordingUrl", "")
     transcript= msg.get("transcript", "")
     summary   = msg.get("summary", "")
     ended_rsn = msg.get("endedReason", "")
 
+    from database.client import get_client, update_lead, log_activity
+
+    # ── Outbound (click campaign) ─────────────────────────────────────────────
+    if call_type == "outboundPhoneCall":
+        lead_id = metadata.get("lead_id", "")
+        if lead_id:
+            log_activity(lead_id, "outbound_call_completed", {
+                "ended_reason": ended_rsn,
+                "recording_url": rec_url,
+                "summary": summary[:500] if summary else "",
+                "transcript": transcript[:1000] if transcript else "",
+            })
+        return {"ok": True}
+
+    # ── Inbound (Henry) ───────────────────────────────────────────────────────
+    caller_no = call.get("customer", {}).get("number", "")
     if not caller_no:
         return {"ok": True}
 
-    from database.client import get_client, update_lead, log_activity
     db = get_client()
-
-    # Normalise number: strip spaces/dashes, ensure leading +
     digits = "".join(c for c in caller_no if c.isdigit())
     result = db.table("leads").select("id, status").or_(
         f"phone.eq.{caller_no},phone.ilike.%{digits[-9:]}%"
     ).limit(1).execute()
 
     if not result.data:
-        return {"ok": True}   # unknown caller — not one of our leads
+        return {"ok": True}
 
-    lead = result.data[0]
+    lead    = result.data[0]
     lead_id = lead["id"]
 
     update_lead(lead_id, {
@@ -417,6 +475,108 @@ async def vapi_webhook(request: Request):
     })
 
     return {"ok": True}
+
+
+def _handle_book_demo(lead_id: str, call: dict, args: dict) -> str:
+    """Handle Aria's book_demo tool call. Books a Cal.com slot and confirms via WhatsApp."""
+    try:
+        from agents.cal_booking import book_demo, send_booking_whatsapp
+        from database.client import get_lead_by_id, log_activity
+
+        lead = get_lead_by_id(lead_id) if lead_id else None
+        caller_no = call.get("customer", {}).get("number", "")
+
+        name   = args.get("attendee_name") or (lead.get("name", "") if lead else "")
+        email  = args.get("attendee_email") or (lead.get("email", "") if lead else "")
+        pref   = args.get("preferred_time", "")
+        from utils.timezone import get_tz_name
+        tz = get_tz_name(lead.get("city", "") if lead else "", lead.get("market", "") if lead else "")
+
+        if not email:
+            # Can't book without email; fall back to directing them to Cal.com
+            return (
+                "I wasn't able to complete the booking automatically without an email address. "
+                "Please direct the prospect to cal.com/practicedesk to book directly."
+            )
+
+        result = book_demo(
+            attendee_name=name,
+            attendee_email=email,
+            preferred_time=pref,
+            attendee_phone=caller_no,
+            attendee_tz=tz,
+        )
+
+        if result["ok"]:
+            from datetime import datetime
+            start_iso = result["start_time"]
+            try:
+                dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+                import pytz as _pytz
+                dt_local = dt.astimezone(_pytz.timezone(tz))
+                friendly = dt_local.strftime("%A, %d %b at %-I:%M %p %Z")
+            except Exception:
+                friendly = start_iso
+
+            # WhatsApp confirmation to prospect
+            send_booking_whatsapp(caller_no or (lead.get("phone", "") if lead else ""), name, friendly)
+
+            if lead_id:
+                log_activity(lead_id, "demo_booked", {
+                    "start_time": start_iso,
+                    "booking_uid": result.get("booking_uid"),
+                    "attendee_email": email,
+                })
+
+            return (
+                f"Booking confirmed for {friendly}. "
+                f"A confirmation has been sent. Meeting link: {result.get('meeting_url', 'cal.com/practicedesk')}."
+            )
+        else:
+            return (
+                f"I wasn't able to complete the booking automatically ({result.get('error', 'unknown error')}). "
+                f"Please direct the prospect to cal.com/practicedesk to book directly."
+            )
+    except Exception as exc:
+        return f"Booking failed: {exc}. Please direct the prospect to cal.com/practicedesk."
+
+
+def _notify_callback_requested(lead_id: str) -> None:
+    """Send Neeraj a WhatsApp alert when a prospect asks for a human callback."""
+    try:
+        from database.client import get_client
+        db = get_client()
+        lead = db.table("leads").select("name, phone, business_type, city").eq("id", lead_id).single().execute().data
+        if not lead:
+            return
+
+        wa_token   = os.getenv("WHATSAPP_TOKEN", "")
+        phone_id   = os.getenv("OUTREACH_WA_PHONE_NUMBER_ID", "")
+        neeraj_no  = os.getenv("FOUNDER_WHATSAPP_NUMBER", "")  # e.g. +919XXXXXXXXX
+        if not all([wa_token, phone_id, neeraj_no]):
+            return
+
+        msg = (
+            f"📞 *Callback requested*\n"
+            f"Lead: {lead['name']}\n"
+            f"Phone: {lead['phone']}\n"
+            f"Type: {lead.get('business_type', '')} · {lead.get('city', '')}\n"
+            f"They want a human call — please follow up."
+        )
+        import requests as req
+        req.post(
+            f"https://graph.facebook.com/v19.0/{phone_id}/messages",
+            json={
+                "messaging_product": "whatsapp",
+                "to": neeraj_no,
+                "type": "text",
+                "text": {"body": msg},
+            },
+            headers={"Authorization": f"Bearer {wa_token}"},
+            timeout=10,
+        )
+    except Exception:
+        pass  # notification is best-effort
 
 
 # ── Cron: email sequence (called by Railway scheduled job) ────────────────────
@@ -436,6 +596,8 @@ async def cron_email_sequence(request: Request):
     from agents.email_personalizer import generate_email, detect_market
     from agents.email_sender import send_email
     from utils.timezone import is_email_window, window_description
+
+    from agents.email_sender import QuotaExceededError
 
     leads = get_leads_due_for_email(limit=100)
     sent = skipped = failed = 0
@@ -465,6 +627,8 @@ async def cron_email_sequence(request: Request):
                 "trigger": "cron",
             })
             sent += 1
+        except QuotaExceededError:
+            break  # remaining leads will be retried next cron run
         except Exception:
             failed += 1
 
@@ -957,6 +1121,257 @@ async def backfill_contacted(_=Depends(verify_token)):
     )
     updated = len(result.data) if result.data else 0
     return {"ok": True, "updated": updated}
+
+
+# ── Scheduled jobs (APScheduler — runs inside the server process) ─────────────
+
+async def _job_wa_followup():
+    from agents.followup import generate_followup_message
+    from agents.outreach import send_whatsapp_message
+    from database.client import get_leads_for_followup, log_activity
+    leads = get_leads_for_followup()
+    for lead in leads:
+        try:
+            msg = generate_followup_message(
+                lead.get("name", ""), lead.get("business_type", "practice"), lead.get("city", "")
+            )
+            send_whatsapp_message(lead["phone"], msg)
+            log_activity(lead["id"], "wa_followup_sent", {"message": msg})
+        except Exception:
+            pass
+        await asyncio.sleep(2)
+
+
+async def _job_voice_followup():
+    from agents.voice_outreach import place_outbound_call
+    from database.client import get_leads_for_voice_followup, log_activity
+    leads = get_leads_for_voice_followup()
+    for lead in leads:
+        try:
+            place_outbound_call(lead["phone"], lead.get("business_type", ""), lead.get("name", ""))
+            log_activity(lead["id"], "voice_followup_placed", {"phone": lead["phone"]})
+        except Exception:
+            pass
+        await asyncio.sleep(3)
+
+
+async def _job_observatory():
+    from agents.observatory import build_digest, send_observatory_digest
+    from database.client import log_activity
+    try:
+        digest = build_digest()
+        send_observatory_digest()
+        log_activity(None, "observatory_sent", {"preview": digest[:200]})
+    except Exception:
+        pass
+
+
+async def _job_click_calls():
+    try:
+        from agents.click_caller import run_click_campaign
+        run_click_campaign()
+    except Exception:
+        pass
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    scheduler.add_job(_job_wa_followup,    "cron", hour=9,  minute=0)             # 9am UTC daily
+    scheduler.add_job(_job_voice_followup, "cron", hour=9,  minute=0)             # 9am UTC daily
+    scheduler.add_job(_job_observatory,    "cron", hour=1,  minute=30)            # 1:30am UTC = 7am IST
+    scheduler.add_job(_job_click_calls,    "cron", hour="9-22", minute=0,         # hourly 9am–10pm UTC = covers all markets 10am–5pm local
+                      day_of_week="mon-fri")
+    scheduler.start()
+
+
+# ── WA Outreach Inbound Webhook (Agents 4 + 5: Reply Handler + Demo Booking) ──
+
+@app.get("/api/webhooks/wa-outreach")
+async def wa_outreach_verify(
+    hub_mode: str = Query(default="", alias="hub.mode"),
+    hub_challenge: str = Query(default="", alias="hub.challenge"),
+    hub_verify_token: str = Query(default="", alias="hub.verify_token"),
+):
+    """Meta webhook verification handshake."""
+    verify_token = os.getenv("WA_WEBHOOK_VERIFY_TOKEN", "")
+    if hub_mode == "subscribe" and hub_verify_token == verify_token:
+        return Response(content=hub_challenge, media_type="text/plain")
+    raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@app.post("/api/webhooks/wa-outreach")
+async def wa_outreach_webhook(request: Request):
+    """Receive inbound WhatsApp messages, classify intent, and respond."""
+    from agents.reply_handler import classify_intent, generate_reply, get_demo_message
+    from agents.outreach import send_whatsapp_message
+    from database.client import get_lead_by_phone, update_lead, log_activity
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"ok": True}
+
+    try:
+        entry   = payload.get("entry", [{}])[0]
+        change  = entry.get("changes", [{}])[0]
+        value   = change.get("value", {})
+        messages = value.get("messages", [])
+
+        if not messages or messages[0].get("type") != "text":
+            return {"ok": True}
+
+        msg    = messages[0]
+        sender = msg.get("from", "")          # digits-only from Meta
+        text   = msg.get("text", {}).get("body", "").strip()
+        if not sender or not text:
+            return {"ok": True}
+
+        phone = f"+{sender}" if not sender.startswith("+") else sender
+        lead  = get_lead_by_phone(phone)
+        if not lead:
+            return {"ok": True}
+
+        lead_id = lead["id"]
+        name    = lead.get("name", "")
+        btype   = lead.get("business_type", "practice")
+
+        update_lead(lead_id, {"status": "replied"})
+        log_activity(lead_id, "wa_reply_received", {"message": text, "sender": phone})
+
+        intent = classify_intent(text)
+
+        if intent == "interested":
+            reply = get_demo_message(name)
+            send_whatsapp_message(phone, reply)
+            log_activity(lead_id, "demo_booking_sent", {"message": reply})
+
+        elif intent == "question":
+            reply = generate_reply(text, name, btype)
+            send_whatsapp_message(phone, reply)
+            log_activity(lead_id, "wa_reply_sent", {"message": reply})
+
+        elif intent == "not_interested":
+            update_lead(lead_id, {"status": "dead"})
+            log_activity(lead_id, "marked_not_interested", {"message": text})
+
+        # out_of_office: logged above, no reply sent
+
+    except Exception:
+        pass  # Always 200 — Meta will retry on non-200
+
+    return {"ok": True}
+
+
+# ── Cron: WA follow-up (Agent 6 — 3-day silence) ─────────────────────────────
+
+@app.get("/api/cron/wa-followup")
+async def cron_wa_followup(request: Request):
+    """Send follow-up WA message to leads silent for 3+ days."""
+    import asyncio as _asyncio
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth.removeprefix("Bearer ").strip() != cron_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from agents.followup import generate_followup_message
+    from agents.outreach import send_whatsapp_message
+    from database.client import get_leads_for_followup, log_activity
+
+    leads = get_leads_for_followup()
+    sent = failed = 0
+
+    for lead in leads:
+        try:
+            msg = generate_followup_message(
+                lead.get("name", ""),
+                lead.get("business_type", "practice"),
+                lead.get("city", ""),
+            )
+            send_whatsapp_message(lead["phone"], msg)
+            log_activity(lead["id"], "wa_followup_sent", {"message": msg})
+            sent += 1
+        except Exception:
+            failed += 1
+        await _asyncio.sleep(2)
+
+    return {"sent": sent, "failed": failed, "total": len(leads)}
+
+
+# ── Cron: click-to-call campaign (email clickers, Mon–Fri 10 AM–5 PM local) ───
+
+@app.post("/api/cron/click-calls")
+async def cron_click_calls(request: Request):
+    """
+    Outbound voice campaign to leads who clicked an email link but have not yet
+    been called. Respects 10 AM–5 PM in the lead's local timezone.
+    Schedule on Railway: every hour, Mon–Fri.
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth.removeprefix("Bearer ").strip() != cron_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from agents.click_caller import run_click_campaign
+    result = run_click_campaign()
+    return {"ok": True, **result}
+
+
+# ── Cron: voice follow-up (Agent 7 — 5-day silence) ──────────────────────────
+
+@app.get("/api/cron/voice-followup")
+async def cron_voice_followup(request: Request):
+    """Place outbound Vapi call to leads silent for 5+ days."""
+    import asyncio as _asyncio
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth.removeprefix("Bearer ").strip() != cron_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from agents.voice_outreach import place_outbound_call
+    from database.client import get_leads_for_voice_followup, log_activity
+
+    leads = get_leads_for_voice_followup()
+    placed = failed = 0
+
+    for lead in leads:
+        try:
+            place_outbound_call(
+                lead["phone"],
+                lead.get("business_type", ""),
+                lead.get("name", ""),
+            )
+            log_activity(lead["id"], "voice_followup_placed", {"phone": lead["phone"]})
+            placed += 1
+        except Exception:
+            failed += 1
+        await _asyncio.sleep(3)
+
+    return {"placed": placed, "failed": failed, "total": len(leads)}
+
+
+# ── Cron: Observatory (Agent 10 — daily digest) ───────────────────────────────
+
+@app.get("/api/cron/observatory")
+async def cron_observatory(request: Request):
+    """Build and send the daily Apex digest to the founder's WhatsApp."""
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth.removeprefix("Bearer ").strip() != cron_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from agents.observatory import build_digest, send_observatory_digest
+    from database.client import log_activity
+
+    digest = build_digest()
+    send_observatory_digest()
+    log_activity(None, "observatory_sent", {"preview": digest[:200]})
+    return {"ok": True, "digest": digest}
 
 
 if __name__ == "__main__":

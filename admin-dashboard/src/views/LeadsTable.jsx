@@ -35,7 +35,7 @@ export default function LeadsTable() {
   const [leads, setLeads] = useState([])
   const [count, setCount] = useState(0)
   const [page, setPage] = useState(0)
-  const [filters, setFilters] = useState({ business_type: '', status: '', city: '', outreach_sent: '' })
+  const [filters, setFilters] = useState({ business_type: '', status: '', city: '', outreach_sent: '', email_engagement: '' })
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [preview, setPreview] = useState(null)
@@ -60,13 +60,15 @@ export default function LeadsTable() {
       ...(filters.status && { status: filters.status }),
       ...(filters.city && { city: filters.city }),
       ...(filters.outreach_sent !== '' && { outreach_sent: filters.outreach_sent === 'true' }),
+      ...(filters.email_engagement && { email_engagement: filters.email_engagement }),
       ...(search && { search }),
     }
+
     getLeads(params)
       .then((res) => { setLeads(res.data || []); setCount(res.count || 0) })
       .catch((err) => { console.error(err); setLoadError(err.message || 'Failed to load leads') })
       .finally(() => setLoading(false))
-  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, search])
+  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, filters.email_engagement, search])
 
   useEffect(() => { load() }, [load])
 
@@ -206,6 +208,16 @@ export default function LeadsTable() {
           <option value="true">WA sent</option>
           <option value="false">WA not sent</option>
         </select>
+        <select
+          value={filters.email_engagement}
+          onChange={(e) => setFilter('email_engagement', e.target.value)}
+          className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+        >
+          <option value="">Email — all</option>
+          <option value="clicked">Clicked a link</option>
+          <option value="opened">Opened only</option>
+          <option value="sent">Sent (any)</option>
+        </select>
         <div className="ml-auto flex items-center gap-3">
           <button
             onClick={startEnrich}
@@ -275,7 +287,11 @@ export default function LeadsTable() {
                     {lead.email_bounced
                       ? <span className="text-red-400" title="Email bounced">Bounced</span>
                       : lead.email_clicked
-                        ? <span className="text-green-400" title="Clicked a link">Clicked</span>
+                        ? (
+                          <span className="text-green-400 cursor-help" title={lead.email_clicked_link ? `Clicked: ${lead.email_clicked_link}` : 'Clicked a link'}>
+                            Clicked {lead.email_clicked_link && <span className="text-green-600">↗</span>}
+                          </span>
+                        )
                         : lead.email_opened
                           ? <span className="text-yellow-400" title="Opened email">Opened</span>
                           : lead.email_sent
@@ -451,7 +467,16 @@ export default function LeadsTable() {
         <Modal title={`Activity — ${activityModal.lead.name}`} onClose={() => setActivityModal(null)}>
           {activityModal.loading && <p className="text-xs text-slate-400">Loading…</p>}
           {activityModal.error && <p className="text-xs text-red-400">{activityModal.error}</p>}
-          {!activityModal.loading && activityModal.items.length === 0 && (
+          {activityModal.lead.email_clicked && (
+            <div className="mb-3 bg-green-900/30 border border-green-700/40 rounded p-2.5 text-xs">
+              <p className="text-green-400 font-medium mb-0.5">Clicked email link</p>
+              {activityModal.lead.email_clicked_link
+                ? <a href={activityModal.lead.email_clicked_link} target="_blank" rel="noopener noreferrer" className="text-green-300 underline break-all">{activityModal.lead.email_clicked_link}</a>
+                : <span className="text-green-600">Link not recorded</span>}
+              {activityModal.lead.email_clicked_at && <p className="text-slate-500 mt-0.5">{fmt(activityModal.lead.email_clicked_at)}</p>}
+            </div>
+          )}
+          {!activityModal.loading && activityModal.items.length === 0 && !activityModal.lead.email_clicked && (
             <p className="text-xs text-slate-500">No activity recorded yet.</p>
           )}
           <div className="space-y-3 max-h-72 overflow-y-auto">

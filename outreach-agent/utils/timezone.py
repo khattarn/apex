@@ -72,13 +72,18 @@ MARKET_TZ = {
     "UK": "Europe/London",
 }
 
-# Email: Tue–Thu only (best B2B open rates)
-EMAIL_SEND_DAYS = {1, 2, 3}
+# Email: Mon–Fri
+EMAIL_SEND_DAYS = {0, 1, 2, 3, 4}
 # WhatsApp/calls: Mon–Fri
 WA_SEND_DAYS = {0, 1, 2, 3, 4}
 SEND_HOUR_START = 8
 SEND_MINUTE_START = 30
 SEND_HOUR_END = 19
+
+# Outbound voice calls: Mon–Fri, 10 AM – 5 PM local time
+VOICE_SEND_DAYS = {0, 1, 2, 3, 4}
+VOICE_HOUR_START = 10
+VOICE_HOUR_END = 17
 
 
 def get_tz_name(city: str, market: str = "") -> str:
@@ -108,6 +113,13 @@ def is_email_window(city: str, market: str = "") -> bool:
 
 def is_wa_window(city: str, market: str = "") -> bool:
     return _in_window(local_now(city, market), WA_SEND_DAYS)
+
+
+def is_voice_window(city: str, market: str = "") -> bool:
+    now = local_now(city, market)
+    if now.weekday() not in VOICE_SEND_DAYS:
+        return False
+    return VOICE_HOUR_START <= now.hour < VOICE_HOUR_END
 
 
 def window_description(city: str, market: str = "") -> str:

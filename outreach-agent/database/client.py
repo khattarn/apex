@@ -28,7 +28,7 @@ def get_client():
 # ── Leads ─────────────────────────────────────────────────────────────────────
 
 def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
-              limit=25, offset=0, search=None):
+              email_engagement=None, limit=25, offset=0, search=None):
     db = get_client()
     query = db.table("leads").select("*", count="exact")
     if business_type:
@@ -40,8 +40,13 @@ def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
     if outreach_sent is True:
         query = query.eq("outreach_sent", True)
     elif outreach_sent is False:
-        # NULL rows also count as "not sent"
         query = query.or_("outreach_sent.eq.false,outreach_sent.is.null")
+    if email_engagement == "clicked":
+        query = query.eq("email_clicked", True)
+    elif email_engagement == "opened":
+        query = query.eq("email_opened", True).or_("email_clicked.eq.false,email_clicked.is.null")
+    elif email_engagement == "sent":
+        query = query.eq("email_sent", True)
     if search:
         query = query.or_(f"name.ilike.%{search}%,city.ilike.%{search}%")
     result = (
@@ -320,6 +325,44 @@ def record_email_clicked(lead_id: str, campaign_run_id: str | None, link: str = 
         db.table("campaign_runs").update({"emails_clicked": current + 1}).eq("id", campaign_run_id).execute()
 
 
+def get_clicked_uncalled_leads() -> list[dict]:
+    """
+    Return leads that:
+      - clicked an email (email_clicked=true)
+      - are not dead or converted
+      - have not already received an outbound_call activity
+    """
+    db = get_client()
+
+    # Leads who clicked
+    clicked = (
+        db.table("leads")
+        .select("id, name, phone, city, business_type, status, market")
+        .eq("email_clicked", True)
+        .not_.in_("status", ["dead", "converted"])
+        .execute()
+        .data
+    ) or []
+
+    if not clicked:
+        return []
+
+    clicked_ids = [str(r["id"]) for r in clicked]
+
+    # Leads already called outbound
+    already_called_rows = (
+        db.table("lead_activities")
+        .select("lead_id")
+        .eq("type", "outbound_call")
+        .in_("lead_id", clicked_ids)
+        .execute()
+        .data
+    ) or []
+    already_called = {str(r["lead_id"]) for r in already_called_rows}
+
+    return [r for r in clicked if str(r["id"]) not in already_called]
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 def get_setting(key):
@@ -335,6 +378,67 @@ def save_setting(key, value):
         "value": value,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
+
+
+# ── Follow-up queries ─────────────────────────────────────────────────────────
+
+def get_lead_by_phone(phone: str):
+    """Look up a lead by phone number. Tries exact match then last-9-digit suffix."""
+    db = get_client()
+    digits = "".join(c for c in phone if c.isdigit())
+    result = db.table("leads").select("*").or_(
+        f"phone.eq.{phone},phone.ilike.%{digits[-9:]}%"
+    ).limit(1).execute()
+    return result.data[0] if result.data else None
+
+
+def get_leads_for_followup(limit=20) -> list:
+    """Leads that were WA-contacted 3+ days ago, haven't replied/died, and haven't had a follow-up sent."""
+    from datetime import datetime, timezone, timedelta
+    db = get_client()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+
+    # Leads already sent a follow-up
+    sent_result = db.table("lead_activities").select("lead_id").eq("type", "wa_followup_sent").execute()
+    already_sent = {r["lead_id"] for r in sent_result.data}
+
+    result = (
+        db.table("leads")
+        .select("*")
+        .eq("status", "contacted")
+        .eq("outreach_sent", True)
+        .lte("outreach_date", cutoff)
+        .not_.is_("phone", "null")
+        .neq("phone", "")
+        .limit(limit + len(already_sent))
+        .execute()
+    )
+    leads = [l for l in result.data if l["id"] not in already_sent]
+    return leads[:limit]
+
+
+def get_leads_for_voice_followup(limit=10) -> list:
+    """Leads that were WA-contacted 5+ days ago, haven't replied/died, and haven't had a voice call placed."""
+    from datetime import datetime, timezone, timedelta
+    db = get_client()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+
+    placed_result = db.table("lead_activities").select("lead_id").eq("type", "voice_followup_placed").execute()
+    already_placed = {r["lead_id"] for r in placed_result.data}
+
+    result = (
+        db.table("leads")
+        .select("*")
+        .eq("status", "contacted")
+        .eq("outreach_sent", True)
+        .lte("outreach_date", cutoff)
+        .not_.is_("phone", "null")
+        .neq("phone", "")
+        .limit(limit + len(already_placed))
+        .execute()
+    )
+    leads = [l for l in result.data if l["id"] not in already_placed]
+    return leads[:limit]
 
 
 # ── Danger zone ───────────────────────────────────────────────────────────────
