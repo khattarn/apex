@@ -81,8 +81,12 @@ export default function Campaigns() {
                 <tr key={c.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
                   <td className="px-4 py-2.5 text-xs text-slate-400 whitespace-nowrap">{fmt(c.created_at)}</td>
                   <td className="px-4 py-2.5"><TypeBadge type={c.type} /></td>
-                  <td className="px-4 py-2.5 capitalize">{c.business_type}</td>
-                  <td className="px-4 py-2.5 text-slate-400">{c.city}</td>
+                  <td className="px-4 py-2.5 capitalize text-xs" title={c.business_type}>
+                    {c.business_type && c.business_type.length > 20 ? c.business_type.slice(0, 18) + '…' : c.business_type}
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-400 text-xs" title={c.city}>
+                    {c.city && c.city.length > 22 ? c.city.slice(0, 20) + '…' : c.city}
+                  </td>
                   <td className="px-4 py-2.5">
                     <span className="text-xs px-2 py-0.5 rounded font-medium bg-slate-700 text-slate-300">
                       {c.mode === 'live' ? 'Live' : 'Dry Run'}

@@ -236,10 +236,17 @@ async def email_campaign(_=Depends(verify_token)):
 
         _running["email_campaign"] = {"total": len(leads), "started": _time.time()}
 
+        # Compute which cities/types are in this batch for attribution
+        batch_cities = sorted({l.get("city", "") for l in leads if l.get("city")})
+        batch_types  = sorted({l.get("business_type", "") for l in leads if l.get("business_type")})
+        cities_str   = ", ".join(batch_cities) if batch_cities else "all"
+        types_str    = ", ".join(batch_types)  if batch_types  else "all"
+        yield {"data": json.dumps({"type": "log", "line": f"Cities in this run: {cities_str}"})}
+
         # Create campaign run now so we have an ID to link each email_send record
         from database.client import save_campaign_run, update_campaign_run, save_email_send
         run_record = save_campaign_run({
-            "type": "email", "business_type": "all", "city": "all",
+            "type": "email", "business_type": types_str, "city": cities_str,
             "max_prospects": len(leads), "mode": "live",
             "prospects_found": len(leads), "new_leads": 0,
             "messages_sent": 0, "emails_sent": 0, "log": "In progress…",
