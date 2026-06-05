@@ -400,7 +400,25 @@ async def vapi_webhook(request: Request):
             import json as _json
             args = _json.loads(args_raw) if isinstance(args_raw, str) else args_raw
 
-            if fn_name == "request_callback" and lead_id:
+            if fn_name == "schedule_callback" and lead_id:
+                from database.client import log_activity
+                from agents.cal_booking import parse_preferred_time
+                from utils.timezone import get_tz_name
+                from database.client import get_lead_by_id
+                lead_rec = get_lead_by_id(lead_id)
+                tz = get_tz_name(lead_rec.get("city", "") if lead_rec else "",
+                                 lead_rec.get("market", "") if lead_rec else "")
+                day  = args.get("preferred_day", "")
+                time = args.get("preferred_time", "")
+                callback_dt = parse_preferred_time(f"{day} {time}", tz)
+                log_activity(lead_id, "callback_scheduled", {
+                    "callback_at": callback_dt.isoformat(),
+                    "preferred_day": day,
+                    "preferred_time": time,
+                })
+                results.append({"toolCallId": tc.get("id", ""), "result": f"Callback scheduled for {callback_dt.strftime('%A %d %b at %I:%M %p %Z')}"})
+
+            elif fn_name == "request_callback" and lead_id:
                 from database.client import update_lead, log_activity
                 update_lead(lead_id, {"callback_requested": True})
                 log_activity(lead_id, "callback_requested", {
@@ -1174,6 +1192,31 @@ async def _job_click_calls():
         pass
 
 
+async def _job_scheduled_callbacks():
+    """Call back leads who asked Aria to call them at a specific time."""
+    try:
+        from database.client import get_leads_due_callback, log_activity
+        from agents.click_caller import place_click_call
+        from utils.timezone import is_voice_window
+        leads = get_leads_due_callback()
+        for lead in leads:
+            if not is_voice_window(lead.get("city", ""), lead.get("market", "")):
+                continue
+            if not lead.get("phone"):
+                continue
+            try:
+                call = place_click_call(lead)
+                log_activity(str(lead["id"]), "outbound_call", {
+                    "vapi_call_id": call.get("id", ""),
+                    "trigger": "scheduled_callback",
+                    "phone": lead["phone"],
+                })
+            except Exception as exc:
+                log.error("Scheduled callback failed for lead %s: %s", lead.get("id"), exc)
+    except Exception:
+        pass
+
+
 @app.on_event("startup")
 async def start_scheduler():
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -1181,7 +1224,9 @@ async def start_scheduler():
     scheduler.add_job(_job_wa_followup,    "cron", hour=9,  minute=0)             # 9am UTC daily
     scheduler.add_job(_job_voice_followup, "cron", hour=9,  minute=0)             # 9am UTC daily
     scheduler.add_job(_job_observatory,    "cron", hour=1,  minute=30)            # 1:30am UTC = 7am IST
-    scheduler.add_job(_job_click_calls,    "cron", hour="9-22", minute=0,         # hourly 9am–10pm UTC = covers all markets 10am–5pm local
+    scheduler.add_job(_job_click_calls,         "cron", hour="9-22", minute=0,    # hourly Mon–Fri, covers all market windows
+                      day_of_week="mon-fri")
+    scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",            # every 15 min — checks for due callbacks
                       day_of_week="mon-fri")
     scheduler.start()
 

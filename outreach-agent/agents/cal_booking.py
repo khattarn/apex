@@ -23,13 +23,15 @@ import pytz
 log = logging.getLogger(__name__)
 
 CAL_BASE = "https://api.cal.com/v2"
-CAL_API_VERSION = "2024-08-13"
+CAL_API_VERSION = "2024-06-14"   # version that supports list response format
+CAL_BOOKING_URL = "https://cal.com/neeraj-khattar-3zszap/practicedesk-demo"
 
 
 def _cal_headers() -> dict:
+    version = os.getenv("CAL_API_VERSION", CAL_API_VERSION)
     return {
         "Authorization": f"Bearer {os.getenv('CAL_API_KEY', '')}",
-        "cal-api-version": CAL_API_VERSION,
+        "cal-api-version": version,
         "Content-Type": "application/json",
     }
 
@@ -177,11 +179,12 @@ def book_demo(
 
     booking = resp.json().get("data", {})
     uid = booking.get("uid", "")
+    fallback_url = os.getenv("CAL_BOOKING_URL", CAL_BOOKING_URL)
     return {
         "ok": True,
         "start_time": chosen,
         "booking_uid": uid,
-        "meeting_url": booking.get("meetingUrl") or f"https://cal.com/booking/{uid}",
+        "meeting_url": booking.get("meetingUrl") or f"https://cal.com/booking/{uid}" or fallback_url,
     }
 
 

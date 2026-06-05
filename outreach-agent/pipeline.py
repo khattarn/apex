@@ -35,7 +35,7 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
         # ── Step 1: Prospect ──────────────────────────────────────────────────
         yield f"[{_ts()}] Searching Google Maps for {business_type} businesses in {current_city}..."
         try:
-            businesses = find_businesses(business_type, current_city, max_prospects)
+            businesses = await asyncio.to_thread(find_businesses, business_type, current_city, max_prospects)
         except Exception as exc:
             yield f"[{_ts()}] ERROR during prospecting in {current_city}: {exc}"
             continue

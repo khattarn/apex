@@ -325,6 +325,60 @@ def record_email_clicked(lead_id: str, campaign_run_id: str | None, link: str = 
         db.table("campaign_runs").update({"emails_clicked": current + 1}).eq("id", campaign_run_id).execute()
 
 
+def get_leads_due_callback() -> list[dict]:
+    """
+    Return leads that have a callback_scheduled activity whose callback_at is now or past,
+    and have not yet received an outbound_call after that scheduled time.
+    """
+    from datetime import datetime, timezone
+    db = get_client()
+    now = datetime.now(timezone.utc).isoformat()
+
+    # All scheduled callbacks
+    rows = (
+        db.table("lead_activities")
+        .select("lead_id, detail, created_at")
+        .eq("type", "callback_scheduled")
+        .execute()
+        .data
+    ) or []
+
+    due_lead_ids = []
+    for row in rows:
+        detail = row.get("detail") or {}
+        callback_at = detail.get("callback_at", "")
+        if callback_at and callback_at <= now:
+            due_lead_ids.append(str(row["lead_id"]))
+
+    if not due_lead_ids:
+        return []
+
+    # Exclude any that already received an outbound_call after scheduling
+    called_rows = (
+        db.table("lead_activities")
+        .select("lead_id")
+        .eq("type", "outbound_call")
+        .in_("lead_id", due_lead_ids)
+        .execute()
+        .data
+    ) or []
+    already_called = {str(r["lead_id"]) for r in called_rows}
+
+    remaining = [lid for lid in due_lead_ids if lid not in already_called]
+    if not remaining:
+        return []
+
+    result = (
+        db.table("leads")
+        .select("id, name, phone, city, business_type, market, status")
+        .in_("id", remaining)
+        .not_.in_("status", ["dead", "converted"])
+        .execute()
+        .data
+    ) or []
+    return result
+
+
 def get_clicked_uncalled_leads() -> list[dict]:
     """
     Return leads that:

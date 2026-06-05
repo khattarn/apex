@@ -1,4 +1,6 @@
 import os
+import time
+import requests
 import googlemaps
 
 BUSINESS_TYPE_QUERIES = {
@@ -20,12 +22,25 @@ def find_businesses(business_type: str, city: str, max_results: int = 10) -> lis
     results = []
     page_token = None
 
-    while len(results) < max_results:
-        kwargs = {"query": f"{query} in {city}"}
-        if page_token:
-            kwargs["page_token"] = page_token
+    _PLACES_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
 
-        response = gmaps.places(**kwargs)
+    while len(results) < max_results:
+        try:
+            if page_token:
+                # Use raw request: the googlemaps library sends minprice=None&maxprice=None
+                # which Google rejects as INVALID_REQUEST on page_token calls
+                raw = requests.get(
+                    _PLACES_URL,
+                    params={"pagetoken": page_token, "key": api_key},
+                    timeout=10,
+                ).json()
+                if raw.get("status") != "OK":
+                    break
+                response = raw
+            else:
+                response = gmaps.places(query=f"{query} in {city}")
+        except Exception:
+            break
         places = response.get("results", [])
 
         for place in places:
@@ -49,5 +64,6 @@ def find_businesses(business_type: str, city: str, max_results: int = 10) -> lis
         page_token = response.get("next_page_token")
         if not page_token:
             break
+        time.sleep(2)
 
     return results
