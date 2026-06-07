@@ -103,15 +103,21 @@ _DEFAULT_SCRIPT = {
 
 def place_outbound_call(phone: str, business_type: str, business_name: str) -> dict:
     api_key = os.getenv("VAPI_API_KEY")
-    phone_number_id = os.getenv("VAPI_PHONE_NUMBER_ID")
     if not api_key:
         raise RuntimeError("VAPI_API_KEY must be set")
-    if not phone_number_id:
-        raise RuntimeError("VAPI_PHONE_NUMBER_ID must be set")
 
     cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
     if not cleaned.startswith("+"):
         cleaned = "+" + cleaned
+
+    # Auto-route: +91 numbers use the India Vobiz number when configured
+    if cleaned.startswith("+91") and os.getenv("INDIA_VAPI_PHONE_NUMBER_ID"):
+        phone_number_id = os.getenv("INDIA_VAPI_PHONE_NUMBER_ID")
+    else:
+        phone_number_id = os.getenv("VAPI_PHONE_NUMBER_ID")
+
+    if not phone_number_id:
+        raise RuntimeError("VAPI_PHONE_NUMBER_ID (or INDIA_VAPI_PHONE_NUMBER_ID for +91) must be set")
 
     script = CALL_SCRIPTS.get(business_type.lower(), _DEFAULT_SCRIPT)
 

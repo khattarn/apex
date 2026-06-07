@@ -396,14 +396,11 @@ def _build_assistant(business_type: str, server_url: str) -> dict:
 
 def place_click_call(lead: dict) -> dict:
     """Place one outbound Vapi call for a clicked lead. Returns Vapi call object."""
-    api_key = os.getenv("VAPI_API_KEY")
-    phone_number_id = os.getenv("VAPI_PHONE_NUMBER_ID")
+    api_key    = os.getenv("VAPI_API_KEY")
     server_url = os.getenv("SERVER_BASE_URL", "").rstrip("/")
 
     if not api_key:
         raise RuntimeError("VAPI_API_KEY not set")
-    if not phone_number_id:
-        raise RuntimeError("VAPI_PHONE_NUMBER_ID not set")
     if not server_url:
         raise RuntimeError("SERVER_BASE_URL not set")
 
@@ -412,6 +409,15 @@ def place_click_call(lead: dict) -> dict:
     cleaned = _normalize_phone(phone, city)
     if not cleaned or cleaned in ("+", ""):
         raise RuntimeError(f"Could not normalise phone '{phone}' for {lead.get('name')}")
+
+    # Auto-route: +91 numbers use the India Vobiz number when configured
+    if cleaned.startswith("+91") and os.getenv("INDIA_VAPI_PHONE_NUMBER_ID"):
+        phone_number_id = os.getenv("INDIA_VAPI_PHONE_NUMBER_ID")
+    else:
+        phone_number_id = os.getenv("VAPI_PHONE_NUMBER_ID")
+
+    if not phone_number_id:
+        raise RuntimeError("VAPI_PHONE_NUMBER_ID (or INDIA_VAPI_PHONE_NUMBER_ID for +91) not set")
 
     payload = {
         "phoneNumberId": phone_number_id,

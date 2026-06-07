@@ -2,16 +2,23 @@ import os
 import requests
 
 
-def send_whatsapp_message(phone: str, message: str) -> bool:
-    phone_number_id = os.getenv("OUTREACH_WA_PHONE_NUMBER_ID")
+def send_whatsapp_message(phone: str, message: str, phone_number_id: str | None = None) -> bool:
     access_token = os.getenv("WHATSAPP_ACCESS_TOKEN")
-    if not phone_number_id or not access_token:
-        raise RuntimeError("OUTREACH_WA_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN must be set")
 
     # Normalise phone — strip spaces, dashes; ensure leading +
     cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
     if not cleaned.startswith("+"):
         cleaned = "+" + cleaned
+
+    # Auto-route: +91 numbers use the Indian WA number when configured
+    if phone_number_id is None:
+        if cleaned.startswith("+91") and os.getenv("INDIA_WA_PHONE_NUMBER_ID"):
+            phone_number_id = os.getenv("INDIA_WA_PHONE_NUMBER_ID")
+        else:
+            phone_number_id = os.getenv("OUTREACH_WA_PHONE_NUMBER_ID")
+
+    if not phone_number_id or not access_token:
+        raise RuntimeError("WhatsApp phone_number_id and WHATSAPP_ACCESS_TOKEN must be set")
 
     url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
     payload = {

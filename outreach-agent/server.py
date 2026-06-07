@@ -1277,6 +1277,42 @@ async def start_scheduler():
     scheduler.start()
 
 
+# ── Vobiz call-event webhook (Ring / StartApp / Hangup / recording.completed) ──
+
+@app.post("/api/webhooks/vobiz")
+async def vobiz_webhook(request: Request):
+    """Receive Vobiz call lifecycle events. Logs to lead_activities when lead matched."""
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"ok": True}
+
+    event     = payload.get("Event", "")
+    call_uuid = payload.get("CallUUID", "")
+    from_no   = payload.get("From", "")
+    to_no     = payload.get("To", "")
+    direction = payload.get("Direction", "")
+    duration  = payload.get("Duration", "")
+    rec_url   = payload.get("RecordingUrl", "")
+
+    if event in ("Hangup", "recording.completed") and from_no:
+        try:
+            from database.client import get_lead_by_phone, log_activity
+            phone = f"+{from_no}" if not from_no.startswith("+") else from_no
+            lead  = get_lead_by_phone(phone)
+            if lead:
+                log_activity(lead["id"], f"vobiz_{event.lower()}", {
+                    "call_uuid": call_uuid,
+                    "direction": direction,
+                    "duration":  duration,
+                    "recording_url": rec_url,
+                })
+        except Exception:
+            pass
+
+    return {"ok": True}
+
+
 # ── WA Outreach Inbound Webhook (Agents 4 + 5: Reply Handler + Demo Booking) ──
 
 @app.get("/api/webhooks/wa-outreach")
