@@ -1196,6 +1196,91 @@ async def unsubscribe(id: str = Query(default="")):
     return HTMLResponse(content=_UNSUB_PAGE, status_code=200)
 
 
+# ── Resend backfill — sync open/click events from Resend API into DB ──────────
+
+@app.post("/api/admin/resend-backfill", dependencies=[Depends(verify_token)])
+async def resend_backfill(days_back: int = 3):
+    """Pull open/click events from Resend for the last N days and update leads.
+    Uses recipient email address as the join key (no email_sends lookup needed)."""
+    import httpx
+    from datetime import datetime, timezone, timedelta
+    from database.client import get_client, log_activity
+
+    api_key = os.getenv("RESEND_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="RESEND_API_KEY not set")
+
+    db = get_client()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+
+    # Page through all Resend emails, stopping when we hit the cutoff date
+    opened_leads: list[str]  = []
+    clicked_leads: list[str] = []
+    total_fetched = 0
+    cursor: str | None = None
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            url    = "https://api.resend.com/emails?limit=100"
+            if cursor:
+                url += f"&after={cursor}"
+            resp   = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
+            data   = resp.json()
+            emails = data.get("data", [])
+            if not emails:
+                break
+
+            for em in emails:
+                created = em.get("created_at", "")
+                if created and created[:10] < cutoff.strftime("%Y-%m-%d"):
+                    # Older than cutoff — stop paging
+                    data["has_more"] = False
+                    break
+
+                event   = em.get("last_event", "")
+                to_list = em.get("to", [])
+                if event not in ("opened", "clicked") or not to_list:
+                    total_fetched += 1
+                    continue
+
+                to_email = to_list[0].lower().strip()
+                # Look up lead by email address
+                row = db.table("leads").select("id, email_opened, email_clicked").ilike("email", to_email).limit(1).execute()
+                if not row.data:
+                    total_fetched += 1
+                    continue
+
+                lead = row.data[0]
+                lead_id = str(lead["id"])
+                updates = {}
+
+                if event in ("opened", "clicked") and not lead.get("email_opened"):
+                    updates["email_opened"] = True
+                    opened_leads.append(lead_id)
+
+                if event == "clicked" and not lead.get("email_clicked"):
+                    updates["email_clicked"] = True
+                    clicked_leads.append(lead_id)
+
+                if updates:
+                    db.table("leads").update(updates).eq("id", lead_id).execute()
+                    activity_type = "email_clicked" if event == "clicked" else "email_opened"
+                    log_activity(lead_id, activity_type, {"source": "resend_backfill", "resend_event": event})
+
+                total_fetched += 1
+
+            cursor = emails[-1]["id"] if emails else None
+            if not data.get("has_more"):
+                break
+
+    return {
+        "ok":           True,
+        "total_fetched": total_fetched,
+        "opened_updated": len(opened_leads),
+        "clicked_updated": len(clicked_leads),
+    }
+
+
 # ── Live Activity Monitor ─────────────────────────────────────────────────────
 
 @app.get("/api/activity/live", dependencies=[Depends(verify_token)])
@@ -1538,7 +1623,7 @@ async def _job_email_campaign():
     try:
         from database.client import (
             get_leads_due_for_email, advance_email_sequence,
-            log_activity, save_campaign_run, EMAIL_SEQUENCE,
+            log_activity, save_campaign_run, save_email_send, EMAIL_SEQUENCE,
         )
         from agents.email_personalizer import generate_email, detect_market
         from agents.email_sender import send_email, QuotaExceededError
@@ -1546,6 +1631,15 @@ async def _job_email_campaign():
 
         leads = get_leads_due_for_email(limit=180)
         sent = skipped = failed = 0
+
+        # Create a campaign run so email_sends records have a parent
+        run_record = save_campaign_run({
+            "type": "email", "business_type": "all", "city": "all",
+            "max_prospects": len(leads), "mode": "scheduler",
+            "prospects_found": len(leads), "new_leads": 0,
+            "messages_sent": 0, "emails_sent": 0, "log": "Scheduler in progress…",
+        })
+        run_id = run_record["id"] if run_record else None
 
         for lead in leads:
             city   = lead.get("city", "")
@@ -1563,7 +1657,10 @@ async def _job_email_campaign():
             email_num, _ = EMAIL_SEQUENCE[next_step - 1]
             try:
                 subject, html, email_num_used, variant = generate_email(lead, email_number=email_num)
-                send_email(lead["email"], subject, html)
+                send_result = send_email(lead["email"], subject, html)
+                resend_id   = (send_result or {}).get("id", "")
+                if resend_id and run_id:
+                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step)
                 advance_email_sequence(lead["id"], next_step)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used,
