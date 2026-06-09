@@ -133,6 +133,116 @@ async def run_pipeline(body: PipelineRequest, _=Depends(verify_token)):
     return EventSourceResponse(event_generator(), headers={"X-Accel-Buffering": "no"}, ping=20)
 
 
+# ── WA Blast — send WA to existing uncontacted leads ─────────────────────────
+
+class WaBlastRequest(BaseModel):
+    business_type: Optional[str] = None   # None = all types
+    city: Optional[str] = None            # None = all cities; comma-separated ok
+    limit: int = 50                       # max leads per run
+
+
+@app.post("/api/leads/wa-blast", dependencies=[Depends(verify_token)])
+async def wa_blast(body: WaBlastRequest):
+    """Send WA messages to existing leads that haven't been contacted via WA yet.
+    Streams SSE log lines identical to the pipeline endpoint."""
+
+    async def event_generator():
+        from datetime import datetime
+        from agents.personalizer import generate_message
+        from agents.outreach import send_whatsapp_message
+        from database.client import get_client, mark_contacted, log_activity, save_campaign_run
+
+        def _ts():
+            return datetime.now().strftime("%H:%M:%S")
+
+        db = get_client()
+
+        # Build query for uncontacted leads with a phone number
+        query = (
+            db.table("leads")
+            .select("*")
+            .or_("outreach_sent.eq.false,outreach_sent.is.null")
+            .not_.is_("phone", "null")
+            .neq("phone", "")
+            .neq("status", "dead")
+        )
+        if body.business_type:
+            query = query.eq("business_type", body.business_type)
+        if body.city:
+            cities = [c.strip() for c in body.city.split(",") if c.strip()]
+            if len(cities) == 1:
+                query = query.ilike("city", f"%{cities[0]}%")
+            else:
+                query = query.in_("city", cities)
+
+        rows = query.limit(body.limit).execute().data or []
+
+        filters = []
+        if body.business_type: filters.append(body.business_type)
+        if body.city:           filters.append(body.city)
+        filter_str = " · ".join(filters) if filters else "all types, all cities"
+
+        yield {"data": json.dumps({"type": "log", "line": f"[{_ts()}] WA Blast — {len(rows)} uncontacted leads ({filter_str})"})}
+        yield {"data": json.dumps({"type": "log", "line": f"[{_ts()}] Sending personalised WhatsApp messages..."})}
+        yield {"data": json.dumps({"type": "log", "line": ""})}
+
+        sent = skipped = failed = 0
+        _running["wa_blast"] = {"started": _time.time(), "total": len(rows)}
+
+        for lead in rows:
+            name          = lead.get("name", "Business")
+            business_type = lead.get("business_type", "practice")
+            city          = lead.get("city", "")
+            phone         = lead.get("phone", "")
+
+            yield {"data": json.dumps({"type": "log", "line": f"  > {name} ({city})..."})}
+            await asyncio.sleep(0)
+
+            try:
+                message = await asyncio.to_thread(generate_message, name, business_type, city)
+            except Exception as exc:
+                failed += 1
+                yield {"data": json.dumps({"type": "log", "line": f"  ✗ {name}: message failed — {exc}"})}
+                continue
+
+            try:
+                await asyncio.to_thread(send_whatsapp_message, phone, message)
+                await asyncio.to_thread(mark_contacted, lead["id"], message)
+                await asyncio.to_thread(log_activity, lead["id"], "outreach_sent", {"trigger": "wa_blast", "message": message[:120]})
+                sent += 1
+                yield {"data": json.dumps({"type": "log", "line": f"  ✓ Sent to {name}"})}
+            except Exception as exc:
+                failed += 1
+                yield {"data": json.dumps({"type": "log", "line": f"  ✗ {name}: send failed — {exc}"})}
+
+            await asyncio.sleep(2)  # rate-limit guard
+
+        _running.pop("wa_blast", None)
+
+        try:
+            save_campaign_run({
+                "business_type": body.business_type or "all",
+                "city":          body.city or "all",
+                "max_prospects": body.limit,
+                "mode":          "wa_blast",
+                "prospects_found": len(rows),
+                "new_leads":     0,
+                "messages_sent": sent,
+                "log":           f"WA Blast: Sent={sent} Skipped={skipped} Failed={failed}",
+            })
+        except Exception:
+            pass
+
+        yield {"data": json.dumps({
+            "type":    "done",
+            "sent":    sent,
+            "skipped": skipped,
+            "failed":  failed,
+        })}
+
+    return EventSourceResponse(event_generator(), headers={"X-Accel-Buffering": "no"}, ping=20)
+
+
 # ── Leads ─────────────────────────────────────────────────────────────────────
 
 class LeadUpdate(BaseModel):

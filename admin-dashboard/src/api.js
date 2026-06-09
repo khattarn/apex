@@ -240,3 +240,48 @@ export const getActiveCalls = () => request('/api/active-calls')
 export const getCalledIds = () => request('/api/leads/called-ids')
 
 export const getLiveActivity = () => request('/api/activity/live')
+
+export function streamWaBlast(payload, onLine, onDone, onError) {
+  const token = localStorage.getItem('pd_token')
+  const ctrl  = new AbortController()
+
+  fetch(`${BASE}/api/leads/wa-blast`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
+    body:    JSON.stringify(payload),
+    signal:  ctrl.signal,
+  })
+    .then(res => {
+      if (!res.ok) throw new Error('WA blast request failed')
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let resolved = false
+      function processBuffer(flush) {
+        const parts = buffer.split(/\r?\n\r?\n/)
+        buffer = flush ? '' : parts.pop()
+        for (const part of parts) {
+          const dataLine = part.split('\n').find(l => l.startsWith('data:'))
+          if (!dataLine) continue
+          try {
+            const msg = JSON.parse(dataLine.slice(5).trim())
+            if (msg.type === 'log')   onLine(msg.line)
+            else if (msg.type === 'done')  { resolved = true; onDone(msg) }
+            else if (msg.type === 'error') { resolved = true; onError(msg.message) }
+          } catch { /* ignore */ }
+        }
+      }
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (value) buffer += decoder.decode(value, { stream: !done })
+          processBuffer(done)
+          if (done) { if (!resolved) onDone({}); return }
+          read()
+        })
+      }
+      read()
+    })
+    .catch(err => { if (err.name !== 'AbortError') onError(err.message) })
+
+  return () => ctrl.abort()
+}

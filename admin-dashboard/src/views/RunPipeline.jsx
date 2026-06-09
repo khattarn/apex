@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Play, Square, Search, CheckCircle } from 'lucide-react'
-import { streamPipeline, streamEnrich, getStats } from '../api'
+import { Play, Square, Search, CheckCircle, Send, ChevronDown, ChevronUp } from 'lucide-react'
+import { streamPipeline, streamEnrich, getStats, streamWaBlast } from '../api'
 
 const BUSINESS_TYPES = ['dentist', 'salon', 'accountant', 'physiotherapist', 'lawyer']
 
@@ -138,6 +138,45 @@ export default function RunPipeline() {
     stoppedRef.current = true
     stopRef.current?.()
     setPhase('idle')
+  }
+
+  // ── WA Blast state ──────────────────────────────────────────────────────────
+  const [blastForm, setBlastForm]     = useState({ business_type: '', city: '', limit: 30 })
+  const [blastRunning, setBlastRunning] = useState(false)
+  const [blastLines, setBlastLines]   = useState([])
+  const [blastSummary, setBlastSummary] = useState(null)
+  const [blastError, setBlastError]   = useState(null)
+  const [blastOpen, setBlastOpen]     = useState(false)
+  const blastStopRef = useRef(null)
+  const blastLogRef  = useRef(null)
+
+  function addBlastLine(line) {
+    setBlastLines(l => [...l, line])
+    setTimeout(() => blastLogRef.current?.scrollTo(0, blastLogRef.current.scrollHeight), 0)
+  }
+
+  function handleBlastRun() {
+    setBlastLines([])
+    setBlastSummary(null)
+    setBlastError(null)
+    setBlastRunning(true)
+    const payload = {
+      business_type: blastForm.business_type || null,
+      city:          blastForm.city || null,
+      limit:         Number(blastForm.limit),
+    }
+    const stop = streamWaBlast(
+      payload,
+      addBlastLine,
+      result => { setBlastRunning(false); setBlastSummary(result); blastStopRef.current = null },
+      msg    => { setBlastRunning(false); setBlastError(msg); blastStopRef.current = null },
+    )
+    blastStopRef.current = stop
+  }
+
+  function handleBlastStop() {
+    blastStopRef.current?.()
+    setBlastRunning(false)
   }
 
   const running = phase === 'prospecting' || phase === 'enriching'
@@ -350,6 +389,128 @@ export default function RunPipeline() {
             )}
           </div>
         )}
+        {/* ── WA Blast ─────────────────────────────────────── */}
+        <div className="bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">
+          <button
+            onClick={() => setBlastOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-800/30 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Send size={13} className="text-green-400" />
+              <span className="text-sm font-medium">Send WA to Existing Leads</span>
+            </div>
+            {blastOpen ? <ChevronUp size={13} className="text-slate-500" /> : <ChevronDown size={13} className="text-slate-500" />}
+          </button>
+
+          {blastOpen && (
+            <div className="px-5 pb-5 space-y-4 border-t border-slate-700/40 pt-4">
+              <p className="text-xs text-slate-500">
+                Send personalised WA messages to leads already in the database with no WA sent yet.
+                Useful when you have leads from email enrichment or older pipeline runs.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1.5">Business Type</label>
+                  <select
+                    value={blastForm.business_type}
+                    onChange={e => setBlastForm(f => ({ ...f, business_type: e.target.value }))}
+                    disabled={blastRunning}
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                  >
+                    <option value="">All types</option>
+                    {BUSINESS_TYPES.map(t => (
+                      <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1.5">City <span className="text-slate-600">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={blastForm.city}
+                    onChange={e => setBlastForm(f => ({ ...f, city: e.target.value }))}
+                    disabled={blastRunning}
+                    placeholder="e.g. Toronto"
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1.5">Max Leads</label>
+                  <input
+                    type="number" min={1} max={200}
+                    value={blastForm.limit}
+                    onChange={e => setBlastForm(f => ({ ...f, limit: e.target.value }))}
+                    disabled={blastRunning}
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {!blastRunning ? (
+                  <button
+                    onClick={handleBlastRun}
+                    className="flex items-center gap-2 bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-5 py-2.5 rounded transition-colors"
+                  >
+                    <Send size={13} />
+                    Send WA Now
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleBlastStop}
+                    className="flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white text-sm font-medium px-5 py-2.5 rounded transition-colors"
+                  >
+                    <Square size={13} />
+                    Stop
+                  </button>
+                )}
+                {blastRunning && (
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                    <span className="text-xs text-green-400">Sending…</span>
+                  </div>
+                )}
+              </div>
+
+              {blastLines.length > 0 && (
+                <div className="bg-slate-900 rounded-lg border border-slate-700/40 overflow-hidden">
+                  <div
+                    ref={blastLogRef}
+                    className="p-4 font-mono text-xs text-slate-300 leading-5 max-h-64 overflow-y-auto whitespace-pre-wrap"
+                  >
+                    {blastLines.map((l, i) => (
+                      <div key={i} className={
+                        l.startsWith('  ✓') ? 'text-green-400' :
+                        l.startsWith('  ✗') ? 'text-red-400' :
+                        l.startsWith('  >') ? 'text-slate-500' :
+                        ''
+                      }>{l}</div>
+                    ))}
+                    {blastRunning && <span className="text-slate-500 animate-pulse">▌</span>}
+                  </div>
+                </div>
+              )}
+
+              {blastError && (
+                <div className="bg-red-900/30 border border-red-700/40 rounded-lg p-3 text-xs text-red-300">{blastError}</div>
+              )}
+
+              {blastSummary && !blastRunning && (
+                <div className="flex items-center gap-6 bg-slate-800/50 rounded-lg p-3">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-green-400">{blastSummary.sent ?? 0}</p>
+                    <p className="text-xs text-slate-500">Sent</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-red-400">{blastSummary.failed ?? 0}</p>
+                    <p className="text-xs text-slate-500">Failed</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── RIGHT: city picker ───────────────────────────── */}
