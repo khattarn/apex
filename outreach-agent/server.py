@@ -1005,9 +1005,13 @@ _PIXEL = (
 
 @app.get("/track/open/{lead_id}")
 async def track_open(lead_id: str):
-    from database.client import update_lead
+    from database.client import update_lead, log_activity, get_client
     try:
+        lead = get_client().table("leads").select("email_opened").eq("id", lead_id).limit(1).execute()
+        already = lead.data[0].get("email_opened") if lead.data else False
         update_lead(lead_id, {"email_opened": True})
+        if not already:
+            log_activity(lead_id, "email_opened", {"source": "pixel"})
     except Exception:
         pass
     return Response(content=_PIXEL, media_type="image/gif",
@@ -1016,10 +1020,17 @@ async def track_open(lead_id: str):
 
 @app.get("/track/click/{lead_id}")
 async def track_click(lead_id: str, url: str = "https://practicedesk.netlify.app"):
-    from database.client import update_lead
+    from database.client import update_lead, log_activity, get_client
     from fastapi.responses import RedirectResponse
     try:
+        lead = get_client().table("leads").select("email_opened, email_clicked").eq("id", lead_id).limit(1).execute()
+        already_opened  = lead.data[0].get("email_opened")  if lead.data else False
+        already_clicked = lead.data[0].get("email_clicked") if lead.data else False
         update_lead(lead_id, {"email_clicked": True, "email_opened": True})
+        if not already_opened:
+            log_activity(lead_id, "email_opened",  {"source": "pixel"})
+        if not already_clicked:
+            log_activity(lead_id, "email_clicked", {"source": "pixel"})
     except Exception:
         pass
     return RedirectResponse(url=url, status_code=302)
