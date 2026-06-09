@@ -1086,6 +1086,85 @@ async def unsubscribe(id: str = Query(default="")):
     return HTMLResponse(content=_UNSUB_PAGE, status_code=200)
 
 
+# ── Signal Agent endpoints ────────────────────────────────────────────────────
+
+@app.post("/api/signal/score", dependencies=[Depends(verify_token)])
+async def signal_score():
+    """Trigger manual template scoring run."""
+    from agents.signal import score_templates
+    scores = score_templates()
+    return {"ok": True, "scored": len(scores)}
+
+@app.post("/api/signal/project", dependencies=[Depends(verify_token)])
+async def signal_project(prospects_per_month: int = 50):
+    """Recompute projections and persist them."""
+    from agents.signal import generate_projections
+    projs = generate_projections(prospects_per_month)
+    return {"ok": True, "projections": len(projs)}
+
+@app.get("/api/signal/funnel", dependencies=[Depends(verify_token)])
+async def signal_funnel():
+    """Return latest funnel metrics per vertical x country."""
+    from database.client import get_client
+    res = get_client().table("funnel_metrics").select("*").order("computed_at", desc=True).execute()
+    return {"ok": True, "data": res.data or []}
+
+@app.get("/api/signal/projections", dependencies=[Depends(verify_token)])
+async def signal_projections():
+    """Return latest projections per vertical x country x scenario."""
+    from database.client import get_client
+    res = get_client().table("projections").select("*").order("generated_at", desc=True).execute()
+    return {"ok": True, "data": res.data or []}
+
+@app.get("/api/signal/targets", dependencies=[Depends(verify_token)])
+async def signal_targets():
+    """Return all active targets with on_track / behind / missed status."""
+    from database.client import get_client
+    res = get_client().table("targets").select("*").order("updated_at", desc=True).execute()
+    return {"ok": True, "data": res.data or []}
+
+@app.get("/api/signal/dead-ends", dependencies=[Depends(verify_token)])
+async def signal_dead_ends():
+    """Return dead-end proposals Signal has raised."""
+    from database.client import get_client
+    res = (
+        get_client().table("system_journal")
+        .select("*")
+        .eq("entry_type", "signal_dead_end_detected")
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+    return {"ok": True, "data": res.data or []}
+
+@app.get("/api/signal/report", dependencies=[Depends(verify_token)])
+async def signal_report():
+    """Return the latest Signal weekly report from the journal."""
+    from database.client import get_client
+    res = (
+        get_client().table("system_journal")
+        .select("*")
+        .eq("entry_type", "signal_weekly_report")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    data = res.data[0] if res.data else None
+    return {"ok": True, "data": data}
+
+@app.post("/api/signal/report/generate", dependencies=[Depends(verify_token)])
+async def signal_report_generate():
+    """Manually trigger a Signal weekly report."""
+    from agents.signal import generate_weekly_report
+    report = generate_weekly_report()
+    return {
+        "ok": True,
+        "scores": report.get("scores", 0),
+        "dead_ends": report.get("dead_ends", 0),
+        "targets_behind": report.get("targets_behind", 0),
+    }
+
+
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -1294,6 +1373,20 @@ async def _job_email_campaign():
         log.error("_job_email_campaign failed: %s", exc)
 
 
+async def _job_signal_weekly():
+    """Signal weekly run — Monday 6am UTC. Scores templates, computes funnel,
+    detects dead ends, generates projections, updates targets, writes brief."""
+    try:
+        from agents.signal import generate_weekly_report
+        report = generate_weekly_report()
+        log.info("Signal weekly report: %d scores, %d dead ends, %d targets behind",
+                 report.get("scores_computed", 0),
+                 report.get("dead_ends", 0),
+                 report.get("targets_behind", 0))
+    except Exception as exc:
+        log.error("Signal weekly job failed: %s", exc)
+
+
 @app.on_event("startup")
 async def start_scheduler():
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -1306,6 +1399,7 @@ async def start_scheduler():
                       day_of_week="mon-fri")
     scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",             # every 15 min — checks for due callbacks
                       day_of_week="mon-fri")
+    scheduler.add_job(_job_signal_weekly,    "cron", day_of_week="mon", hour=6, minute=0)  # Monday 6am UTC
     scheduler.start()
 
 
