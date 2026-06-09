@@ -664,7 +664,7 @@ async def cron_email_sequence(request: Request):
 
     from agents.email_sender import QuotaExceededError
 
-    leads = get_leads_due_for_email(limit=100)
+    leads = get_leads_due_for_email(limit=180)
     sent = skipped = failed = 0
 
     for lead in leads:
@@ -1264,16 +1264,79 @@ async def _job_scheduled_callbacks():
         pass
 
 
+async def _job_email_campaign():
+    """Auto-send up to 180 emails/day to leads due for their next sequence step."""
+    try:
+        from database.client import (
+            get_leads_due_for_email, advance_email_sequence,
+            log_activity, save_campaign_run, EMAIL_SEQUENCE,
+        )
+        from agents.email_personalizer import generate_email, detect_market
+        from agents.email_sender import send_email, QuotaExceededError
+        from utils.timezone import is_email_window
+
+        leads = get_leads_due_for_email(limit=180)
+        sent = skipped = failed = 0
+
+        for lead in leads:
+            city   = lead.get("city", "")
+            market = detect_market(lead.get("phone", ""), lead.get("address", ""))
+            if not is_email_window(city, market):
+                skipped += 1
+                continue
+
+            current_step = lead.get("email_sequence_step") or 0
+            next_step    = current_step + 1
+            if next_step > len(EMAIL_SEQUENCE):
+                skipped += 1
+                continue
+
+            email_num, _ = EMAIL_SEQUENCE[next_step - 1]
+            try:
+                subject, html, email_num_used, variant = generate_email(lead, email_number=email_num)
+                send_email(lead["email"], subject, html)
+                advance_email_sequence(lead["id"], next_step)
+                log_activity(lead["id"], "email_sent", {
+                    "email_number": email_num_used,
+                    "variant": variant,
+                    "sequence_step": next_step,
+                    "trigger": "scheduler",
+                })
+                sent += 1
+            except QuotaExceededError:
+                break  # daily Resend quota (180) reached — remaining retried next run
+            except Exception:
+                failed += 1
+
+        if sent or failed:
+            save_campaign_run({
+                "type": "email",
+                "business_type": "all",
+                "city": "all",
+                "max_prospects": len(leads),
+                "mode": "scheduler",
+                "prospects_found": len(leads),
+                "new_leads": 0,
+                "messages_sent": 0,
+                "emails_sent": sent,
+                "log": f"Scheduler: Sent={sent} Skipped={skipped} Failed={failed}",
+            })
+        log_activity(None, "email_campaign_auto", {"sent": sent, "skipped": skipped, "failed": failed})
+    except Exception:
+        pass
+
+
 @app.on_event("startup")
 async def start_scheduler():
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(_job_wa_followup,    "cron", hour=9,  minute=0)             # 9am UTC daily
-    scheduler.add_job(_job_voice_followup, "cron", hour=9,  minute=0)             # 9am UTC daily
-    scheduler.add_job(_job_observatory,    "cron", hour=1,  minute=30)            # 1:30am UTC = 7am IST
-    scheduler.add_job(_job_click_calls,         "cron", hour="*", minute=0,       # every hour Mon–Fri — timezone filter inside handles 10am–5pm local
+    scheduler.add_job(_job_wa_followup,      "cron", hour=9,        minute=0)      # 9am UTC daily
+    scheduler.add_job(_job_voice_followup,   "cron", hour=9,        minute=0)      # 9am UTC daily
+    scheduler.add_job(_job_observatory,      "cron", hour=1,        minute=30)     # 1:30am UTC = 7am IST
+    scheduler.add_job(_job_email_campaign,   "cron", hour="22,13",  minute=0)      # 22:00 UTC = AU 8am | 13:00 UTC = CA 9am EDT
+    scheduler.add_job(_job_click_calls,      "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 10am–5pm local
                       day_of_week="mon-fri")
-    scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",            # every 15 min — checks for due callbacks
+    scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",             # every 15 min — checks for due callbacks
                       day_of_week="mon-fri")
     scheduler.start()
 

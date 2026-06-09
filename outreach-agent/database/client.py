@@ -403,26 +403,34 @@ def get_clicked_uncalled_leads() -> list[dict]:
     Return leads that:
       - clicked an email (email_clicked=true)
       - are not dead or converted
+      - clicked before today's UTC date (next-working-day rule — never call same day)
       - have not already received an outbound_call activity
     """
+    from datetime import date as _date
+    today_utc = _date.today().isoformat()  # "YYYY-MM-DD"
+
     db = get_client()
 
-    # Leads who clicked
     clicked = (
         db.table("leads")
-        .select("id, name, phone, city, business_type, status")
+        .select("id, name, phone, city, business_type, status, email_clicked_at")
         .eq("email_clicked", True)
         .not_.in_("status", ["dead", "converted"])
         .execute()
         .data
     ) or []
 
+    # Only call leads whose click was recorded before today (UTC) — ensures next-working-day minimum gap
+    clicked = [
+        r for r in clicked
+        if r.get("email_clicked_at") and r["email_clicked_at"][:10] < today_utc
+    ]
+
     if not clicked:
         return []
 
     clicked_ids = [str(r["id"]) for r in clicked]
 
-    # Leads already called outbound
     already_called_rows = (
         db.table("lead_activities")
         .select("lead_id")
