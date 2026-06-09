@@ -490,8 +490,9 @@ async def vapi_webhook(request: Request):
     call_type = call.get("type", "")          # inboundPhoneCall | outboundPhoneCall
     metadata  = call.get("metadata", {})
     _active_calls.pop(call.get("id", ""), None)  # clear from live tracker
-    rec_url   = msg.get("recordingUrl", "")
-    transcript= msg.get("transcript", "")
+    artifact  = msg.get("artifact", {})
+    rec_url   = artifact.get("recordingUrl", "") or msg.get("recordingUrl", "")
+    transcript= artifact.get("transcript", "") or msg.get("transcript", "")
     summary   = msg.get("summary", "")
     ended_rsn = msg.get("endedReason", "")
 
@@ -1270,7 +1271,7 @@ async def start_scheduler():
     scheduler.add_job(_job_wa_followup,    "cron", hour=9,  minute=0)             # 9am UTC daily
     scheduler.add_job(_job_voice_followup, "cron", hour=9,  minute=0)             # 9am UTC daily
     scheduler.add_job(_job_observatory,    "cron", hour=1,  minute=30)            # 1:30am UTC = 7am IST
-    scheduler.add_job(_job_click_calls,         "cron", hour="9-22", minute=0,    # hourly Mon–Fri, covers all market windows
+    scheduler.add_job(_job_click_calls,         "cron", hour="*", minute=0,       # every hour Mon–Fri — timezone filter inside handles 10am–5pm local
                       day_of_week="mon-fri")
     scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",            # every 15 min — checks for due callbacks
                       day_of_week="mon-fri")

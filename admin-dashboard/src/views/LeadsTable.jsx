@@ -606,6 +606,21 @@ export default function LeadsTable() {
                   {d.email_num != null && <p className="text-slate-500">Sequence #{d.email_num}</p>}
                 </div>
               )
+              if (item.type === 'outbound_call' || item.type === 'outbound_call_completed') return (
+                <div key={item.id} className="bg-slate-800 rounded p-3 text-xs space-y-1 border-l-2 border-violet-500">
+                  <div className="flex items-center justify-between">
+                    <span className="text-violet-300 font-medium flex items-center gap-1"><Phone size={11} /> Outbound call {item.type === 'outbound_call_completed' ? '(completed)' : '(initiated)'}</span>
+                    <span className="text-slate-500">{ts}</span>
+                  </div>
+                  {d.ended_reason && <p className="text-slate-400">Ended: {d.ended_reason}</p>}
+                  {d.summary && <p className="text-slate-300 italic">"{d.summary}"</p>}
+                  {d.transcript && <p className="text-slate-500 text-xs mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap">{d.transcript}</p>}
+                  {d.recording_url
+                    ? <a href={d.recording_url} target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">Listen to recording →</a>
+                    : item.type === 'outbound_call_completed' && <span className="text-slate-600">No recording</span>
+                  }
+                </div>
+              )
               return (
                 <div key={item.id} className="bg-slate-800 rounded p-3 text-xs border-l-2 border-slate-600">
                   <div className="flex items-center justify-between">

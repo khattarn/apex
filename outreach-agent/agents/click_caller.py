@@ -22,9 +22,9 @@ VAPI_BASE = "https://api.vapi.ai"
 _SCRIPTS = {
     "dentist": {
         "firstMessage": (
-            "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-            "Someone at your clinic recently showed some interest in our email. "
-            "I'll be very quick — do you have about 3 minutes?"
+            "Hi, this is Aria from PracticeDesk — "
+            "someone from your clinic was looking at how to reduce no-shows recently, "
+            "so I wanted to reach out quickly. Do you have a minute?"
         ),
         "insight": (
             "Here's something most dental clinics don't realise — "
@@ -36,9 +36,9 @@ _SCRIPTS = {
     },
     "physiotherapist": {
         "firstMessage": (
-            "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-            "Someone at your practice recently showed interest in our email. "
-            "Do you have about 3 minutes?"
+            "Hi, this is Aria from PracticeDesk — "
+            "someone from your practice was looking at our patient rebooking tools recently, "
+            "so I wanted to reach out quickly. Do you have a minute?"
         ),
         "insight": (
             "Here's something that might surprise you — "
@@ -51,9 +51,9 @@ _SCRIPTS = {
     },
     "salon": {
         "firstMessage": (
-            "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-            "Someone at your salon recently showed interest in our email. "
-            "Do you have about 3 minutes?"
+            "Hi, this is Aria from PracticeDesk — "
+            "someone from your salon was looking at our booking reminder tools recently, "
+            "so I wanted to quickly reach out. Do you have a minute?"
         ),
         "insight": (
             "Salons that switch appointment reminders from phone calls to WhatsApp "
@@ -65,9 +65,9 @@ _SCRIPTS = {
     },
     "accountant": {
         "firstMessage": (
-            "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-            "Someone at your firm recently showed interest in our email. "
-            "Do you have about 3 minutes?"
+            "Hi, this is Aria from PracticeDesk — "
+            "someone from your firm was looking at our client communication tools recently, "
+            "so I wanted to reach out quickly. Do you have a minute?"
         ),
         "insight": (
             "The biggest hidden cost for accounting firms isn't overhead — "
@@ -79,9 +79,9 @@ _SCRIPTS = {
     },
     "lawyer": {
         "firstMessage": (
-            "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-            "Someone at your firm recently showed interest in our email. "
-            "Do you have about 3 minutes?"
+            "Hi, this is Aria from PracticeDesk — "
+            "someone from your firm was looking at our client intake tools recently, "
+            "so I wanted to reach out quickly. Do you have a minute?"
         ),
         "insight": (
             "Law firms lose potential clients at the very first touchpoint. "
@@ -94,9 +94,9 @@ _SCRIPTS = {
     },
     "doctor": {
         "firstMessage": (
-            "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-            "Someone at your clinic recently showed interest in our email. "
-            "Do you have about 3 minutes?"
+            "Hi, this is Aria from PracticeDesk — "
+            "someone from your clinic was looking at how to reduce no-shows recently, "
+            "so I wanted to reach out quickly. Do you have a minute?"
         ),
         "insight": (
             "Medical clinics that implement WhatsApp appointment reminders "
@@ -110,9 +110,9 @@ _SCRIPTS = {
 
 _DEFAULT_SCRIPT = {
     "firstMessage": (
-        "Hi, I'm Aria — an AI assistant from PracticeDesk. "
-        "Someone at your business recently showed interest in our email. "
-        "Do you have about 3 minutes?"
+        "Hi, this is Aria from PracticeDesk — "
+        "someone from your business was looking at our tools recently, "
+        "so I wanted to reach out quickly. Do you have a minute?"
     ),
     "insight": (
         "Practices and businesses that automate client communications on WhatsApp "
@@ -125,10 +125,10 @@ _DEFAULT_SCRIPT = {
 # ── Full 7-phase system prompt ────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = """\
-You are Aria, a confident and warm outbound AI sales executive for PracticeDesk — \
+You are Aria, a confident and warm outbound sales executive for PracticeDesk — \
 a WhatsApp-based AI receptionist for healthcare and professional practices.
 
-Always disclose you are an AI if asked directly.
+If asked directly whether you are an AI or a bot, answer honestly: yes, you are.
 Maximum call length: 5 minutes. Never exceed this.
 
 ═══════════════════════════════════════════════════════════════════════════════
