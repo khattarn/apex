@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   MapPin, MessageSquare, Send, Search, Mail,
   Reply, Calendar, RefreshCw, Phone, FileText,
-  Activity, Share2, ChevronRight,
+  Activity, Share2, ChevronRight, TrendingUp, Brain,
 } from 'lucide-react'
 import { fetchAgentStats } from '../api'
 
@@ -170,6 +170,38 @@ export const AGENTS = [
       inputs: 'Leads with no reply after 5 days, within 10am–5pm local time Mon–Fri',
       outputs: 'Outbound call placed via Aria, activity logged',
       notes: 'agents/voice_outreach.py. Also runs click-to-call (Aria) hourly on email-clicked leads.',
+    },
+  },
+  {
+    id: 'signal',
+    name: 'Signal',
+    status: 'live',
+    runningKey: null,
+    Icon: TrendingUp,
+    description: 'Marketing Head. Scores templates, detects dead channels, runs A/B tests autonomously, sets quarterly targets, and generates revenue projections.',
+    tech: 'Claude Haiku + Supabase',
+    owner: 'VP Marketing',
+    statsKey: null,
+    details: {
+      inputs: 'leads, email_sends, lead_activities, template_scores tables',
+      outputs: 'Template scores, funnel metrics, projections (base/optimistic/pessimistic), quarterly targets, weekly Marketing Head brief',
+      notes: 'Auto-promotes variants with 2× lift. Auto-kills zero-rate templates at 30 sends. Runs Monday 6am UTC.',
+    },
+  },
+  {
+    id: 'ceo',
+    name: 'CEO',
+    status: 'building',
+    runningKey: null,
+    Icon: Brain,
+    description: 'System orchestrator. Issues directives to other agents, monitors health, receives WhatsApp commands from the founder.',
+    tech: 'Claude Haiku + APScheduler',
+    owner: 'Neeraj',
+    statsKey: null,
+    details: {
+      inputs: 'Agent health, system_journal, founder WhatsApp messages',
+      outputs: 'Directives to agents, architecture reviews, WA replies to founder',
+      notes: 'Structure built in agents/ceo.py. Activation deferred.',
     },
   },
   {
