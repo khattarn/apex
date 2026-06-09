@@ -1202,7 +1202,7 @@ async def unsubscribe(id: str = Query(default="")):
 async def resend_backfill(days_back: int = 3):
     """Pull open/click events from Resend for the last N days and update leads.
     Uses recipient email address as the join key (no email_sends lookup needed)."""
-    import httpx
+    import requests as _requests
     from datetime import datetime, timezone, timedelta
     from database.client import get_client, log_activity
 
@@ -1211,71 +1211,70 @@ async def resend_backfill(days_back: int = 3):
         raise HTTPException(status_code=500, detail="RESEND_API_KEY not set")
 
     db = get_client()
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
+    cutoff_str = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
-    # Page through all Resend emails, stopping when we hit the cutoff date
-    opened_leads: list[str]  = []
+    opened_leads: list[str] = []
     clicked_leads: list[str] = []
     total_fetched = 0
+    stop = False
     cursor: str | None = None
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        while True:
-            url    = "https://api.resend.com/emails?limit=100"
-            if cursor:
-                url += f"&after={cursor}"
-            resp   = await client.get(url, headers={"Authorization": f"Bearer {api_key}"})
-            data   = resp.json()
-            emails = data.get("data", [])
-            if not emails:
+    def _fetch_page(after: str | None) -> dict:
+        url = "https://api.resend.com/emails?limit=100"
+        if after:
+            url += f"&after={after}"
+        r = _requests.get(url, headers={"Authorization": f"Bearer {api_key}"}, timeout=30)
+        r.raise_for_status()
+        return r.json()
+
+    while not stop:
+        data   = await asyncio.to_thread(_fetch_page, cursor)
+        emails = data.get("data", [])
+        if not emails:
+            break
+
+        for em in emails:
+            created = em.get("created_at", "")
+            if created and created[:10] < cutoff_str:
+                stop = True
                 break
 
-            for em in emails:
-                created = em.get("created_at", "")
-                if created and created[:10] < cutoff.strftime("%Y-%m-%d"):
-                    # Older than cutoff — stop paging
-                    data["has_more"] = False
-                    break
+            event   = em.get("last_event", "")
+            to_list = em.get("to", [])
+            total_fetched += 1
 
-                event   = em.get("last_event", "")
-                to_list = em.get("to", [])
-                if event not in ("opened", "clicked") or not to_list:
-                    total_fetched += 1
-                    continue
+            if event not in ("opened", "clicked") or not to_list:
+                continue
 
-                to_email = to_list[0].lower().strip()
-                # Look up lead by email address
-                row = db.table("leads").select("id, email_opened, email_clicked").ilike("email", to_email).limit(1).execute()
-                if not row.data:
-                    total_fetched += 1
-                    continue
+            to_email = to_list[0].lower().strip()
+            row = db.table("leads").select("id, email_opened, email_clicked").ilike("email", to_email).limit(1).execute()
+            if not row.data:
+                continue
 
-                lead = row.data[0]
-                lead_id = str(lead["id"])
-                updates = {}
+            lead    = row.data[0]
+            lead_id = str(lead["id"])
+            updates: dict = {}
 
-                if event in ("opened", "clicked") and not lead.get("email_opened"):
-                    updates["email_opened"] = True
-                    opened_leads.append(lead_id)
+            if not lead.get("email_opened"):
+                updates["email_opened"] = True
+                opened_leads.append(lead_id)
 
-                if event == "clicked" and not lead.get("email_clicked"):
-                    updates["email_clicked"] = True
-                    clicked_leads.append(lead_id)
+            if event == "clicked" and not lead.get("email_clicked"):
+                updates["email_clicked"] = True
+                clicked_leads.append(lead_id)
 
-                if updates:
-                    db.table("leads").update(updates).eq("id", lead_id).execute()
-                    activity_type = "email_clicked" if event == "clicked" else "email_opened"
-                    log_activity(lead_id, activity_type, {"source": "resend_backfill", "resend_event": event})
+            if updates:
+                db.table("leads").update(updates).eq("id", lead_id).execute()
+                activity_type = "email_clicked" if event == "clicked" else "email_opened"
+                log_activity(lead_id, activity_type, {"source": "resend_backfill"})
 
-                total_fetched += 1
-
-            cursor = emails[-1]["id"] if emails else None
-            if not data.get("has_more"):
-                break
+        cursor = emails[-1]["id"] if emails else None
+        if not data.get("has_more"):
+            break
 
     return {
-        "ok":           True,
-        "total_fetched": total_fetched,
+        "ok":             True,
+        "total_fetched":  total_fetched,
         "opened_updated": len(opened_leads),
         "clicked_updated": len(clicked_leads),
     }
