@@ -1086,6 +1086,118 @@ async def unsubscribe(id: str = Query(default="")):
     return HTMLResponse(content=_UNSUB_PAGE, status_code=200)
 
 
+# ── Live Activity Monitor ─────────────────────────────────────────────────────
+
+@app.get("/api/activity/live", dependencies=[Depends(verify_token)])
+async def activity_live():
+    """Real-time feed: recent activities, pending queues, next scheduled jobs."""
+    from datetime import datetime, timezone, timedelta
+    from database.client import get_client
+
+    db      = get_client()
+    now_utc = datetime.now(timezone.utc)
+
+    # ── Recent activities (last 60 entries) ──────────────────────────────────
+    acts_raw = (
+        db.table("lead_activities")
+        .select("id, lead_id, type, detail, created_at")
+        .order("created_at", desc=True)
+        .limit(60)
+        .execute()
+    ).data or []
+
+    lead_ids = list({str(a["lead_id"]) for a in acts_raw if a.get("lead_id")})
+    leads_map: dict = {}
+    if lead_ids:
+        rows = db.table("leads").select("id, name, business_type, city").in_("id", lead_ids[:50]).execute().data or []
+        leads_map = {str(r["id"]): r for r in rows}
+
+    activities = []
+    for a in acts_raw:
+        lead = leads_map.get(str(a["lead_id"])) if a.get("lead_id") else None
+        activities.append({
+            "id":            a["id"],
+            "type":          a["type"],
+            "detail":        a.get("detail"),
+            "created_at":    a["created_at"],
+            "lead_name":     lead["name"]          if lead else None,
+            "business_type": lead["business_type"] if lead else None,
+            "city":          lead["city"]           if lead else None,
+        })
+
+    # ── Pending queues ────────────────────────────────────────────────────────
+    cutoff_3d = (now_utc - timedelta(days=3)).isoformat()
+    cutoff_5d = (now_utc - timedelta(days=5)).isoformat()
+
+    wa_sent_ids    = {str(r["lead_id"]) for r in (db.table("lead_activities").select("lead_id").eq("type", "wa_followup_sent").execute().data or [])}
+    voice_sent_ids = {str(r["lead_id"]) for r in (db.table("lead_activities").select("lead_id").eq("type", "voice_followup_placed").execute().data or [])}
+    email_clicked_ids = {str(r["lead_id"]) for r in (db.table("lead_activities").select("lead_id").eq("type", "email_clicked").execute().data or [])}
+    called_ids     = {str(r["lead_id"]) for r in (db.table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or [])}
+
+    wa_cands   = db.table("leads").select("id").eq("status", "contacted").eq("outreach_sent", True).lte("outreach_date", cutoff_3d).execute().data or []
+    vox_cands  = db.table("leads").select("id").eq("status", "contacted").eq("outreach_sent", True).lte("outreach_date", cutoff_5d).execute().data or []
+
+    wa_pending    = len([l for l in wa_cands  if str(l["id"]) not in wa_sent_ids])
+    voice_pending = len([l for l in vox_cands if str(l["id"]) not in voice_sent_ids])
+    click_pending = len(email_clicked_ids - called_ids)
+
+    email_due = db.table("leads").select("id", count="exact").not_.is_("email", "null").neq("email", "").not_.is_("email_sequence_step", "null").eq("status", "contacted").execute()
+    email_pending = email_due.count or 0
+
+    # ── Next scheduled fire times ─────────────────────────────────────────────
+    def _next_daily(hour: int, minute: int) -> str:
+        t = now_utc.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if t <= now_utc:
+            t += timedelta(days=1)
+        return t.isoformat()
+
+    def _next_hourly() -> str:
+        return (now_utc.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)).isoformat()
+
+    def _next_15min() -> str:
+        mins_to_add = 15 - (now_utc.minute % 15) or 15
+        return (now_utc.replace(second=0, microsecond=0) + timedelta(minutes=mins_to_add)).isoformat()
+
+    def _next_email_campaign() -> str:
+        candidates = []
+        for h in [13, 22]:
+            t = now_utc.replace(hour=h, minute=0, second=0, microsecond=0)
+            if t <= now_utc:
+                t += timedelta(days=1)
+            candidates.append(t)
+        return min(candidates).isoformat()
+
+    def _next_monday_6am() -> str:
+        days_ahead = (7 - now_utc.weekday()) % 7
+        t = now_utc.replace(hour=6, minute=0, second=0, microsecond=0)
+        if days_ahead == 0 and t <= now_utc:
+            days_ahead = 7
+        return (t + timedelta(days=days_ahead)).isoformat()
+
+    schedule = [
+        {"job": "WA Follow-up",      "next_run": _next_daily(9, 0),        "queue": wa_pending,    "description": "Follow-up WA to leads silent 3+ days"},
+        {"job": "Voice Follow-up",   "next_run": _next_daily(9, 0),        "queue": voice_pending, "description": "Aria call to leads silent 5+ days"},
+        {"job": "Email Campaign",    "next_run": _next_email_campaign(),   "queue": email_pending, "description": "Next email in drip sequence (AU 8am / CA 9am)"},
+        {"job": "Click Calls",       "next_run": _next_hourly(),           "queue": click_pending, "description": "Aria calls email-clicked leads (business hours only)"},
+        {"job": "Callbacks",         "next_run": _next_15min(),            "queue": 0,             "description": "Processes scheduled call-back requests from Aria"},
+        {"job": "Observatory",       "next_run": _next_daily(1, 30),       "queue": 0,             "description": "Daily digest → founder WhatsApp (7am IST)"},
+        {"job": "Signal Weekly",     "next_run": _next_monday_6am(),       "queue": 0,             "description": "Marketing Head report: scores, projections, targets"},
+    ]
+
+    return {
+        "ok":          True,
+        "server_time": now_utc.isoformat(),
+        "recent":      activities,
+        "queue": {
+            "wa_followup":    wa_pending,
+            "voice_followup": voice_pending,
+            "email":          email_pending,
+            "click_calls":    click_pending,
+        },
+        "schedule": schedule,
+    }
+
+
 # ── Signal Agent endpoints ────────────────────────────────────────────────────
 
 @app.post("/api/signal/score", dependencies=[Depends(verify_token)])

@@ -13,6 +13,7 @@ import AgentDetail from './views/AgentDetail'
 import Products from './views/Products'
 import ProductDetail from './views/ProductDetail'
 import Dialpad from './views/Dialpad'
+import LiveActivity from './views/LiveActivity'
 import { getActiveCalls } from './api'
 
 function LiveCallBanner({ calls }) {
@@ -78,6 +79,7 @@ export default function App() {
           <div className="flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/live" element={<LiveActivity />} />
             <Route path="/pipeline" element={<RunPipeline />} />
             <Route path="/leads" element={<LeadsTable />} />
             <Route path="/campaigns" element={<Campaigns />} />
