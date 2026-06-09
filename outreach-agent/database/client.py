@@ -194,8 +194,11 @@ def advance_email_sequence(lead_id: str, step_just_sent: int):
 
 
 def mark_emailed(lead_id: str):
-    """Legacy single-send mark — also advances sequence from step 0 → 1."""
-    advance_email_sequence(lead_id, 1)
+    """Mark a manually-sent email and advance the sequence from wherever the lead currently is."""
+    db = get_client()
+    row = db.table("leads").select("email_sequence_step").eq("id", lead_id).single().execute()
+    current_step = (row.data.get("email_sequence_step") or 0) if row.data else 0
+    advance_email_sequence(lead_id, current_step + 1)
 
 
 def pause_sequence(lead_id: str, reason: str = ""):
@@ -206,11 +209,13 @@ def pause_sequence(lead_id: str, reason: str = ""):
 
 # ── Activity log ──────────────────────────────────────────────────────────────
 
-def log_activity(lead_id: str, activity_type: str, detail: dict = None):
+def log_activity(lead_id, activity_type: str, detail: dict = None):
+    if not lead_id:
+        return  # system-level events without a lead are not persisted (no FK to satisfy)
     from datetime import datetime, timezone
     try:
         get_client().table("lead_activities").insert({
-            "lead_id": lead_id,
+            "lead_id": str(lead_id),
             "type": activity_type,
             "detail": detail or {},
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -479,9 +484,8 @@ def get_leads_for_followup(limit=20) -> list:
     db = get_client()
     cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
 
-    # Leads already sent a follow-up
     sent_result = db.table("lead_activities").select("lead_id").eq("type", "wa_followup_sent").execute()
-    already_sent = {r["lead_id"] for r in sent_result.data}
+    already_sent = {str(r["lead_id"]) for r in sent_result.data}
 
     result = (
         db.table("leads")
@@ -491,10 +495,10 @@ def get_leads_for_followup(limit=20) -> list:
         .lte("outreach_date", cutoff)
         .not_.is_("phone", "null")
         .neq("phone", "")
-        .limit(limit + len(already_sent))
+        .limit(limit * 5)  # over-fetch to cover already-sent leads, then filter in Python
         .execute()
     )
-    leads = [l for l in result.data if l["id"] not in already_sent]
+    leads = [l for l in result.data if str(l["id"]) not in already_sent]
     return leads[:limit]
 
 
@@ -505,7 +509,7 @@ def get_leads_for_voice_followup(limit=10) -> list:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
 
     placed_result = db.table("lead_activities").select("lead_id").eq("type", "voice_followup_placed").execute()
-    already_placed = {r["lead_id"] for r in placed_result.data}
+    already_placed = {str(r["lead_id"]) for r in placed_result.data}
 
     result = (
         db.table("leads")
@@ -515,10 +519,10 @@ def get_leads_for_voice_followup(limit=10) -> list:
         .lte("outreach_date", cutoff)
         .not_.is_("phone", "null")
         .neq("phone", "")
-        .limit(limit + len(already_placed))
+        .limit(limit * 5)
         .execute()
     )
-    leads = [l for l in result.data if l["id"] not in already_placed]
+    leads = [l for l in result.data if str(l["id"]) not in already_placed]
     return leads[:limit]
 
 

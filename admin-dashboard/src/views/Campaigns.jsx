@@ -32,7 +32,7 @@ export default function Campaigns() {
 
   useEffect(() => {
     getCampaigns()
-      .then(setCampaigns)
+      .then(data => setCampaigns(Array.isArray(data) ? data : data?.data || []))
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

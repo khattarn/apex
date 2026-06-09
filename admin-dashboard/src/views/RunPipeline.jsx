@@ -51,8 +51,9 @@ export default function RunPipeline() {
   const [activeTab, setActiveTab]   = useState('CA')
   const [citySearch, setCitySearch] = useState('')
   const [cityStats, setCityStats]   = useState({})
-  const stopRef = useRef(null)
-  const logRef  = useRef(null)
+  const stopRef    = useRef(null)
+  const stoppedRef = useRef(false)
+  const logRef     = useRef(null)
 
   useEffect(() => {
     getStats().then(s => setCityStats(s.by_city || {})).catch(() => {})
@@ -80,6 +81,7 @@ export default function RunPipeline() {
   }
 
   function startEnrichment(prospectSummary) {
+    if (stoppedRef.current) return  // user hit Stop before enrichment could start
     setPhase('enriching')
     addLine('')
     addLine('── Phase 2: Email Enrichment ─────────────────────')
@@ -87,12 +89,14 @@ export default function RunPipeline() {
     const stop = streamEnrich(
       (line) => addLine(line),
       (result) => {
+        if (stoppedRef.current) return
         setPhase('done')
         setSummary({ ...prospectSummary, enriched: result.enriched || 0, queued: result.queued || 0 })
         getStats().then(s => setCityStats(s.by_city || {})).catch(() => {})
         stopRef.current = null
       },
       (msg) => {
+        if (stoppedRef.current) return
         setPhase('done')
         setError(`Enrichment: ${msg}`)
         setSummary({ ...prospectSummary, enriched: 0, queued: 0 })
@@ -104,6 +108,7 @@ export default function RunPipeline() {
 
   function handleRun() {
     if (!form.city.trim()) return
+    stoppedRef.current = false
     setLines([])
     setSummary(null)
     setError(null)
@@ -114,11 +119,13 @@ export default function RunPipeline() {
       { ...form, max_prospects: Number(form.max_prospects) },
       (line) => addLine(line),
       (result) => {
+        if (stoppedRef.current) return
         addLine('')
         addLine(`✓ Prospecting complete — ${result.new_leads ?? 0} new leads found`)
         startEnrichment(result)
       },
       (msg) => {
+        if (stoppedRef.current) return
         setError(msg)
         setPhase('idle')
         stopRef.current = null
@@ -128,6 +135,7 @@ export default function RunPipeline() {
   }
 
   function handleStop() {
+    stoppedRef.current = true
     stopRef.current?.()
     setPhase('idle')
   }

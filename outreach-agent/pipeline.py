@@ -50,7 +50,7 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
             name = biz.get("name", "Unknown")
 
             # ── Step 2: De-duplicate ──────────────────────────────────────────
-            existing = get_lead_by_place_id(biz["place_id"])
+            existing = await asyncio.to_thread(get_lead_by_place_id, biz["place_id"])
             if existing:
                 yield f"  — {name}: already in database, skipping"
                 continue
@@ -62,7 +62,7 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
                 "status": "new",
                 "outreach_sent": False,
             }
-            lead = save_lead(lead_data)
+            lead = await asyncio.to_thread(save_lead, lead_data)
             new_leads += 1
 
             # ── Step 2b: Scrape email ─────────────────────────────────────────
@@ -71,7 +71,7 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
                     email = await asyncio.to_thread(scrape_email, biz["website"])
                     if email:
                         try:
-                            update_lead(lead["id"], {"email": email})
+                            await asyncio.to_thread(update_lead, lead["id"], {"email": email})
                             yield f"  + {name}: saved (email: {email})"
                         except Exception:
                             yield f"  + {name}: saved — email found but DB column missing (run migration)"
@@ -92,7 +92,7 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
             # ── Step 3: Personalise ───────────────────────────────────────────
             yield f"  > Generating message for {name}..."
             try:
-                message = generate_message(name, business_type, current_city)
+                message = await asyncio.to_thread(generate_message, name, business_type, current_city)
             except Exception as exc:
                 yield f"  ! {name}: message generation failed — {exc}"
                 continue
@@ -100,9 +100,9 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
             # ── Step 4: Send ──────────────────────────────────────────────────
             yield f"  > Sending WhatsApp to {name} ({biz['phone']})..."
             try:
-                send_whatsapp_message(biz["phone"], message)
+                await asyncio.to_thread(send_whatsapp_message, biz["phone"], message)
                 if lead:
-                    mark_contacted(lead["id"], message)
+                    await asyncio.to_thread(mark_contacted, lead["id"], message)
                 messages_sent += 1
                 yield f"  ✓ Message sent to {name}"
             except Exception as exc:

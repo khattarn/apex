@@ -16,7 +16,7 @@ async function request(path, options = {}) {
   if (res.status === 401) {
     localStorage.removeItem('pd_token')
     window.location.reload()
-    return
+    return new Promise(() => {})  // hang until reload; prevents callers from destructuring undefined
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))

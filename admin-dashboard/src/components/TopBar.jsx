@@ -36,10 +36,10 @@ function ClockCard({ label, short, zone, flag, color }) {
   })
 
   const parts = timeStr.split(':')
-  const hm   = `${parts[0]}:${parts[1]}`
-  const rest  = parts[2].split(' ')
-  const sec   = rest[0]
-  const ampm  = rest[1]
+  const hm   = `${parts[0] ?? ''}:${parts[1] ?? ''}`
+  const rest  = (parts[2] ?? '').split(' ')
+  const sec   = rest[0] ?? ''
+  const ampm  = rest[1] ?? ''
 
   return (
     <div className={`rounded-lg border ${p.bg} ${p.border} px-2 py-2 flex flex-col items-center`}>

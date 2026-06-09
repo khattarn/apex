@@ -78,6 +78,13 @@ export default function LeadsTable() {
 
   useEffect(() => { load() }, [load])
 
+  // cleanup timers and in-flight streams on unmount
+  useEffect(() => () => {
+    clearTimeout(searchTimer.current)
+    enrichAbort.current?.()
+    campaignAbort.current?.()
+  }, [])
+
   function handleSearch(val) {
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => { setSearch(val); setPage(0) }, 350)
@@ -161,8 +168,8 @@ export default function LeadsTable() {
   async function openActivity(lead) {
     setActivityModal({ lead, loading: true, items: [] })
     try {
-      const { data } = await getLeadActivities(lead.id)
-      setActivityModal((m) => ({ ...m, loading: false, items: data }))
+      const res = await getLeadActivities(lead.id)
+      setActivityModal((m) => ({ ...m, loading: false, items: res?.data || [] }))
     } catch (e) {
       setActivityModal((m) => ({ ...m, loading: false, error: e.message }))
     }
@@ -360,8 +367,12 @@ export default function LeadsTable() {
                     <select
                       value={lead.status}
                       onChange={async (e) => {
-                        await patchLead(lead.id, { status: e.target.value })
-                        load()
+                        try {
+                          await patchLead(lead.id, { status: e.target.value })
+                          load()
+                        } catch (err) {
+                          alert(`Status update failed: ${err.message}`)
+                        }
                       }}
                       className="bg-transparent border-0 text-xs cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-0"
                       style={{ color: { new:'#94a3b8', contacted:'#818cf8', replied:'#fbbf24', converted:'#4ade80', dead:'#f87171' }[lead.status] || '#94a3b8' }}

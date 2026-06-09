@@ -120,9 +120,10 @@ def build_digest() -> str:
     return "\n".join(lines)
 
 
-def send_observatory_digest() -> None:
+def send_observatory_digest() -> str:
     recipient = os.getenv("OBSERVATORY_WA_RECIPIENT")
     if not recipient:
         raise RuntimeError("OBSERVATORY_WA_RECIPIENT is not set")
     digest = build_digest()
     send_whatsapp_message(recipient, digest)
+    return digest

@@ -1,9 +1,12 @@
 import asyncio
 import json
+import logging
 import os
 import sys
 import time as _time
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -615,7 +618,7 @@ def _notify_callback_requested(lead_id: str) -> None:
         if not lead:
             return
 
-        wa_token   = os.getenv("WHATSAPP_TOKEN", "")
+        wa_token   = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
         phone_id   = os.getenv("OUTREACH_WA_PHONE_NUMBER_ID", "")
         neeraj_no  = os.getenv("FOUNDER_WHATSAPP_NUMBER", "")  # e.g. +919XXXXXXXXX
         if not all([wa_token, phone_id, neeraj_no]):
@@ -827,41 +830,6 @@ async def email_lead(lead_id: str, _=Depends(verify_token)):
     send_email(lead["email"], subject, html)
     mark_emailed(lead_id)
     return {"ok": True, "subject": subject, "email_number": email_num, "variant": variant}
-
-
-# ── Resend webhook (open / click / bounce tracking) ──────────────────────────
-
-@app.post("/api/webhooks/resend")
-async def resend_webhook(request: Request):
-    from database.client import get_client
-    try:
-        body = await request.json()
-    except Exception:
-        return {"ok": True}
-
-    event_type = body.get("type", "")
-    data = body.get("data", {})
-    to_list = data.get("to", [])
-    if not to_list:
-        return {"ok": True}
-
-    recipient = to_list[0]
-    update = {}
-    if event_type == "email.opened":
-        update["email_opened"] = True
-    elif event_type == "email.clicked":
-        update["email_clicked"] = True
-    elif event_type in ("email.bounced", "email.complained"):
-        update["email_bounced"] = True
-        update["status"] = "dead"
-
-    if update:
-        try:
-            get_client().table("leads").update(update).eq("email", recipient).execute()
-        except Exception:
-            pass
-
-    return {"ok": True}
 
 
 # ── Campaigns ─────────────────────────────────────────────────────────────────
@@ -1202,8 +1170,8 @@ async def _job_wa_followup():
             )
             send_whatsapp_message(lead["phone"], msg)
             log_activity(lead["id"], "wa_followup_sent", {"message": msg})
-        except Exception:
-            pass
+        except Exception as exc:
+            log.error("WA followup failed for lead %s: %s", lead.get("id"), exc)
         await asyncio.sleep(2)
 
 
@@ -1215,28 +1183,28 @@ async def _job_voice_followup():
         try:
             place_outbound_call(lead["phone"], lead.get("business_type", ""), lead.get("name", ""))
             log_activity(lead["id"], "voice_followup_placed", {"phone": lead["phone"]})
-        except Exception:
-            pass
+        except Exception as exc:
+            log.error("Voice followup failed for lead %s: %s", lead.get("id"), exc)
         await asyncio.sleep(3)
 
 
 async def _job_observatory():
-    from agents.observatory import build_digest, send_observatory_digest
+    from agents.observatory import send_observatory_digest
     from database.client import log_activity
     try:
-        digest = build_digest()
-        send_observatory_digest()
-        log_activity(None, "observatory_sent", {"preview": digest[:200]})
-    except Exception:
-        pass
+        digest = send_observatory_digest()  # returns the digest text; builds it internally once
+        if digest:
+            log_activity(None, "observatory_sent", {"preview": digest[:200]})
+    except Exception as exc:
+        log.error("Observatory job failed: %s", exc)
 
 
 async def _job_click_calls():
     try:
         from agents.click_caller import run_click_campaign
-        run_click_campaign()
-    except Exception:
-        pass
+        await asyncio.to_thread(run_click_campaign)
+    except Exception as exc:
+        log.error("_job_click_calls failed: %s", exc)
 
 
 async def _job_scheduled_callbacks():
@@ -1321,9 +1289,9 @@ async def _job_email_campaign():
                 "emails_sent": sent,
                 "log": f"Scheduler: Sent={sent} Skipped={skipped} Failed={failed}",
             })
-        log_activity(None, "email_campaign_auto", {"sent": sent, "skipped": skipped, "failed": failed})
-    except Exception:
-        pass
+        log_activity(None, "email_campaign_auto", {"sent": sent, "skipped": skipped, "failed": failed})  # lead_id=None is intentional system-level event
+    except Exception as exc:
+        log.error("_job_email_campaign failed: %s", exc)
 
 
 @app.on_event("startup")
@@ -1457,7 +1425,7 @@ async def wa_outreach_webhook(request: Request):
 
 # ── Cron: WA follow-up (Agent 6 — 3-day silence) ─────────────────────────────
 
-@app.get("/api/cron/wa-followup")
+@app.post("/api/cron/wa-followup")
 async def cron_wa_followup(request: Request):
     """Send follow-up WA message to leads silent for 3+ days."""
     import asyncio as _asyncio
@@ -1513,7 +1481,7 @@ async def cron_click_calls(request: Request):
 
 # ── Cron: voice follow-up (Agent 7 — 5-day silence) ──────────────────────────
 
-@app.get("/api/cron/voice-followup")
+@app.post("/api/cron/voice-followup")
 async def cron_voice_followup(request: Request):
     """Place outbound Vapi call to leads silent for 5+ days."""
     import asyncio as _asyncio
@@ -1547,7 +1515,7 @@ async def cron_voice_followup(request: Request):
 
 # ── Cron: Observatory (Agent 10 — daily digest) ───────────────────────────────
 
-@app.get("/api/cron/observatory")
+@app.post("/api/cron/observatory")
 async def cron_observatory(request: Request):
     """Build and send the daily Apex digest to the founder's WhatsApp."""
     cron_secret = os.getenv("CRON_SECRET", "")
@@ -1556,11 +1524,10 @@ async def cron_observatory(request: Request):
         if auth.removeprefix("Bearer ").strip() != cron_secret:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-    from agents.observatory import build_digest, send_observatory_digest
+    from agents.observatory import send_observatory_digest
     from database.client import log_activity
 
-    digest = build_digest()
-    send_observatory_digest()
+    digest = send_observatory_digest()  # builds once internally
     log_activity(None, "observatory_sent", {"preview": digest[:200]})
     return {"ok": True, "digest": digest}
 
