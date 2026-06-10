@@ -428,9 +428,9 @@ def _build_assistant(business_type: str, server_url: str) -> dict:
             "tools": tools,   # tools belong inside model, not at assistant level
         },
         "voice": {
-            "provider": "openai",
-            "voiceId": "nova",
-            "speed": 1.15,
+            "provider": "cartesia",
+            "voiceId": "248be419-c632-4f23-adf1-5324ed7dbf1d",   # Helpful Woman — warm, clear
+            "model": "sonic-2",
         },
         "serverUrl": f"{server_url}/api/webhooks/vapi",
         "artifactPlan": {"recordingEnabled": True},

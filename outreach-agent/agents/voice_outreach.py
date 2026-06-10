@@ -303,9 +303,9 @@ def place_outbound_call(phone: str, business_type: str, business_name: str) -> d
             "tools": _build_tools(server_url) if server_url else [],
         },
         "voice": {
-            "provider": "openai",
-            "voiceId": "nova",
-            "speed": 1.15,
+            "provider": "cartesia",
+            "voiceId": "248be419-c632-4f23-adf1-5324ed7dbf1d",   # Helpful Woman — warm, clear
+            "model": "sonic-2",
         },
         "endCallMessage": "Thanks for your time. Have a wonderful day!",
         "endCallPhrases": [
