@@ -1006,10 +1006,12 @@ _PIXEL = (
 @app.get("/track/open/{lead_id}")
 async def track_open(lead_id: str):
     from database.client import update_lead, log_activity, get_client
+    from datetime import datetime, timezone
     try:
         lead = get_client().table("leads").select("email_opened").eq("id", lead_id).limit(1).execute()
         already = lead.data[0].get("email_opened") if lead.data else False
-        update_lead(lead_id, {"email_opened": True})
+        ts = datetime.now(timezone.utc).isoformat()
+        update_lead(lead_id, {"email_opened": True, "email_opened_at": ts})
         if not already:
             log_activity(lead_id, "email_opened", {"source": "pixel"})
     except Exception:
@@ -1022,11 +1024,16 @@ async def track_open(lead_id: str):
 async def track_click(lead_id: str, url: str = "https://practicedesk.netlify.app"):
     from database.client import update_lead, log_activity, get_client
     from fastapi.responses import RedirectResponse
+    from datetime import datetime, timezone
     try:
         lead = get_client().table("leads").select("email_opened, email_clicked").eq("id", lead_id).limit(1).execute()
         already_opened  = lead.data[0].get("email_opened")  if lead.data else False
         already_clicked = lead.data[0].get("email_clicked") if lead.data else False
-        update_lead(lead_id, {"email_clicked": True, "email_opened": True})
+        ts = datetime.now(timezone.utc).isoformat()
+        patch = {"email_clicked": True, "email_opened": True, "email_clicked_at": ts}
+        if not already_opened:
+            patch["email_opened_at"] = ts
+        update_lead(lead_id, patch)
         if not already_opened:
             log_activity(lead_id, "email_opened",  {"source": "pixel"})
         if not already_clicked:
@@ -1356,12 +1363,19 @@ async def activity_live():
             t += timedelta(days=1)
         return t.isoformat()
 
-    def _next_hourly() -> str:
-        return (now_utc.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)).isoformat()
+    def _next_hourly_runs(count: int = 6) -> list[str]:
+        """Next N hourly fire times, Mon–Fri only."""
+        runs, t = [], now_utc.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        while len(runs) < count:
+            if t.weekday() < 5:
+                runs.append(t.isoformat())
+            t += timedelta(hours=1)
+        return runs
 
-    def _next_15min() -> str:
+    def _next_15min_runs(count: int = 4) -> list[str]:
         mins_to_add = 15 - (now_utc.minute % 15) or 15
-        return (now_utc.replace(second=0, microsecond=0) + timedelta(minutes=mins_to_add)).isoformat()
+        base = now_utc.replace(second=0, microsecond=0) + timedelta(minutes=mins_to_add)
+        return [(base + timedelta(minutes=15 * i)).isoformat() for i in range(count)]
 
     def _next_email_campaign() -> str:
         candidates = []
@@ -1379,14 +1393,79 @@ async def activity_live():
             days_ahead = 7
         return (t + timedelta(days=days_ahead)).isoformat()
 
+    def _last_of(activity_type: str) -> str | None:
+        row = (db.table("lead_activities")
+               .select("created_at").eq("type", activity_type)
+               .order("created_at", desc=True).limit(1).execute())
+        return row.data[0]["created_at"] if row.data else None
+
+    hourly_runs  = _next_hourly_runs(6)
+    quarter_runs = _next_15min_runs(4)
+
     schedule = [
-        {"job": "WA Follow-up",      "next_run": _next_daily(9, 0),        "queue": wa_pending,    "description": "Follow-up WA to leads silent 3+ days"},
-        {"job": "Voice Follow-up",   "next_run": _next_daily(9, 0),        "queue": voice_pending, "description": "Aria call to leads silent 5+ days"},
-        {"job": "Email Campaign",    "next_run": _next_email_campaign(),   "queue": email_pending, "description": "Next email in drip sequence (AU 8am / CA 9am)"},
-        {"job": "Click Calls",       "next_run": _next_hourly(),           "queue": click_pending, "description": "Aria calls email-clicked leads (business hours only)"},
-        {"job": "Callbacks",         "next_run": _next_15min(),            "queue": 0,             "description": "Processes scheduled call-back requests from Aria"},
-        {"job": "Observatory",       "next_run": _next_daily(1, 30),       "queue": 0,             "description": "Daily digest → founder WhatsApp (7am IST)"},
-        {"job": "Signal Weekly",     "next_run": _next_monday_6am(),       "queue": 0,             "description": "Marketing Head report: scores, projections, targets"},
+        {
+            "job": "WA Follow-up",
+            "next_run": _next_daily(9, 0),
+            "next_runs": [_next_daily(9, 0)],
+            "queue": wa_pending,
+            "frequency": "Daily 9:00 UTC",
+            "last_ran": _last_of("wa_followup_sent"),
+            "description": "Follow-up WA to leads contacted 3+ days ago with no reply",
+        },
+        {
+            "job": "Voice Follow-up",
+            "next_run": _next_daily(9, 0),
+            "next_runs": [_next_daily(9, 0)],
+            "queue": voice_pending,
+            "frequency": "Daily 9:00 UTC",
+            "last_ran": _last_of("voice_followup_placed"),
+            "description": "Aria outbound call to leads silent 5+ days",
+        },
+        {
+            "job": "Email Campaign",
+            "next_run": _next_email_campaign(),
+            "next_runs": [_next_email_campaign()],
+            "queue": email_pending,
+            "frequency": "13:00 & 22:00 UTC",
+            "last_ran": _last_of("email_campaign_auto"),
+            "description": "Next email in 6-step drip sequence (AU 8am / CA 9am EDT)",
+        },
+        {
+            "job": "Aria Click Calls",
+            "next_run": hourly_runs[0],
+            "next_runs": hourly_runs,
+            "queue": click_pending,
+            "frequency": "Hourly Mon–Fri",
+            "last_ran": _last_of("outbound_call"),
+            "description": "Calls leads who clicked an email link (10am–5pm local time)",
+        },
+        {
+            "job": "Callbacks",
+            "next_run": quarter_runs[0],
+            "next_runs": quarter_runs,
+            "queue": 0,
+            "frequency": "Every 15 min Mon–Fri",
+            "last_ran": None,
+            "description": "Processes Aria-scheduled callbacks from previous calls",
+        },
+        {
+            "job": "Observatory",
+            "next_run": _next_daily(1, 30),
+            "next_runs": [_next_daily(1, 30)],
+            "queue": 0,
+            "frequency": "Daily 1:30 UTC (7am IST)",
+            "last_ran": _last_of("observatory_sent"),
+            "description": "Daily cost + funnel digest → founder WhatsApp",
+        },
+        {
+            "job": "Signal Weekly",
+            "next_run": _next_monday_6am(),
+            "next_runs": [_next_monday_6am()],
+            "queue": 0,
+            "frequency": "Monday 6:00 UTC",
+            "last_ran": _last_of("signal_weekly_report"),
+            "description": "Marketing Head: template scores, projections, A/B results",
+        },
     ]
 
     return {

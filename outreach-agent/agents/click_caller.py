@@ -17,109 +17,143 @@ log = logging.getLogger(__name__)
 
 VAPI_BASE = "https://api.vapi.ai"
 
-# ── Business-type openers ─────────────────────────────────────────────────────
+# ── Load copy assets ──────────────────────────────────────────────────────────
+
+_COPY_CACHE = None
+
+def _load_copy() -> dict:
+    global _COPY_CACHE
+    if _COPY_CACHE is not None:
+        return _COPY_CACHE
+    try:
+        import yaml
+        assets_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'copy.yaml')
+        with open(assets_path, 'r', encoding='utf-8') as f:
+            _COPY_CACHE = yaml.safe_load(f) or {}
+    except Exception:
+        _COPY_CACHE = {}
+    return _COPY_CACHE
+
+
+def _get_script(business_type: str) -> dict:
+    """Return opener/insight/pain_question for a business type from copy.yaml."""
+    copy = _load_copy()
+    vertical = (copy.get('verticals') or {}).get(business_type)
+    if not vertical:
+        vertical = copy.get('defaults') or {}
+    return {
+        "firstMessage": vertical.get('aria_opener', ''),
+        "insight":      vertical.get('aria_insight', ''),
+        "pain_question": vertical.get('aria_pain_question', ''),
+    }
+
+
+# ── Business-type openers (legacy fallback) ───────────────────────────────────
 
 _SCRIPTS = {
     "dentist": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk — "
-            "someone from your clinic was looking at how to reduce no-shows recently, "
-            "so I wanted to reach out quickly. Do you have a minute?"
+            "Hi, this is Aria from PracticeDesk. "
+            "Quick question — do you ever get patients trying to book after your reception closes? "
+            "Most clinics miss those completely."
         ),
         "insight": (
-            "Here's something most dental clinics don't realise — "
-            "patients who no-show actually had a reminder. They just ignored the phone call. "
-            "Research shows 73 percent of them respond to a WhatsApp message within 15 minutes. "
-            "Your staff are using the wrong channel."
+            "Most appointment searches happen between 8 PM and midnight — "
+            "when every dental clinic is closed and the phone just rings out. "
+            "Those patients don't call back in the morning. They book with whoever responded first. "
+            "PracticeDesk acts as your after-hours receptionist on WhatsApp — "
+            "it confirms bookings, sends reminders, and handles reschedules automatically."
         ),
-        "pain_question": "What's your biggest headache with no-shows right now — is it mostly the lost revenue, or the wasted chair time?",
+        "pain_question": "Right now, when a patient tries to reach you after hours — what happens to that enquiry?",
     },
     "physiotherapist": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk — "
-            "someone from your practice was looking at our patient rebooking tools recently, "
-            "so I wanted to reach out quickly. Do you have a minute?"
+            "Hi, this is Aria from PracticeDesk. "
+            "Quick question — do you find most patients complete one session "
+            "and then just don't rebook?"
         ),
         "insight": (
-            "Here's something that might surprise you — "
-            "the average physio practice loses around two thousand dollars a month "
-            "to patients who complete one session and simply don't rebook. "
-            "A WhatsApp follow-up sent 48 hours after treatment doubles the rebooking rate. "
-            "And it takes zero staff time if it's automated."
+            "The average physio practice loses around two thousand dollars a month "
+            "to patients who don't rebook — not because they don't want to, "
+            "but because nobody followed up at the right moment. "
+            "A WhatsApp message sent 48 hours after treatment doubles the rebooking rate. "
+            "And most patients will happily rebook at 10 at night if you make it easy for them."
         ),
-        "pain_question": "Would you say your biggest challenge is patients not rebooking, or more the time your staff spends on phone reminders?",
+        "pain_question": "How are you currently following up with patients after their first appointment?",
     },
     "salon": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk — "
-            "someone from your salon was looking at our booking reminder tools recently, "
-            "so I wanted to quickly reach out. Do you have a minute?"
+            "Hi, this is Aria from PracticeDesk. "
+            "Quick question — how many no-shows does your salon typically deal with each week?"
         ),
         "insight": (
-            "Salons that switch appointment reminders from phone calls to WhatsApp "
-            "typically see no-show rates drop from around 15 percent down to under 5 percent — "
-            "in the first month. The difference is simply read rates. "
-            "WhatsApp messages get opened. Calls go to voicemail."
+            "Salons that switch from phone reminders to WhatsApp "
+            "typically see no-show rates drop from around 15 percent to under 5 — in the first month. "
+            "The reason is simple: WhatsApp messages get read, calls go to voicemail. "
+            "And clients who would never call you at 9 AM will confirm their booking at 11 PM."
         ),
-        "pain_question": "How are you currently handling reminders — is it mostly your team calling clients manually?",
+        "pain_question": "Are your no-shows mostly last-minute cancellations, or people who just don't show without any notice?",
     },
     "accountant": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk — "
-            "someone from your firm was looking at our client communication tools recently, "
-            "so I wanted to reach out quickly. Do you have a minute?"
+            "Hi, this is Aria from PracticeDesk. "
+            "Quick question — is your team spending more than a few hours a week "
+            "chasing clients for documents or signatures?"
         ),
         "insight": (
             "The biggest hidden cost for accounting firms isn't overhead — "
             "it's the three to five hours per week staff spend chasing clients "
-            "for documents, signatures, and appointment confirmations. "
-            "WhatsApp automation handles all of that without anyone lifting a finger."
+            "for documents, responses, and appointment confirmations. "
+            "WhatsApp automation handles all of that without anyone lifting a finger. "
+            "Clients respond in minutes on WhatsApp versus days on email."
         ),
-        "pain_question": "Is client follow-up taking up a lot of your team's time, or is appointment scheduling the bigger issue?",
+        "pain_question": "Is it mostly document collection that takes the time, or more the back-and-forth around scheduling?",
     },
     "lawyer": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk — "
-            "someone from your firm was looking at our client intake tools recently, "
-            "so I wanted to reach out quickly. Do you have a minute?"
+            "Hi, this is Aria from PracticeDesk. "
+            "Quick question — how many potential clients do you think you lose "
+            "just because they couldn't reach anyone quickly?"
         ),
         "insight": (
             "Law firms lose potential clients at the very first touchpoint. "
-            "Studies show 70 percent of people who try to book a consultation online "
+            "Research shows 70 percent of people trying to book a consultation online "
             "abandon the process if there's no instant confirmation. "
-            "An AI receptionist that responds on WhatsApp within seconds captures clients "
-            "your competitors are losing."
+            "Most of those enquiries come outside business hours — "
+            "an AI receptionist on WhatsApp responds within seconds, day or night, "
+            "and captures clients your competitors are missing."
         ),
-        "pain_question": "Is your main challenge with new client intake, or more the ongoing communication with existing clients?",
+        "pain_question": "When a new client enquiry comes in after hours, what happens to it right now?",
     },
     "doctor": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk — "
-            "someone from your clinic was looking at how to reduce no-shows recently, "
-            "so I wanted to reach out quickly. Do you have a minute?"
+            "Hi, this is Aria from PracticeDesk. "
+            "Quick question — do you wish your patients could book their next appointment "
+            "at any hour, even when your clinic is closed?"
         ),
         "insight": (
-            "Medical clinics that implement WhatsApp appointment reminders "
-            "see a 25 percent drop in no-shows in the first month. "
-            "No-shows cost the average clinic over a hundred thousand dollars a year in lost revenue. "
-            "That's a significant number to recover just by changing your reminder channel."
+            "Most patients search for appointments in the evening after work — "
+            "when your clinic is closed and calls go unanswered. "
+            "Medical clinics that add WhatsApp booking see a 25 percent drop in no-shows "
+            "and pick up a significant number of after-hours bookings they were simply missing before."
         ),
-        "pain_question": "Is no-show rate your main concern, or is it more the administrative burden on your reception team?",
+        "pain_question": "When a patient tries to reach you after hours right now — do they get any response at all?",
     },
 }
 
 _DEFAULT_SCRIPT = {
     "firstMessage": (
-        "Hi, this is Aria from PracticeDesk — "
-        "someone from your business was looking at our tools recently, "
-        "so I wanted to reach out quickly. Do you have a minute?"
+        "Hi, this is Aria from PracticeDesk. "
+        "Quick question — do you ever miss client enquiries or bookings "
+        "simply because they came in after hours?"
     ),
     "insight": (
-        "Practices and businesses that automate client communications on WhatsApp "
-        "typically reduce no-shows by 20 to 30 percent and save their staff several hours a week — "
-        "just by moving reminders and follow-ups off the phone and onto a channel clients actually use."
+        "Most client enquiries and booking requests happen in the evening — "
+        "after your business has closed for the day. "
+        "Practices that add WhatsApp as an after-hours channel typically reduce no-shows "
+        "by 20 to 30 percent and pick up bookings they were simply missing before."
     ),
-    "pain_question": "What's the biggest challenge with client communications for you right now?",
+    "pain_question": "What's the biggest gap in how you're handling client communications right now?",
 }
 
 # ── Full 7-phase system prompt ────────────────────────────────────────────────
@@ -132,11 +166,25 @@ If asked directly whether you are an AI or a bot, answer honestly: yes, you are.
 Maximum call length: 5 minutes. Never exceed this.
 
 ═══════════════════════════════════════════════════════════════════════════════
+⚠️  ABSOLUTE RULE — CALLBACK REQUESTS
+═══════════════════════════════════════════════════════════════════════════════
+If the prospect says ANYTHING like "call me back", "can you call back", \
+"not a good time", "I'm busy", or gives you a callback time — you MUST:
+  1. Ask for (or confirm) a specific time if not already given.
+  2. Use the schedule_callback tool immediately.
+  3. Confirm: "Perfect — I'll call you [day/time]. Have a great day."
+  4. END THE CALL. No exceptions.
+
+NEVER say "this will just take a sec", "it'll only be a moment", \
+or any phrase that attempts to continue the call after a callback request. \
+Pushing past a callback request destroys trust and loses the prospect permanently.
+
+═══════════════════════════════════════════════════════════════════════════════
 PHASE 1 — OPENING  (target: 20 seconds)
 ═══════════════════════════════════════════════════════════════════════════════
 The prospect recently clicked on a PracticeDesk email, so this is a warm call. \
 Your opening message is pre-set. After they respond:
-- If they say they are busy → go to CALLBACK HANDLING immediately.
+- If they signal they are busy or ask for a callback → trigger the ABSOLUTE RULE above immediately.
 - If they say they have a moment → continue to Phase 2.
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -248,12 +296,12 @@ IF HARD NO:
   → End immediately, mark as not interested.
 
 ═══════════════════════════════════════════════════════════════════════════════
-CALLBACK HANDLING (if busy at the start)
+CALLBACK HANDLING (any point in the call — see ABSOLUTE RULE at top)
 ═══════════════════════════════════════════════════════════════════════════════
-"No problem at all — when would be a better time to reach you? \
- I can call you back on [day] at [time]."
-→ Use the schedule_callback tool.
-→ Confirm: "Wonderful — I'll call you then. Sorry to have caught you at a bad time."
+"No problem at all — when would be a better time to reach you?"
+→ Once they give a time: use schedule_callback immediately.
+→ Confirm: "Perfect — I'll call you then. Have a great day."
+→ END THE CALL. Do not add another sentence. Do not pitch anything.
 
 ═══════════════════════════════════════════════════════════════════════════════
 QUESTIONS OR OBSERVATIONS
@@ -309,7 +357,10 @@ def _normalize_phone(phone: str, city: str = "") -> str:
 
 
 def _build_assistant(business_type: str, server_url: str) -> dict:
-    script = _SCRIPTS.get(business_type.lower(), _DEFAULT_SCRIPT)
+    script = _get_script(business_type.lower())
+    # Fall back to legacy hardcoded dict if yaml returned empty strings
+    if not script["firstMessage"]:
+        script = _SCRIPTS.get(business_type.lower(), _DEFAULT_SCRIPT)
     prompt = _SYSTEM_PROMPT.format(
         insight=script["insight"],
         pain_question=script["pain_question"],

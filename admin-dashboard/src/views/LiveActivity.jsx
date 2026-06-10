@@ -2,28 +2,38 @@ import { useEffect, useState, useRef } from 'react'
 import {
   Send, MessageSquare, Phone, Mail, Calendar,
   CheckCircle, XCircle, Clock, RefreshCw, Activity,
-  TrendingUp, Eye, MousePointer, Zap, Radio,
+  TrendingUp, Eye, MousePointer, Zap, Radio, AlarmClock,
 } from 'lucide-react'
 import { getLiveActivity } from '../api'
 
 // ── Activity type config ───────────────────────────────────────────────────────
 
 const ACT_CONFIG = {
-  outreach_sent:           { icon: Send,         color: 'text-indigo-400',  label: 'WA Sent' },
-  wa_followup_sent:        { icon: RefreshCw,     color: 'text-indigo-300',  label: 'WA Follow-up' },
-  wa_reply_received:       { icon: MessageSquare, color: 'text-green-400',   label: 'WA Reply' },
-  email_sent:              { icon: Mail,          color: 'text-sky-400',     label: 'Email Sent' },
-  email_opened:            { icon: Eye,           color: 'text-sky-300',     label: 'Email Opened' },
-  email_clicked:           { icon: MousePointer,  color: 'text-amber-400',   label: 'Email Clicked' },
-  outbound_call:           { icon: Phone,         color: 'text-violet-400',  label: 'Aria Called' },
-  voice_followup_placed:   { icon: Phone,         color: 'text-violet-300',  label: 'Voice Follow-up' },
-  outbound_call_completed: { icon: CheckCircle,   color: 'text-green-400',   label: 'Call Completed' },
-  demo_booking_sent:       { icon: Calendar,      color: 'text-amber-400',   label: 'Demo Link Sent' },
-  demo_booked:             { icon: CheckCircle,   color: 'text-green-400',   label: 'Demo Booked' },
-  marked_not_interested:   { icon: XCircle,       color: 'text-red-400',     label: 'Not Interested' },
-  observatory_sent:        { icon: Activity,      color: 'text-slate-400',   label: 'Observatory' },
-  email_campaign_auto:     { icon: Zap,           color: 'text-sky-400',     label: 'Email Batch' },
-  signal_weekly_report:    { icon: TrendingUp,    color: 'text-emerald-400', label: 'Signal Report' },
+  outreach_sent:           { icon: Send,          color: 'text-indigo-400',  label: 'WA Sent' },
+  wa_followup_sent:        { icon: RefreshCw,      color: 'text-indigo-300',  label: 'WA Follow-up' },
+  wa_reply_received:       { icon: MessageSquare,  color: 'text-green-400',   label: 'WA Reply' },
+  email_sent:              { icon: Mail,           color: 'text-sky-400',     label: 'Email Sent' },
+  email_opened:            { icon: Eye,            color: 'text-sky-300',     label: 'Email Opened' },
+  email_clicked:           { icon: MousePointer,   color: 'text-amber-400',   label: 'Email Clicked' },
+  outbound_call:           { icon: Phone,          color: 'text-violet-400',  label: 'Aria Called' },
+  voice_followup_placed:   { icon: Phone,          color: 'text-violet-300',  label: 'Voice Follow-up' },
+  outbound_call_completed: { icon: CheckCircle,    color: 'text-green-400',   label: 'Call Completed' },
+  demo_booking_sent:       { icon: Calendar,       color: 'text-amber-400',   label: 'Demo Link Sent' },
+  demo_booked:             { icon: CheckCircle,    color: 'text-green-400',   label: 'Demo Booked' },
+  marked_not_interested:   { icon: XCircle,        color: 'text-red-400',     label: 'Not Interested' },
+  observatory_sent:        { icon: Activity,       color: 'text-slate-400',   label: 'Observatory' },
+  email_campaign_auto:     { icon: Zap,            color: 'text-sky-400',     label: 'Email Batch' },
+  signal_weekly_report:    { icon: TrendingUp,     color: 'text-emerald-400', label: 'Signal Report' },
+}
+
+const JOB_ICON = {
+  'WA Follow-up':    { icon: RefreshCw,   color: 'text-indigo-400' },
+  'Voice Follow-up': { icon: Phone,       color: 'text-violet-400' },
+  'Email Campaign':  { icon: Mail,        color: 'text-sky-400'    },
+  'Aria Click Calls':{ icon: Zap,         color: 'text-amber-400'  },
+  'Callbacks':       { icon: AlarmClock,  color: 'text-slate-400'  },
+  'Observatory':     { icon: Activity,    color: 'text-slate-400'  },
+  'Signal Weekly':   { icon: TrendingUp,  color: 'text-emerald-400'},
 }
 
 function actConfig(type) {
@@ -35,70 +45,120 @@ function actConfig(type) {
 function timeAgo(iso) {
   if (!iso) return ''
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
-  if (diff < 5)   return 'just now'
-  if (diff < 60)  return `${diff}s ago`
+  if (diff < 5)    return 'just now'
+  if (diff < 60)   return `${diff}s ago`
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m ago`
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-function timeUntil(iso) {
-  if (!iso) return ''
+function countdown(iso) {
+  if (!iso) return { label: '—', urgent: false, imminent: false }
   const diff = Math.floor((new Date(iso) - Date.now()) / 1000)
-  if (diff <= 0)    return 'now'
-  if (diff < 60)    return `in ${diff}s`
-  if (diff < 3600)  return `in ${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `in ${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`
-  return `in ${Math.floor(diff / 86400)}d`
+  if (diff <= 0)    return { label: 'now',                      urgent: true,  imminent: true  }
+  if (diff < 60)    return { label: `${diff}s`,                 urgent: true,  imminent: true  }
+  if (diff < 300)   return { label: `${Math.floor(diff/60)}m ${diff%60}s`, urgent: true, imminent: false }
+  if (diff < 3600)  return { label: `${Math.floor(diff/60)}m`, urgent: false, imminent: false }
+  const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60)
+  return { label: m > 0 ? `${h}h ${m}m` : `${h}h`, urgent: false, imminent: false }
 }
 
-function fmtUtc(iso) {
+function fmtTime(iso, tz) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz })
+}
+
+function fmtDate(iso, tz) {
   if (!iso) return ''
   const d = new Date(iso)
-  return d.toUTCString().replace(' GMT', ' UTC').slice(0, -4)
+  const today = new Date().toLocaleDateString('en-GB', { timeZone: tz })
+  const target = d.toLocaleDateString('en-GB', { timeZone: tz })
+  if (target === today) return 'today'
+  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('en-GB', { timeZone: tz })
+  if (target === tomorrow) return 'tomorrow'
+  return d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: tz })
 }
 
-// ── Queue card ─────────────────────────────────────────────────────────────────
+// ── Schedule card ──────────────────────────────────────────────────────────────
 
-function QueueCard({ label, count, icon: Icon, color, description }) {
-  const isEmpty = count === 0
+function ScheduleCard({ job, next_run, next_runs, queue, frequency, last_ran, description, tick }) {
+  const cfg   = JOB_ICON[job] || { icon: Clock, color: 'text-slate-400' }
+  const Icon  = cfg.icon
+  const { label, urgent, imminent } = countdown(next_run)
+  const hot   = queue > 0
+  const multi = next_runs && next_runs.length > 1
+
   return (
-    <div className={`bg-[#1e293b] border rounded-lg p-4 flex flex-col gap-2 ${isEmpty ? 'border-slate-700/30' : 'border-indigo-500/30'}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon size={14} className={isEmpty ? 'text-slate-600' : color} />
-          <span className="text-xs text-slate-400">{label}</span>
-        </div>
-        <span className={`text-xl font-bold tabular-nums ${isEmpty ? 'text-slate-600' : 'text-white'}`}>
-          {count}
-        </span>
-      </div>
-      <p className="text-xs text-slate-600 leading-relaxed">{description}</p>
-    </div>
-  )
-}
-
-// ── Schedule row ───────────────────────────────────────────────────────────────
-
-function ScheduleRow({ job, next_run, queue, description }) {
-  const hasQueue = queue > 0
-  return (
-    <div className="flex items-start gap-3 py-3 border-b border-slate-700/30 last:border-0">
-      <div className="w-2 h-2 mt-1.5 rounded-full shrink-0 bg-slate-600" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-slate-200">{job}</span>
-          {hasQueue && (
-            <span className="text-xs bg-indigo-900/50 text-indigo-400 border border-indigo-700/40 px-1.5 py-0.5 rounded-full">
+    <div className={`bg-[#1e293b] border rounded-lg p-4 transition-all ${
+      hot     ? 'border-indigo-500/50 shadow-[0_0_12px_rgba(99,102,241,0.08)]'
+              : 'border-slate-700/30'
+    }`}>
+      {/* Top row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon size={14} className={hot ? cfg.color : 'text-slate-600'} />
+          <span className={`text-sm font-medium truncate ${hot ? 'text-slate-100' : 'text-slate-400'}`}>
+            {job}
+          </span>
+          {hot && (
+            <span className="shrink-0 text-xs bg-indigo-900/60 text-indigo-300 border border-indigo-700/40 px-1.5 py-0.5 rounded-full">
               {queue} queued
             </span>
           )}
         </div>
-        <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+
+        {/* Countdown */}
+        <div className="text-right shrink-0">
+          <span className={`text-lg font-bold tabular-nums ${
+            imminent ? 'text-green-400 animate-pulse' :
+            urgent   ? 'text-amber-400' :
+            hot      ? 'text-white' : 'text-slate-500'
+          }`}>
+            {label}
+          </span>
+        </div>
       </div>
-      <div className="shrink-0 text-right">
-        <p className="text-xs font-medium text-amber-400">{timeUntil(next_run)}</p>
-        <p className="text-xs text-slate-600 mt-0.5">{fmtUtc(next_run)}</p>
+
+      {/* Times row */}
+      <div className="mt-2 flex items-center gap-3 flex-wrap">
+        {['UTC', 'Australia/Sydney', 'America/Toronto'].map((tz, i) => (
+          <span key={tz} className="text-xs text-slate-500">
+            <span className="text-slate-600">{['UTC', 'AEST', 'EDT'][i]}</span>{' '}
+            <span className={hot ? 'text-slate-300' : 'text-slate-500'}>
+              {fmtTime(next_run, tz)} {fmtDate(next_run, tz) !== 'today' ? `(${fmtDate(next_run, tz)})` : ''}
+            </span>
+          </span>
+        ))}
+      </div>
+
+      {/* Upcoming runs (for high-frequency jobs) */}
+      {multi && (
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-slate-600">Next:</span>
+          {next_runs.slice(0, 6).map((t, i) => {
+            const { label: lbl, urgent: u } = countdown(t)
+            return (
+              <span key={i} className={`text-xs px-1.5 py-0.5 rounded border ${
+                i === 0
+                  ? 'bg-slate-700/60 border-slate-600/60 text-slate-300'
+                  : 'bg-slate-800/40 border-slate-700/20 text-slate-600'
+              }`}>
+                {lbl}
+              </span>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-600 leading-relaxed flex-1">{description}</p>
+        <div className="shrink-0 text-right">
+          <p className="text-xs text-slate-600">{frequency}</p>
+          {last_ran && (
+            <p className="text-xs text-slate-700 mt-0.5">last: {timeAgo(last_ran)}</p>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -122,7 +182,7 @@ function FeedItem({ item, isNew }) {
   }
 
   return (
-    <div className={`flex items-start gap-3 py-2.5 border-b border-slate-700/20 last:border-0 transition-opacity duration-500 ${isNew ? 'bg-indigo-950/30' : ''}`}>
+    <div className={`flex items-start gap-3 py-2.5 border-b border-slate-700/20 last:border-0 ${isNew ? 'bg-indigo-950/30' : ''}`}>
       <div className="w-6 h-6 shrink-0 flex items-center justify-center mt-0.5">
         <Icon size={13} className={color} />
       </div>
@@ -143,8 +203,8 @@ export default function LiveActivity() {
   const [data, setData]       = useState(null)
   const [newIds, setNewIds]   = useState(new Set())
   const [lastFetch, setLastFetch] = useState(null)
+  const [tick, setTick]       = useState(0)      // increments every second — drives live countdowns
   const knownIds              = useRef(new Set())
-  const token                 = localStorage.getItem('pd_token')
 
   function refresh() {
     getLiveActivity()
@@ -163,15 +223,17 @@ export default function LiveActivity() {
 
   useEffect(() => {
     refresh()
-    const t = setInterval(refresh, 15000)
-    return () => clearInterval(t)
-  }, [token])
+    const dataTimer = setInterval(refresh, 15000)          // refresh data every 15s
+    const tickTimer = setInterval(() => setTick(t => t + 1), 1000) // tick every 1s for countdowns
+    return () => { clearInterval(dataTimer); clearInterval(tickTimer) }
+  }, [])
 
   const queue    = data?.queue    || {}
   const schedule = data?.schedule || []
   const recent   = data?.recent   || []
 
-  const totalQueued = (queue.wa_followup || 0) + (queue.voice_followup || 0) + (queue.email || 0) + (queue.click_calls || 0)
+  const sorted = [...schedule].sort((a, b) => new Date(a.next_run) - new Date(b.next_run))
+  const totalQueued = Object.values(queue).reduce((s, v) => s + (v || 0), 0)
 
   return (
     <div className="p-6 space-y-6">
@@ -190,7 +252,7 @@ export default function LiveActivity() {
         </div>
         <div className="flex items-center gap-3">
           {lastFetch && (
-            <span className="text-xs text-slate-600">Updated {timeAgo(lastFetch.toISOString())}</span>
+            <span className="text-xs text-slate-600">Data updated {timeAgo(lastFetch.toISOString())}</span>
           )}
           <button
             onClick={refresh}
@@ -202,112 +264,68 @@ export default function LiveActivity() {
         </div>
       </div>
 
-      {/* Queue cards */}
+      {/* Schedule — primary focus */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Pending actions</p>
-          {totalQueued > 0
-            ? <span className="text-xs text-indigo-400">{totalQueued} leads waiting</span>
-            : <span className="text-xs text-slate-600">All queues empty</span>
-          }
+          <div className="flex items-center gap-2">
+            <Clock size={13} className="text-amber-400" />
+            <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">Upcoming — next 24h</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {totalQueued > 0 && (
+              <span className="text-xs text-indigo-400">{totalQueued} leads queued</span>
+            )}
+            <span className="text-xs text-slate-600">Countdowns are live</span>
+          </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <QueueCard
-            label="WA Follow-up"
-            count={queue.wa_followup || 0}
-            icon={RefreshCw}
-            color="text-indigo-400"
-            description="Contacted 3+ days ago, no reply yet. Fires 9am UTC."
-          />
-          <QueueCard
-            label="Voice Follow-up"
-            count={queue.voice_followup || 0}
-            icon={Phone}
-            color="text-violet-400"
-            description="Contacted 5+ days ago, no reply. Aria call fires 9am UTC."
-          />
-          <QueueCard
-            label="Email Drip"
-            count={queue.email || 0}
-            icon={Mail}
-            color="text-sky-400"
-            description="Leads due for their next email in the 6-step sequence."
-          />
-          <QueueCard
-            label="Aria Click Calls"
-            count={queue.click_calls || 0}
-            icon={Zap}
-            color="text-amber-400"
-            description="Email-clicked leads. Aria calls hourly in business hours."
-          />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {sorted.map(job => (
+            <ScheduleCard key={job.job} {...job} tick={tick} />
+          ))}
         </div>
       </div>
 
-      {/* Two columns: feed + schedule */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Live feed */}
-        <div className="bg-[#1e293b] border border-slate-700/40 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-700/40 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Radio size={13} className="text-green-400" />
-              <span className="text-xs font-medium text-slate-300">Activity Feed</span>
-            </div>
-            <span className="text-xs text-slate-600">{recent.length} events</span>
+      {/* Activity feed */}
+      <div className="bg-[#1e293b] border border-slate-700/40 rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-700/40 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Radio size={13} className="text-green-400" />
+            <span className="text-xs font-medium text-slate-300">Activity Feed</span>
           </div>
-          <div className="overflow-y-auto max-h-[480px] divide-y divide-transparent px-4 py-2">
-            {recent.length === 0 ? (
-              <p className="text-xs text-slate-600 py-6 text-center">No recent activity</p>
-            ) : (
-              recent.map(item => (
-                <FeedItem key={item.id} item={item} isNew={newIds.has(item.id)} />
-              ))
-            )}
-          </div>
+          <span className="text-xs text-slate-600">{recent.length} recent events</span>
         </div>
-
-        {/* Schedule */}
-        <div className="bg-[#1e293b] border border-slate-700/40 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-700/40 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock size={13} className="text-amber-400" />
-              <span className="text-xs font-medium text-slate-300">Upcoming Jobs</span>
-            </div>
-            <span className="text-xs text-slate-600">All times UTC</span>
-          </div>
-          <div className="px-4 py-2">
-            {schedule.length === 0 ? (
-              <p className="text-xs text-slate-600 py-6 text-center">Schedule unavailable</p>
-            ) : (
-              [...schedule]
-                .sort((a, b) => new Date(a.next_run) - new Date(b.next_run))
-                .map(job => (
-                  <ScheduleRow key={job.job} {...job} />
-                ))
-            )}
-          </div>
-
-          {/* WA workflow explanation */}
-          <div className="border-t border-slate-700/40 px-4 py-4">
-            <p className="text-xs font-medium text-slate-400 mb-2">WA Outreach Timeline</p>
-            <div className="space-y-1.5">
-              {[
-                { day: 'Day 0',  icon: Send,        color: 'text-indigo-400', text: 'Initial WA sent (manual pipeline run)' },
-                { day: 'Day 3',  icon: RefreshCw,   color: 'text-indigo-300', text: 'Follow-up WA if no reply' },
-                { day: 'Day 5',  icon: Phone,       color: 'text-violet-400', text: 'Aria voice call if still silent' },
-                { day: 'Any',    icon: MessageSquare,color:'text-green-400',  text: 'Reply → intent classification → demo booking' },
-              ].map(({ day, icon: Icon, color, text }) => (
-                <div key={day} className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600 w-10 shrink-0">{day}</span>
-                  <Icon size={11} className={color} />
-                  <span className="text-xs text-slate-500">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="overflow-y-auto max-h-[420px] px-4 py-2">
+          {recent.length === 0 ? (
+            <p className="text-xs text-slate-600 py-6 text-center">No recent activity</p>
+          ) : (
+            recent.map(item => (
+              <FeedItem key={item.id} item={item} isNew={newIds.has(item.id)} />
+            ))
+          )}
         </div>
-
       </div>
+
+      {/* WA outreach timeline legend */}
+      <div className="bg-[#1e293b] border border-slate-700/40 rounded-lg px-4 py-4">
+        <p className="text-xs font-medium text-slate-400 mb-3">WA Outreach Sequence</p>
+        <div className="flex flex-wrap gap-x-8 gap-y-2">
+          {[
+            { day: 'Day 0',  icon: Send,         color: 'text-indigo-400',  text: 'Initial WA (pipeline run)' },
+            { day: 'Day 3',  icon: RefreshCw,    color: 'text-indigo-300',  text: 'WA follow-up if no reply' },
+            { day: 'Day 5',  icon: Phone,        color: 'text-violet-400',  text: 'Aria voice call if still silent' },
+            { day: 'Email',  icon: MousePointer, color: 'text-amber-400',   text: 'Click → Aria calls next working day' },
+            { day: 'Reply',  icon: MessageSquare,color: 'text-green-400',   text: 'Intent classified → demo booking' },
+          ].map(({ day, icon: Icon, color, text }) => (
+            <div key={day} className="flex items-center gap-2">
+              <span className="text-xs text-slate-600 w-10 shrink-0">{day}</span>
+              <Icon size={11} className={color} />
+              <span className="text-xs text-slate-500">{text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   )
 }

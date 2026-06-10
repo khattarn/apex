@@ -1,0 +1,257 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PracticeDesk — Outreach Copy Assets
+# Single source of truth for all agent-facing copy.
+# Edit here; changes take effect on next deploy.
+#
+# Placeholders available in wa_message: {name}, {city}
+# WhatsApp formatting: *bold*, _italic_, bullet • char
+# ─────────────────────────────────────────────────────────────────────────────
+
+verticals:
+
+  dentist:
+    wa_message: |
+      Hi *{name}* 👋
+
+      I'm Aria from *PracticeDesk* — an AI receptionist built for dental clinics.
+
+      Here's what clinics in {city} are using us for:
+
+      • 📅 *After-hours bookings* — patients search for appointments at 10 PM. We answer. You confirm in the morning.
+      • 💬 *WhatsApp reminders* — 73% of patients respond vs ignoring phone calls
+      • 🔄 *Auto-rebook no-shows* — a follow-up message goes out automatically. No staff effort.
+      • 📋 *Intake & confirmations* — new patient forms, pre-appointment instructions, all on WhatsApp
+      • 📊 *Free your front desk* — 3–5 hours of phone tag eliminated every week
+
+      Most clinics see *no-shows drop by 30%* within the first month.
+
+      *14-day free trial. Live in 15 minutes. No lock-in.*
+
+      Worth a look? → practicedesk.live
+
+    aria_opener: >
+      Hi, this is Aria from PracticeDesk.
+      Quick question — do you ever get patients trying to book after your reception closes?
+      Most clinics miss those completely.
+
+    aria_insight: >
+      Most appointment searches happen between 8 PM and midnight —
+      when every dental clinic is closed and the phone just rings out.
+      Those patients don't call back in the morning. They book with whoever responded first.
+      PracticeDesk acts as your after-hours receptionist on WhatsApp —
+      it confirms bookings, sends reminders, and handles reschedules automatically.
+
+    aria_pain_question: >
+      Right now, when a patient tries to reach you after hours — what happens to that enquiry?
+
+
+  physiotherapist:
+    wa_message: |
+      Hi *{name}* 👋
+
+      I'm Aria from *PracticeDesk* — built to help physio practices stop losing patients after the first session.
+
+      Here's what practices in {city} use us for:
+
+      • 🔄 *48-hour follow-up* — auto WhatsApp after every treatment. Patients who hear from you rebook. Those who don't, disappear.
+      • 📅 *After-hours booking* — most patients decide to rebook at 10 PM. We're there when you're not.
+      • 💬 *Reminders that get read* — WhatsApp open rates vs phone calls aren't even close
+      • 📋 *Exercise & home-care instructions* — sent automatically after each session
+      • 📊 *Save 3–5 staff hours* per week on calls, reminders, and rebooking admin
+
+      The average physio practice *recovers $2,000/month* in lost rebookings within 30 days.
+
+      *14-day free trial. Live in 15 minutes. No lock-in.*
+
+      Curious? → practicedesk.live
+
+    aria_opener: >
+      Hi, this is Aria from PracticeDesk.
+      Quick question — do you find most patients complete one session
+      and then just don't rebook?
+
+    aria_insight: >
+      The average physio practice loses around two thousand dollars a month
+      to patients who don't rebook — not because they don't want to,
+      but because nobody followed up at the right moment.
+      A WhatsApp message sent 48 hours after treatment doubles the rebooking rate.
+      And most patients will happily rebook at 10 at night if you make it easy for them.
+
+    aria_pain_question: >
+      How are you currently following up with patients after their first appointment?
+
+
+  salon:
+    wa_message: |
+      Hi *{name}* 👋
+
+      I'm Aria from *PracticeDesk* — helping salons in {city} cut no-shows and fill every chair.
+
+      Here's what we do:
+
+      • 💬 *WhatsApp reminders* — clients confirm with a tap. No more calling the day before.
+      • 🔄 *Auto-fill cancellations* — when someone cancels, your waitlist gets messaged instantly
+      • 📅 *Book at any hour* — clients browsing at midnight can lock in a slot without calling
+      • ⭐ *Post-visit follow-up* — ask for reviews and prompt rebooking automatically
+      • 📊 *Less phone tag* — your team stops chasing confirmations and focuses on clients
+
+      Salons typically go *from 15% no-show rates to under 5%* within the first month.
+
+      *14-day free trial. Live in 15 minutes. No lock-in.*
+
+      Interested? → practicedesk.live
+
+    aria_opener: >
+      Hi, this is Aria from PracticeDesk.
+      Quick question — how many no-shows does your salon typically deal with each week?
+
+    aria_insight: >
+      Salons that switch from phone reminders to WhatsApp
+      typically see no-show rates drop from around 15 percent to under 5 — in the first month.
+      The reason is simple: WhatsApp messages get read, calls go to voicemail.
+      And clients who would never call you at 9 AM will confirm their booking at 11 PM.
+
+    aria_pain_question: >
+      Are your no-shows mostly last-minute cancellations, or people who just don't show without any notice?
+
+
+  accountant:
+    wa_message: |
+      Hi *{name}* 👋
+
+      I'm Aria from *PracticeDesk* — helping accounting firms in {city} reclaim hours lost to client follow-up.
+
+      Here's what firms like yours use us for:
+
+      • 📄 *Document chasing on autopilot* — WhatsApp nudges for missing info, signatures, and approvals
+      • 📅 *Appointment reminders* — reduce last-minute cancellations with automated confirmations
+      • 💬 *Client response rates* — clients reply in minutes on WhatsApp vs days on email
+      • 🔄 *Deadline reminders* — tax lodgement, BAS, EOFY — automated, on time, every time
+      • 📊 *Free your team* — 3–5 hours of weekly admin eliminated without adding headcount
+
+      Most firms *reclaim a full day per week* within the first month.
+
+      *14-day free trial. Live in 15 minutes. No lock-in.*
+
+      Worth exploring? → practicedesk.live
+
+    aria_opener: >
+      Hi, this is Aria from PracticeDesk.
+      Quick question — is your team spending more than a few hours a week
+      chasing clients for documents or signatures?
+
+    aria_insight: >
+      The biggest hidden cost for accounting firms isn't overhead —
+      it's the three to five hours per week staff spend chasing clients
+      for documents, responses, and appointment confirmations.
+      WhatsApp automation handles all of that without anyone lifting a finger.
+      Clients respond in minutes on WhatsApp versus days on email.
+
+    aria_pain_question: >
+      Is it mostly document collection that takes the time, or more the back-and-forth around scheduling?
+
+
+  lawyer:
+    wa_message: |
+      Hi *{name}* 👋
+
+      I'm Aria from *PracticeDesk* — helping law firms in {city} capture more clients and reduce intake drop-off.
+
+      Here's what firms like yours use us for:
+
+      • ⚡ *Instant response to enquiries* — day or night. 70% of people abandon if there's no fast confirmation.
+      • 📅 *Consultation booking* — automated, 24/7, no receptionist needed after hours
+      • 💬 *Client follow-up* — intake docs, appointment reminders, matter updates via WhatsApp
+      • 🔄 *No-show prevention* — automated reminders that reduce missed consultations
+      • 📊 *Less admin* — your team focuses on billable work, not chasing clients
+
+      Most firms see *20–30% fewer missed enquiries* within the first month.
+
+      *14-day free trial. Live in 15 minutes. No lock-in.*
+
+      Interested? → practicedesk.live
+
+    aria_opener: >
+      Hi, this is Aria from PracticeDesk.
+      Quick question — how many potential clients do you think you lose
+      just because they couldn't reach anyone quickly?
+
+    aria_insight: >
+      Law firms lose potential clients at the very first touchpoint.
+      Research shows 70 percent of people trying to book a consultation online
+      abandon the process if there's no instant confirmation.
+      Most of those enquiries come outside business hours —
+      an AI receptionist on WhatsApp responds within seconds, day or night,
+      and captures clients your competitors are missing.
+
+    aria_pain_question: >
+      When a new client enquiry comes in after hours, what happens to it right now?
+
+
+  doctor:
+    wa_message: |
+      Hi *{name}* 👋
+
+      I'm Aria from *PracticeDesk* — an AI receptionist for medical clinics.
+
+      Here's what clinics in {city} use us for:
+
+      • 📅 *After-hours bookings* — patients search for appointments at night. We answer and confirm.
+      • 💬 *WhatsApp reminders* — 25% fewer no-shows in the first month, on average
+      • 📋 *Pre-appointment instructions* — sent automatically. Patients arrive prepared.
+      • 🔄 *Chronic care follow-up* — automated check-ins for ongoing patients
+      • 📊 *Free your reception* — 3–5 hours of daily phone admin eliminated
+
+      *14-day free trial. Live in 15 minutes. No lock-in.*
+
+      Worth a look? → practicedesk.live
+
+    aria_opener: >
+      Hi, this is Aria from PracticeDesk.
+      Quick question — do you wish your patients could book their next appointment
+      at any hour, even when your clinic is closed?
+
+    aria_insight: >
+      Most patients search for appointments in the evening after work —
+      when your clinic is closed and calls go unanswered.
+      Medical clinics that add WhatsApp booking see a 25 percent drop in no-shows
+      and pick up a significant number of after-hours bookings they were simply missing before.
+
+    aria_pain_question: >
+      When a patient tries to reach you after hours right now — do they get any response at all?
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Defaults — used when a vertical isn't listed above
+# ─────────────────────────────────────────────────────────────────────────────
+
+defaults:
+  wa_message: |
+    Hi *{name}* 👋
+
+    I'm Aria from *PracticeDesk* — an AI receptionist that helps practices and businesses in {city} never miss a client again.
+
+    Here's what we do:
+
+    • 📅 *24/7 booking* — clients book at any hour, you confirm when you're ready
+    • 💬 *WhatsApp reminders* — drastically reduce no-shows and last-minute cancellations
+    • 🔄 *Automated follow-up* — keep clients coming back without any manual effort
+    • 📊 *Less admin* — your team saves 3–5 hours every week
+
+    *14-day free trial. Live in 15 minutes. No lock-in.*
+
+    Interested? → practicedesk.live
+
+  aria_opener: >
+    Hi, this is Aria from PracticeDesk.
+    Quick question — do you ever miss client enquiries or bookings
+    simply because they came in after hours?
+
+  aria_insight: >
+    Most client enquiries and booking requests happen in the evening —
+    after your business has closed for the day.
+    Practices that add WhatsApp as an after-hours channel typically reduce no-shows
+    by 20 to 30 percent and pick up bookings they were simply missing before.
+
+  aria_pain_question: >
+    What's the biggest gap in how you're handling client communications right now?
