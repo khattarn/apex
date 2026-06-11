@@ -72,13 +72,18 @@ MARKET_TZ = {
     "UK": "Europe/London",
 }
 
-# Email: Mon–Fri
+# Email: Mon–Fri, 8:30 AM – 7 PM local
 EMAIL_SEND_DAYS = {0, 1, 2, 3, 4}
-# WhatsApp/calls: Mon–Fri
+EMAIL_HOUR_START = 8
+EMAIL_MINUTE_START = 30
+EMAIL_HOUR_END = 19
+
+# WhatsApp: Mon–Fri, 10 AM – 5:30 PM local
+# Cron fires at :15 past each hour; first eligible tick is 10:15 AM, last is 5:15 PM
 WA_SEND_DAYS = {0, 1, 2, 3, 4}
-SEND_HOUR_START = 8
-SEND_MINUTE_START = 30
-SEND_HOUR_END = 19
+WA_HOUR_START = 10
+WA_MINUTE_START = 0
+WA_HOUR_END = 18  # hour >= 18 → outside; 17:15 ✓, 18:15 ✗
 
 # Outbound voice calls: Mon–Fri, 10 AM – 5 PM local time
 VOICE_SEND_DAYS = {0, 1, 2, 3, 4}
@@ -95,24 +100,24 @@ def local_now(city: str, market: str = "") -> datetime:
     return datetime.now(tz)
 
 
-def _in_window(now: datetime, allowed_days: set) -> bool:
+def _in_window(now: datetime, allowed_days: set, hour_start: int, minute_start: int, hour_end: int) -> bool:
     if now.weekday() not in allowed_days:
         return False
-    if now.hour < SEND_HOUR_START:
+    if now.hour < hour_start:
         return False
-    if now.hour == SEND_HOUR_START and now.minute < SEND_MINUTE_START:
+    if now.hour == hour_start and now.minute < minute_start:
         return False
-    if now.hour >= SEND_HOUR_END:
+    if now.hour >= hour_end:
         return False
     return True
 
 
 def is_email_window(city: str, market: str = "") -> bool:
-    return _in_window(local_now(city, market), EMAIL_SEND_DAYS)
+    return _in_window(local_now(city, market), EMAIL_SEND_DAYS, EMAIL_HOUR_START, EMAIL_MINUTE_START, EMAIL_HOUR_END)
 
 
 def is_wa_window(city: str, market: str = "") -> bool:
-    return _in_window(local_now(city, market), WA_SEND_DAYS)
+    return _in_window(local_now(city, market), WA_SEND_DAYS, WA_HOUR_START, WA_MINUTE_START, WA_HOUR_END)
 
 
 def is_voice_window(city: str, market: str = "") -> bool:
