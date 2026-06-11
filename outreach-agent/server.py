@@ -1352,16 +1352,19 @@ async def activity_live():
             city = r.get("city", "")
             tz_name = CITY_TZ.get(city, "")
             in_window = is_voice_window(city, "")
-            if in_window:
-                call_status = "ready"
-            elif "Australia" in tz_name:
-                # Show local time so it's clear when window opens
-                local_t = now_utc.astimezone(pytz.timezone(tz_name))
-                call_status = f"outside hours ({local_t.strftime('%H:%M')} {local_t.strftime('%Z')})"
-            elif city in _nanp_cities:
+            is_nanp = city in _nanp_cities
+            if not in_window:
+                # Always show local time first — most actionable info
+                if tz_name:
+                    local_t = now_utc.astimezone(pytz.timezone(tz_name))
+                    call_status = f"outside hours ({local_t.strftime('%H:%M')} {local_t.strftime('%Z')})"
+                else:
+                    call_status = "outside hours"
+            elif is_nanp:
+                # In their business hours but account-level block prevents calling
                 call_status = "blocked (Trust Hub)"
             else:
-                call_status = "outside hours"
+                call_status = "ready"
             click_leads.append({"id": str(r["id"]), "name": r.get("name",""), "city": city, "business_type": r.get("business_type",""), "call_status": call_status})
 
     email_due = db.table("leads").select("id", count="exact").not_.is_("email", "null").neq("email", "").not_.is_("email_sequence_step", "null").eq("status", "contacted").execute()
