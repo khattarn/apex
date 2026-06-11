@@ -27,7 +27,7 @@ const ACT_CONFIG = {
 }
 
 const JOB_ICON = {
-  'WA Follow-up':    { icon: RefreshCw,   color: 'text-indigo-400' },
+  'WA Outreach':     { icon: Send,        color: 'text-indigo-400' },
   'Voice Follow-up': { icon: Phone,       color: 'text-violet-400' },
   'Email Campaign':  { icon: Mail,        color: 'text-sky-400'    },
   'Aria Click Calls':{ icon: Zap,         color: 'text-amber-400'  },
@@ -81,7 +81,27 @@ function fmtDate(iso, tz) {
 
 // ── Schedule card ──────────────────────────────────────────────────────────────
 
-function ScheduleCard({ job, next_run, next_runs, queue, leads, frequency, last_ran, description, tick }) {
+function CityBreakdown({ title, total, byCity }) {
+  if (!total) return null
+  const entries = Object.entries(byCity || {}).slice(0, 10)
+  return (
+    <div className="mt-2">
+      <p className="text-xs text-slate-500 mb-1">{title} <span className="text-slate-400 font-medium">{total}</span></p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {entries.map(([city, count]) => (
+          <div key={city} className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-500 truncate">{city}</span>
+            <span className="text-slate-400 tabular-nums shrink-0">{count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ScheduleCard({ job, next_run, next_runs, queue, leads,
+  broadcast_total, broadcast_by_city, followup_total, followup_by_city,
+  frequency, last_ran, description, tick }) {
   const cfg   = JOB_ICON[job] || { icon: Clock, color: 'text-slate-400' }
   const Icon  = cfg.icon
   const { label, urgent, imminent } = countdown(next_run)
@@ -89,6 +109,7 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads, frequency, last_
   const multi = next_runs && next_runs.length > 1
   const [showLeads, setShowLeads] = useState(false)
   const hasLeads = leads && leads.length > 0
+  const hasCities = broadcast_total > 0 || followup_total > 0
 
   return (
     <div className={`bg-[#1e293b] border rounded-lg p-4 transition-all ${
@@ -163,7 +184,15 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads, frequency, last_
         </div>
       </div>
 
-      {/* Queued lead list */}
+      {/* WA city breakdown */}
+      {hasCities && (
+        <div className="mt-3 border-t border-slate-700/30 pt-2.5 space-y-2">
+          <CityBreakdown title="Broadcast —" total={broadcast_total} byCity={broadcast_by_city} />
+          <CityBreakdown title="Follow-up —" total={followup_total} byCity={followup_by_city} />
+        </div>
+      )}
+
+      {/* Click call lead list */}
       {hasLeads && (
         <div className="mt-3 border-t border-slate-700/30 pt-2.5">
           <button
@@ -345,8 +374,8 @@ export default function LiveActivity() {
         <p className="text-xs font-medium text-slate-400 mb-3">WA Outreach Sequence</p>
         <div className="flex flex-wrap gap-x-8 gap-y-2">
           {[
-            { day: 'Day 0',  icon: Send,         color: 'text-indigo-400',  text: 'Initial WA (pipeline run)' },
-            { day: 'Day 3',  icon: RefreshCw,    color: 'text-indigo-300',  text: 'WA follow-up if no reply' },
+            { day: 'Day 0',  icon: Send,         color: 'text-indigo-400',  text: 'Initial WA (auto — 8:30am–7pm local)' },
+            { day: 'Day 3',  icon: RefreshCw,    color: 'text-indigo-300',  text: 'WA follow-up if no reply (auto)' },
             { day: 'Day 5',  icon: Phone,        color: 'text-violet-400',  text: 'Aria voice call if still silent' },
             { day: 'Email',  icon: MousePointer, color: 'text-amber-400',   text: 'Click → Aria calls next working day' },
             { day: 'Reply',  icon: MessageSquare,color: 'text-green-400',   text: 'Intent classified → demo booking' },

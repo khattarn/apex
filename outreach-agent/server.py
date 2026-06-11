@@ -1326,6 +1326,9 @@ async def activity_live():
         })
 
     # ── Pending queues ────────────────────────────────────────────────────────
+    from collections import defaultdict
+    from utils.timezone import is_voice_window, is_wa_window, CITY_TZ
+    import pytz
     cutoff_3d = (now_utc - timedelta(days=3)).isoformat()
     cutoff_5d = (now_utc - timedelta(days=5)).isoformat()
 
@@ -1334,34 +1337,42 @@ async def activity_live():
     email_clicked_ids = {str(r["lead_id"]) for r in (db.table("lead_activities").select("lead_id").eq("type", "email_clicked").execute().data or [])}
     called_ids     = {str(r["lead_id"]) for r in (db.table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or [])}
 
-    wa_cands   = db.table("leads").select("id").eq("status", "contacted").eq("outreach_sent", True).lte("outreach_date", cutoff_3d).execute().data or []
+    wa_cands   = db.table("leads").select("id, city").eq("status", "contacted").eq("outreach_sent", True).lte("outreach_date", cutoff_3d).execute().data or []
     vox_cands  = db.table("leads").select("id").eq("status", "contacted").eq("outreach_sent", True).lte("outreach_date", cutoff_5d).execute().data or []
 
-    wa_pending    = len([l for l in wa_cands  if str(l["id"]) not in wa_sent_ids])
     voice_pending = len([l for l in vox_cands if str(l["id"]) not in voice_sent_ids])
+
+    # WA follow-up — city breakdown
+    wa_followup_by_city: dict[str, int] = defaultdict(int)
+    for l in wa_cands:
+        if str(l["id"]) not in wa_sent_ids:
+            wa_followup_by_city[l.get("city", "unknown")] += 1
+    wa_pending = sum(wa_followup_by_city.values())
+
+    # WA broadcast — city breakdown (new uncontacted leads)
+    from agents.wa_broadcast import pending_by_city as _broadcast_by_city
+    wa_broadcast_by_city = _broadcast_by_city()
+    wa_broadcast_total = sum(wa_broadcast_by_city.values())
+
+    # Click calls — per-lead status
     click_pending_ids = email_clicked_ids - called_ids
     click_pending = len(click_pending_ids)
-
     click_leads: list[dict] = []
     if click_pending_ids:
-        from utils.timezone import is_voice_window, CITY_TZ
-        import pytz
-        raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).execute().data or []
         _nanp_cities = {c for c, tz in CITY_TZ.items() if "America" in tz}
+        raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).execute().data or []
         for r in raw:
             city = r.get("city", "")
             tz_name = CITY_TZ.get(city, "")
             in_window = is_voice_window(city, "")
             is_nanp = city in _nanp_cities
             if not in_window:
-                # Always show local time first — most actionable info
                 if tz_name:
                     local_t = now_utc.astimezone(pytz.timezone(tz_name))
                     call_status = f"outside hours ({local_t.strftime('%H:%M')} {local_t.strftime('%Z')})"
                 else:
                     call_status = "outside hours"
             elif is_nanp:
-                # In their business hours but account-level block prevents calling
                 call_status = "blocked (Trust Hub)"
             else:
                 call_status = "ready"
@@ -1418,13 +1429,17 @@ async def activity_live():
 
     schedule = [
         {
-            "job": "WA Follow-up",
-            "next_run": _next_daily(9, 0),
-            "next_runs": [_next_daily(9, 0)],
-            "queue": wa_pending,
-            "frequency": "Daily 9:00 UTC",
-            "last_ran": _last_of("wa_followup_sent"),
-            "description": "Follow-up WA to leads contacted 3+ days ago with no reply",
+            "job": "WA Outreach",
+            "next_run": hourly_runs[0],
+            "next_runs": hourly_runs,
+            "queue": wa_broadcast_total + wa_pending,
+            "broadcast_total": wa_broadcast_total,
+            "broadcast_by_city": dict(sorted(wa_broadcast_by_city.items(), key=lambda x: -x[1])[:15]),
+            "followup_total": wa_pending,
+            "followup_by_city": dict(sorted(wa_followup_by_city.items(), key=lambda x: -x[1])[:15]),
+            "frequency": "Hourly Mon–Fri",
+            "last_ran": _last_of("wa_outreach_sent") or _last_of("wa_followup_sent"),
+            "description": "Initial WA to new leads + follow-up to silent contacts (8:30am–7pm local)",
         },
         {
             "job": "Voice Follow-up",
@@ -1701,6 +1716,23 @@ async def _job_observatory():
         log.error("Observatory job failed: %s", exc)
 
 
+async def _job_wa_broadcast():
+    try:
+        from agents.wa_broadcast import run_wa_broadcast
+        result = await asyncio.to_thread(run_wa_broadcast)
+        if result["sent"] > 0:
+            from database.client import log_activity
+            log_activity(None, "wa_outreach_sent", {
+                "trigger": "broadcast_cron",
+                "sent": result["sent"],
+                "skipped": result["skipped_outside_hours"],
+                "errors": result["errors"],
+            })
+        log.info("WA broadcast: %s", result)
+    except Exception as exc:
+        log.error("_job_wa_broadcast failed: %s", exc)
+
+
 async def _job_click_calls():
     try:
         from agents.click_caller import run_click_campaign
@@ -1839,6 +1871,8 @@ async def start_scheduler():
     scheduler.add_job(_job_voice_followup,   "cron", hour=9,        minute=0)      # 9am UTC daily
     scheduler.add_job(_job_observatory,      "cron", hour=1,        minute=30)     # 1:30am UTC = 7am IST
     scheduler.add_job(_job_email_campaign,   "cron", hour="22,13",  minute=0)      # 22:00 UTC = AU 8am | 13:00 UTC = CA 9am EDT
+    scheduler.add_job(_job_wa_broadcast,     "cron", hour="*",      minute=15,     # every hour Mon–Fri — timezone filter inside handles 8:30am–7pm local
+                      day_of_week="mon-fri")
     scheduler.add_job(_job_click_calls,      "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 10am–5pm local
                       day_of_week="mon-fri")
     scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",             # every 15 min — checks for due callbacks
@@ -1995,6 +2029,22 @@ async def cron_wa_followup(request: Request):
         await _asyncio.sleep(2)
 
     return {"sent": sent, "failed": failed, "total": len(leads)}
+
+
+# ── Cron: WA broadcast (new leads, Mon–Fri 8:30 AM–7 PM local) ──────────────
+
+@app.post("/api/cron/wa-broadcast")
+async def cron_wa_broadcast(request: Request):
+    """Send initial WA to pending (uncontacted) leads within their local hours."""
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth.removeprefix("Bearer ").strip() != cron_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from agents.wa_broadcast import run_wa_broadcast
+    result = await asyncio.to_thread(run_wa_broadcast)
+    return {"ok": True, **result}
 
 
 # ── Cron: click-to-call campaign (email clickers, Mon–Fri 10 AM–5 PM local) ───
