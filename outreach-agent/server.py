@@ -1339,7 +1339,13 @@ async def activity_live():
 
     wa_pending    = len([l for l in wa_cands  if str(l["id"]) not in wa_sent_ids])
     voice_pending = len([l for l in vox_cands if str(l["id"]) not in voice_sent_ids])
-    click_pending = len(email_clicked_ids - called_ids)
+    click_pending_ids = email_clicked_ids - called_ids
+    click_pending = len(click_pending_ids)
+
+    click_leads: list[dict] = []
+    if click_pending_ids:
+        raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).execute().data or []
+        click_leads = [{"id": str(r["id"]), "name": r.get("name",""), "city": r.get("city",""), "business_type": r.get("business_type","")} for r in raw]
 
     email_due = db.table("leads").select("id", count="exact").not_.is_("email", "null").neq("email", "").not_.is_("email_sequence_step", "null").eq("status", "contacted").execute()
     email_pending = email_due.count or 0
@@ -1423,6 +1429,7 @@ async def activity_live():
             "next_run": hourly_runs[0],
             "next_runs": hourly_runs,
             "queue": click_pending,
+            "leads": click_leads,
             "frequency": "Hourly Mon–Fri",
             "last_ran": _last_of("outbound_call"),
             "description": "Calls leads who clicked an email link (10am–5pm local time)",

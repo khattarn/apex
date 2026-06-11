@@ -81,12 +81,14 @@ function fmtDate(iso, tz) {
 
 // ── Schedule card ──────────────────────────────────────────────────────────────
 
-function ScheduleCard({ job, next_run, next_runs, queue, frequency, last_ran, description, tick }) {
+function ScheduleCard({ job, next_run, next_runs, queue, leads, frequency, last_ran, description, tick }) {
   const cfg   = JOB_ICON[job] || { icon: Clock, color: 'text-slate-400' }
   const Icon  = cfg.icon
   const { label, urgent, imminent } = countdown(next_run)
   const hot   = queue > 0
   const multi = next_runs && next_runs.length > 1
+  const [showLeads, setShowLeads] = useState(false)
+  const hasLeads = leads && leads.length > 0
 
   return (
     <div className={`bg-[#1e293b] border rounded-lg p-4 transition-all ${
@@ -160,6 +162,30 @@ function ScheduleCard({ job, next_run, next_runs, queue, frequency, last_ran, de
           )}
         </div>
       </div>
+
+      {/* Queued lead list */}
+      {hasLeads && (
+        <div className="mt-3 border-t border-slate-700/30 pt-2.5">
+          <button
+            onClick={() => setShowLeads(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <span className={`transition-transform ${showLeads ? 'rotate-90' : ''}`}>▸</span>
+            {showLeads ? 'Hide' : 'Show'} {leads.length} lead{leads.length !== 1 ? 's' : ''}
+          </button>
+          {showLeads && (
+            <div className="mt-2 space-y-1">
+              {leads.map(l => (
+                <div key={l.id} className="flex items-center gap-2 text-xs">
+                  <span className="text-slate-300 truncate flex-1">{l.name}</span>
+                  <span className="text-slate-600 shrink-0">{l.city}</span>
+                  <span className="text-slate-700 shrink-0 capitalize">{l.business_type}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
