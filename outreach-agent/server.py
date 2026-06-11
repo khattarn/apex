@@ -606,11 +606,12 @@ async def dograh_webhook(request: Request):
     is_inbound = not lead_id
 
     # Henry inbound: look up lead by caller phone
+    # Dograh populates initial_context.caller_number for inbound calls
     if is_inbound:
         caller_phone = (
-            str(initial_ctx.get("phone_number", ""))
+            str(initial_ctx.get("caller_number", ""))
+            or str(initial_ctx.get("phone_number", ""))
             or str(payload.get("caller_phone", ""))
-            or str(payload.get("from", ""))
         )
         lead = _find_lead_by_phone(caller_phone)
         lead_id = str(lead["id"]) if lead else ""
@@ -624,12 +625,12 @@ async def dograh_webhook(request: Request):
     if is_inbound:
         update_lead(lead_id, {"status": "replied"})
         log_activity(lead_id, "inbound_call", {
-            "dograh_run_id": workflow_run_id,
-            "caller":        caller_phone,
-            "recording_url": recording_url,
+            "dograh_run_id":  workflow_run_id,
+            "caller_number":  caller_phone,
+            "recording_url":  recording_url,
             "transcript_url": transcript_url,
-            "summary":       (gathered_ctx.get("summary") or "")[:500],
-            "cost_info":     cost_info,
+            "summary":        (gathered_ctx.get("summary") or "")[:500],
+            "cost_info":      cost_info,
         })
         return {"ok": True}
 
