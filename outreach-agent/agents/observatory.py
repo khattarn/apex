@@ -1,5 +1,4 @@
 import os
-import requests
 from datetime import datetime, timezone, timedelta
 
 from database.client import get_stats, get_client
@@ -54,31 +53,29 @@ def _get_yesterday_wa_replies() -> int:
     return result.count or 0
 
 
-def _get_vapi_minutes_yesterday() -> float:
-    api_key = os.getenv("VAPI_API_KEY")
-    if not api_key:
-        return 0.0
+def _get_dograh_calls_yesterday() -> tuple[int, float]:
+    """Return (call_count, total_cost_usd) from outbound_call_completed activities yesterday."""
+    db = get_client()
     start, end = _yesterday_range()
     try:
-        resp = requests.get(
-            "https://api.vapi.ai/call",
-            params={"startCreatedAt": start, "endCreatedAt": end, "limit": 100},
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=10,
+        result = (
+            db.table("lead_activities")
+            .select("detail")
+            .eq("type", "outbound_call_completed")
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .execute()
         )
-        if not resp.ok:
-            return 0.0
-        calls = resp.json()
-        total_seconds = sum(
-            c.get("endedAt", 0) and c.get("startedAt", 0) and
-            (datetime.fromisoformat(c["endedAt"].rstrip("Z")).timestamp() -
-             datetime.fromisoformat(c["startedAt"].rstrip("Z")).timestamp())
-            for c in calls
-            if c.get("endedAt") and c.get("startedAt")
-        )
-        return round(total_seconds / 60, 1)
+        rows = result.data or []
+        total_cost = 0.0
+        for row in rows:
+            detail = row.get("detail") or {}
+            cost_info = detail.get("cost_info") or {}
+            if isinstance(cost_info, dict):
+                total_cost += float(cost_info.get("total_cost", 0) or 0)
+        return len(rows), round(total_cost, 4)
     except Exception:
-        return 0.0
+        return 0, 0.0
 
 
 def _get_last_pipeline_run() -> str:
@@ -98,12 +95,12 @@ def _get_last_pipeline_run() -> str:
 
 
 def build_digest() -> str:
-    stats        = get_stats()
-    new_leads    = _get_yesterday_leads_added()
-    wa_sent      = _get_yesterday_wa_sent()
-    wa_replies   = _get_yesterday_wa_replies()
-    vapi_mins    = _get_vapi_minutes_yesterday()
-    last_run     = _get_last_pipeline_run()
+    stats              = get_stats()
+    new_leads          = _get_yesterday_leads_added()
+    wa_sent            = _get_yesterday_wa_sent()
+    wa_replies         = _get_yesterday_wa_replies()
+    call_count, cost   = _get_dograh_calls_yesterday()
+    last_run           = _get_last_pipeline_run()
 
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
 
@@ -112,7 +109,7 @@ def build_digest() -> str:
         "",
         f"Total leads: {stats['total_leads']}  |  Replied: {stats['replied']}  |  Converted: {stats['converted']}",
         f"Yesterday: {new_leads} new leads  |  {wa_sent} WA sent  |  {wa_replies} replies",
-        f"Voice minutes (yesterday): {vapi_mins}",
+        f"Voice calls (yesterday): {call_count}  |  Est. cost: ${cost:.4f}",
         f"Email sequence active: {stats['in_sequence']}  |  Complete: {stats['sequence_complete']}",
         "",
         f"Last pipeline run: {last_run}",

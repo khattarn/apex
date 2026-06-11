@@ -1,7 +1,4 @@
 import os
-import requests
-
-VAPI_BASE = "https://api.vapi.ai"
 
 # ── Load copy assets ──────────────────────────────────────────────────────────
 
@@ -210,134 +207,20 @@ STYLE RULES
 """
 
 
-def _build_tools(server_url: str) -> list:
-    return [
-        {
-            "type": "function",
-            "function": {
-                "name": "schedule_callback",
-                "description": (
-                    "Schedule a callback for a prospect who is busy or not ready to decide. "
-                    "Call this when they agree to a specific callback day and time."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "preferred_day":  {"type": "string", "description": "Day of the week, e.g. 'Monday'"},
-                        "preferred_time": {"type": "string", "description": "Time of day, e.g. '2pm', 'morning'"},
-                    },
-                    "required": ["preferred_day", "preferred_time"],
-                },
-            },
-            "server": {"url": f"{server_url}/api/webhooks/vapi"},
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "request_callback",
-                "description": "Flag that the prospect wants a human team member to call them back.",
-                "parameters": {"type": "object", "properties": {}},
-            },
-            "server": {"url": f"{server_url}/api/webhooks/vapi"},
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "book_demo",
-                "description": (
-                    "Book a PracticeDesk demo on Cal.com. "
-                    "Call only after you have both the prospect's preferred time AND email."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "preferred_time": {"type": "string", "description": "Preferred day and time, e.g. 'Friday at 2pm'"},
-                        "attendee_email": {"type": "string", "description": "Prospect's email for the calendar invite"},
-                        "attendee_name":  {"type": "string", "description": "Prospect's name"},
-                    },
-                    "required": ["preferred_time", "attendee_email"],
-                },
-            },
-            "server": {"url": f"{server_url}/api/webhooks/vapi"},
-        },
-    ]
-
-
-def place_outbound_call(phone: str, business_type: str, business_name: str) -> dict:
-    api_key    = os.getenv("VAPI_API_KEY")
-    server_url = os.getenv("SERVER_BASE_URL", "").rstrip("/")
-
-    if not api_key:
-        raise RuntimeError("VAPI_API_KEY must be set")
-
-    cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
-    if not cleaned.startswith("+"):
-        cleaned = "+" + cleaned
-
-    # Auto-route: +91 numbers use the India Vobiz number when configured
-    if cleaned.startswith("+91") and os.getenv("INDIA_VAPI_PHONE_NUMBER_ID"):
-        phone_number_id = os.getenv("INDIA_VAPI_PHONE_NUMBER_ID")
-    else:
-        phone_number_id = os.getenv("VAPI_PHONE_NUMBER_ID")
-
-    if not phone_number_id:
-        raise RuntimeError("VAPI_PHONE_NUMBER_ID (or INDIA_VAPI_PHONE_NUMBER_ID for +91) must be set")
-
-    script = _get_script(business_type.lower())
-    if not script["firstMessage"]:
-        script = _DEFAULT_SCRIPT
-
-    prompt = _SYSTEM_PROMPT.format(
-        insight=script["insight"],
-        pain_question=script["pain_question"],
+def place_outbound_call(
+    phone: str,
+    business_type: str,
+    business_name: str,
+    lead_id: str = "",
+    city: str = "",
+) -> dict:
+    """Trigger a Dograh outbound call (cold / voice-followup trigger)."""
+    from agents.dograh_caller import place_outbound_call as _dograh_call
+    return _dograh_call(
+        phone=phone,
+        business_type=business_type,
+        business_name=business_name,
+        lead_id=lead_id,
+        city=city,
+        trigger="cold",
     )
-
-    assistant = {
-        "name": "Aria — PracticeDesk Outreach",
-        "firstMessage": script["firstMessage"],
-        "model": {
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5-20251001",
-            "systemPrompt": prompt,
-            "temperature": 0.65,
-            "tools": _build_tools(server_url) if server_url else [],
-        },
-        "voice": {
-            "provider": "cartesia",
-            "voiceId": "248be419-c632-4f23-adf1-5324ed7dbf1d",   # Helpful Woman — warm, clear
-            "model": "sonic-2",
-        },
-        "endCallMessage": "Thanks for your time. Have a wonderful day!",
-        "endCallPhrases": [
-            "goodbye", "bye", "not interested",
-            "remove me", "don't call again",
-        ],
-        "maxDurationSeconds": 330,
-        "silenceTimeoutSeconds": 20,
-        "backgroundSound": "off",
-    }
-
-    if server_url:
-        assistant["serverUrl"] = f"{server_url}/api/webhooks/vapi"
-        assistant["artifactPlan"] = {"recordingEnabled": True}
-
-    payload = {
-        "phoneNumberId": phone_number_id,
-        "customer": {
-            "number": cleaned,
-            "name": business_name,
-        },
-        "assistant": assistant,
-    }
-
-    response = requests.post(
-        f"{VAPI_BASE}/call/phone",
-        json=payload,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=15,
-    )
-
-    if not response.ok:
-        raise RuntimeError(f"Vapi API error {response.status_code}: {response.json()}")
-
-    return response.json()

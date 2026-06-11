@@ -8,14 +8,12 @@ Aria follows a 7-phase sales playbook: open → discover → insight pitch →
 trial + urgency → objection → 3-close sequence → exit.
 """
 
-import os
-import requests
 import logging
+import os
+
 from utils.timezone import is_voice_window
 
 log = logging.getLogger(__name__)
-
-VAPI_BASE = "https://api.vapi.ai"
 
 # ── Load copy assets ──────────────────────────────────────────────────────────
 
@@ -324,176 +322,20 @@ STYLE RULES
 """
 
 
-def _normalize_phone(phone: str, city: str = "") -> str:
-    """Convert a local phone number to E.164 format using city context for country code."""
-    if not phone:
-        return ""
-    digits = "".join(c for c in phone if c.isdigit())
-    if not digits:
-        return ""
-    # Already has country code (starts with +)
-    if phone.strip().startswith("+"):
-        return f"+{digits}"
-    from utils.timezone import CITY_TZ
-    tz = CITY_TZ.get(city, "")
-    if "Australia" in tz:
-        # Strip leading 0 (area code zero), prepend +61
-        if digits.startswith("0"):
-            digits = digits[1:]
-        return f"+61{digits}"
-    elif "Europe/London" in tz:
-        # UK: strip leading 0, prepend +44
-        if digits.startswith("0"):
-            digits = digits[1:]
-        return f"+44{digits}"
-    elif "America" in tz:
-        # North America: 10-digit → prepend +1
-        if len(digits) == 10:
-            return f"+1{digits}"
-        if len(digits) == 11 and digits.startswith("1"):
-            return f"+{digits}"
-    # Fallback
-    return f"+{digits}"
-
-
-def _build_assistant(business_type: str, server_url: str) -> dict:
-    script = _get_script(business_type.lower())
-    # Fall back to legacy hardcoded dict if yaml returned empty strings
-    if not script["firstMessage"]:
-        script = _SCRIPTS.get(business_type.lower(), _DEFAULT_SCRIPT)
-    prompt = _SYSTEM_PROMPT.format(
-        insight=script["insight"],
-        pain_question=script["pain_question"],
-    )
-
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "schedule_callback",
-                "description": (
-                    "Schedule a callback for a prospect who is busy or not ready to decide. "
-                    "Call this when they agree to a specific callback day and time."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "preferred_day":  {"type": "string", "description": "Day of the week, e.g. 'Monday'"},
-                        "preferred_time": {"type": "string", "description": "Time of day, e.g. '2pm', 'morning'"},
-                    },
-                    "required": ["preferred_day", "preferred_time"],
-                },
-            },
-            "server": {"url": f"{server_url}/api/webhooks/vapi"},
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "request_callback",
-                "description": "Flag that the prospect wants a human team member to call them back.",
-                "parameters": {"type": "object", "properties": {}},
-            },
-            "server": {"url": f"{server_url}/api/webhooks/vapi"},
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "book_demo",
-                "description": (
-                    "Book a PracticeDesk demo on Cal.com. "
-                    "Call only after you have both the prospect's preferred time AND email."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "preferred_time":  {"type": "string", "description": "Preferred day and time, e.g. 'Friday at 2pm'"},
-                        "attendee_email":  {"type": "string", "description": "Prospect's email for the calendar invite"},
-                        "attendee_name":   {"type": "string", "description": "Prospect's name"},
-                    },
-                    "required": ["preferred_time", "attendee_email"],
-                },
-            },
-            "server": {"url": f"{server_url}/api/webhooks/vapi"},
-        },
-    ]
-
-    return {
-        "name": "Aria — PracticeDesk Sales",
-        "firstMessage": script["firstMessage"],
-        "model": {
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5-20251001",
-            "systemPrompt": prompt,
-            "temperature": 0.65,
-            "tools": tools,   # tools belong inside model, not at assistant level
-        },
-        "voice": {
-            "provider": "cartesia",
-            "voiceId": "248be419-c632-4f23-adf1-5324ed7dbf1d",   # Helpful Woman — warm, clear
-            "model": "sonic-2",
-        },
-        "serverUrl": f"{server_url}/api/webhooks/vapi",
-        "artifactPlan": {"recordingEnabled": True},
-        "endCallMessage": "Thanks for your time. Have a wonderful day!",
-        "endCallPhrases": [
-            "goodbye", "bye", "not interested",
-            "remove me", "don't call again",
-        ],
-        "maxDurationSeconds": 330,   # 5.5 min hard cap
-        "silenceTimeoutSeconds": 20,
-        "backgroundSound": "off",
-    }
-
-
 def place_click_call(lead: dict) -> dict:
-    """Place one outbound Vapi call for a clicked lead. Returns Vapi call object."""
-    api_key    = os.getenv("VAPI_API_KEY")
-    server_url = os.getenv("SERVER_BASE_URL", "").rstrip("/")
-
-    if not api_key:
-        raise RuntimeError("VAPI_API_KEY not set")
-    if not server_url:
-        raise RuntimeError("SERVER_BASE_URL not set")
-
-    phone   = lead.get("phone", "")
-    city    = lead.get("city", "")
-    cleaned = _normalize_phone(phone, city)
-    if not cleaned or cleaned in ("+", ""):
-        raise RuntimeError(f"Could not normalise phone '{phone}' for {lead.get('name')}")
-
-    # Auto-route: +91 numbers use the India Vobiz number when configured
-    if cleaned.startswith("+91") and os.getenv("INDIA_VAPI_PHONE_NUMBER_ID"):
-        phone_number_id = os.getenv("INDIA_VAPI_PHONE_NUMBER_ID")
-    else:
-        phone_number_id = os.getenv("VAPI_PHONE_NUMBER_ID")
-
-    if not phone_number_id:
-        raise RuntimeError("VAPI_PHONE_NUMBER_ID (or INDIA_VAPI_PHONE_NUMBER_ID for +91) not set")
-
-    payload = {
-        "phoneNumberId": phone_number_id,
-        "customer": {
-            "number": cleaned,
-            "name": lead.get("name", ""),
-        },
-        "assistant": _build_assistant(
-            lead.get("business_type", ""),
-            server_url,
-        ),
-        "metadata": {"lead_id": str(lead.get("id", ""))},
-    }
-
-    resp = requests.post(
-        f"{VAPI_BASE}/call/phone",
-        json=payload,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=15,
+    """Trigger a Dograh outbound call for an email-clicked lead. Returns Dograh response dict."""
+    from agents.dograh_caller import place_outbound_call as _dograh_call
+    phone = lead.get("phone", "")
+    if not phone:
+        raise RuntimeError(f"Lead {lead.get('id')} has no phone number")
+    return _dograh_call(
+        phone=phone,
+        business_type=lead.get("business_type", ""),
+        business_name=lead.get("name", ""),
+        lead_id=str(lead.get("id", "")),
+        city=lead.get("city", ""),
+        trigger="email_click",
     )
-
-    if not resp.ok:
-        raise RuntimeError(f"Vapi error {resp.status_code}: {resp.text}")
-
-    return resp.json()
 
 
 def run_click_campaign() -> dict:
@@ -518,7 +360,7 @@ def run_click_campaign() -> dict:
         try:
             call = place_click_call(lead)
             log_activity(str(lead["id"]), "outbound_call", {
-                "vapi_call_id": call.get("id", ""),
+                "dograh_run_id": call.get("workflow_run_id", ""),
                 "trigger": "email_click",
                 "phone": lead["phone"],
             })

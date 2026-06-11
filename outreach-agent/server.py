@@ -20,7 +20,28 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)),
 sys.path.insert(0, os.path.dirname(__file__))
 
 _running: dict = {}       # tracks which pipeline agents are currently executing
-_active_calls: dict = {}  # call_id → {lead_name, phone, started_at, direction}
+_active_calls: dict = {}  # workflow_run_id → {lead_name, phone, started_at, direction}
+
+
+def _track_active_call(
+    run_id: str,
+    lead_id: str,
+    lead_name: str,
+    phone: str,
+    direction: str,
+) -> None:
+    """Register a just-triggered Dograh call in the live-call dashboard tracker."""
+    if not run_id:
+        return
+    from datetime import datetime, timezone
+    _active_calls[run_id] = {
+        "call_id":    run_id,
+        "lead_name":  lead_name or phone,
+        "phone":      phone,
+        "direction":  direction,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "lead_id":    lead_id,
+    }
 
 app = FastAPI(title="Apex Admin API", version="1.0.0")
 
@@ -508,180 +529,135 @@ async def resend_webhook(request: Request):
     return {"ok": True}
 
 
-# ── Vapi webhook (inbound + outbound call tracking, tool calls) ────────────────
+# ── Dograh webhook (end-of-call for both outbound Sophie and inbound Henry) ────
 
-@app.post("/api/webhooks/vapi")
-async def vapi_webhook(request: Request):
-    payload = await request.json()
-    msg     = payload.get("message", {})
-    msg_type = msg.get("type", "")
-
-    # ── Call started — track in memory for dashboard ─────────────────────────
-    if msg_type == "call-started":
-        call = msg.get("call", {})
-        call_id   = call.get("id", "")
-        direction = call.get("type", "")
-        metadata  = call.get("metadata", {})
-        phone     = call.get("customer", {}).get("number", "")
-        lead_name = call.get("customer", {}).get("name", "")
-        if not lead_name and metadata.get("lead_id"):
-            try:
-                from database.client import get_lead_by_id
-                lead_rec = get_lead_by_id(metadata["lead_id"])
-                if lead_rec:
-                    lead_name = lead_rec.get("name", "")
-            except Exception:
-                pass
-        if call_id:
-            from datetime import datetime, timezone
-            _active_calls[call_id] = {
-                "call_id":    call_id,
-                "lead_name":  lead_name or phone,
-                "phone":      phone,
-                "direction":  "inbound" if "inbound" in direction.lower() else "outbound",
-                "started_at": datetime.now(timezone.utc).isoformat(),
-                "lead_id":    metadata.get("lead_id", ""),
-            }
-        return {"ok": True}
-
-    # ── Tool call: prospect requested a human callback ────────────────────────
-    if msg_type == "tool-calls":
-        tool_calls = msg.get("toolCalls", [])
-        call       = msg.get("call", {})
-        metadata   = call.get("metadata", {})
-        lead_id    = metadata.get("lead_id", "")
-
-        results = []
-        for tc in tool_calls:
-            fn_name = tc.get("function", {}).get("name", "")
-            args_raw = tc.get("function", {}).get("arguments", "{}")
-            import json as _json
-            args = _json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-
-            if fn_name == "schedule_callback" and lead_id:
-                from database.client import log_activity
-                from agents.cal_booking import parse_preferred_time
-                from utils.timezone import get_tz_name
-                from database.client import get_lead_by_id
-                lead_rec = get_lead_by_id(lead_id)
-                tz = get_tz_name(lead_rec.get("city", "") if lead_rec else "",
-                                 lead_rec.get("market", "") if lead_rec else "")
-                day  = args.get("preferred_day", "")
-                time = args.get("preferred_time", "")
-                callback_dt = parse_preferred_time(f"{day} {time}", tz)
-                log_activity(lead_id, "callback_scheduled", {
-                    "callback_at": callback_dt.isoformat(),
-                    "preferred_day": day,
-                    "preferred_time": time,
-                })
-                results.append({"toolCallId": tc.get("id", ""), "result": f"Callback scheduled for {callback_dt.strftime('%A %d %b at %I:%M %p %Z')}"})
-
-            elif fn_name == "request_callback" and lead_id:
-                from database.client import update_lead, log_activity
-                update_lead(lead_id, {"callback_requested": True})
-                log_activity(lead_id, "callback_requested", {
-                    "source": "outbound_click_call",
-                    "note": "Prospect requested human callback during Aria call",
-                })
-                _notify_callback_requested(lead_id)
-                results.append({"toolCallId": tc.get("id", ""), "result": "done"})
-
-            elif fn_name == "book_demo":
-                result_str = _handle_book_demo(lead_id, call, args)
-                results.append({"toolCallId": tc.get("id", ""), "result": result_str})
-
-            else:
-                results.append({"toolCallId": tc.get("id", ""), "result": "done"})
-
-        return {"results": results}
-
-    if msg_type != "end-of-call-report":
-        return {"ok": True}
-
-    # ── End-of-call report ────────────────────────────────────────────────────
-    call      = msg.get("call", {})
-    call_type = call.get("type", "")          # inboundPhoneCall | outboundPhoneCall
-    metadata  = call.get("metadata", {})
-    _active_calls.pop(call.get("id", ""), None)  # clear from live tracker
-    artifact  = msg.get("artifact", {})
-    rec_url   = artifact.get("recordingUrl", "") or msg.get("recordingUrl", "")
-    transcript= artifact.get("transcript", "") or msg.get("transcript", "")
-    summary   = msg.get("summary", "")
-    ended_rsn = msg.get("endedReason", "")
-
-    from database.client import get_client, update_lead, log_activity
-
-    # ── Outbound (click campaign) ─────────────────────────────────────────────
-    if call_type == "outboundPhoneCall":
-        lead_id = metadata.get("lead_id", "")
-        if lead_id:
-            log_activity(lead_id, "outbound_call_completed", {
-                "ended_reason": ended_rsn,
-                "recording_url": rec_url,
-                "summary": summary[:500] if summary else "",
-                "transcript": transcript[:1000] if transcript else "",
-            })
-        return {"ok": True}
-
-    # ── Inbound (Henry) ───────────────────────────────────────────────────────
-    caller_no = call.get("customer", {}).get("number", "")
-    if not caller_no:
-        return {"ok": True}
-
+def _find_lead_by_phone(phone: str) -> dict | None:
+    """Fuzzy-match a phone number against the leads table. Returns the lead row or None."""
+    if not phone:
+        return None
+    from database.client import get_client
     db = get_client()
-    digits = "".join(c for c in caller_no if c.isdigit())
-    result = db.table("leads").select("id, status").or_(
-        f"phone.eq.{caller_no},phone.ilike.%{digits[-9:]}%"
+    digits = "".join(c for c in phone if c.isdigit())
+    result = db.table("leads").select("id, name, status, phone, city, market").or_(
+        f"phone.eq.{phone},phone.ilike.%{digits[-9:]}%"
     ).limit(1).execute()
+    return result.data[0] if result.data else None
 
-    if not result.data:
+
+@app.post("/api/webhooks/dograh")
+async def dograh_webhook(request: Request):
+    payload         = await request.json()
+    workflow_run_id = payload.get("workflow_run_id", "")
+    initial_ctx     = payload.get("initial_context", {})
+    gathered_ctx    = payload.get("gathered_context", {})
+    recording_url   = payload.get("recording_url", "")
+    transcript_url  = payload.get("transcript_url", "")
+    cost_info       = payload.get("cost_info", {})
+
+    lead_id      = str(initial_ctx.get("lead_id", ""))
+    call_outcome = gathered_ctx.get("call_outcome", "unknown")
+
+    # Clear from live-call dashboard tracker
+    _active_calls.pop(workflow_run_id, None)
+
+    # Inbound (Henry): Dograh doesn't inject lead_id — look up by caller phone
+    if not lead_id:
+        caller_phone = str(initial_ctx.get("phone_number", ""))
+        lead = _find_lead_by_phone(caller_phone)
+        lead_id = str(lead["id"]) if lead else ""
+
+    if not lead_id:
         return {"ok": True}
 
-    lead    = result.data[0]
-    lead_id = lead["id"]
+    from database.client import update_lead, log_activity
 
-    update_lead(lead_id, {
-        "status": "replied",
-        "notes": f"Inbound call received. Reason ended: {ended_rsn}. Recording: {rec_url or 'n/a'}",
-    })
-    log_activity(lead_id, "inbound_call", {
-        "caller": caller_no,
-        "ended_reason": ended_rsn,
-        "recording_url": rec_url,
-        "summary": summary[:500] if summary else "",
-        "transcript": transcript[:1000] if transcript else "",
+    # ── Route by Sophie's extracted call_outcome ──────────────────────────────
+    if call_outcome == "booked_demo":
+        _handle_book_demo(
+            lead_id=lead_id,
+            preferred_time=gathered_ctx.get("demo_preferred_time", ""),
+            attendee_email=gathered_ctx.get("attendee_email", ""),
+            attendee_name=initial_ctx.get("contact_name", ""),
+        )
+
+    elif call_outcome == "callback_scheduled":
+        from agents.cal_booking import parse_preferred_time
+        from utils.timezone import get_tz_name
+        from database.client import get_lead_by_id
+        lead_rec = get_lead_by_id(lead_id)
+        tz = get_tz_name(
+            lead_rec.get("city", "") if lead_rec else "",
+            lead_rec.get("market", "") if lead_rec else "",
+        )
+        day = gathered_ctx.get("callback_day", "")
+        time = gathered_ctx.get("callback_time", "")
+        try:
+            callback_dt = parse_preferred_time(f"{day} {time}", tz)
+            log_activity(lead_id, "callback_scheduled", {
+                "callback_at": callback_dt.isoformat(),
+                "preferred_day": day,
+                "preferred_time": time,
+            })
+        except Exception as exc:
+            log.warning("Could not parse callback time '%s %s': %s", day, time, exc)
+
+    elif call_outcome == "callback_requested":
+        update_lead(lead_id, {"callback_requested": True})
+        log_activity(lead_id, "callback_requested", {
+            "source": "dograh_outbound",
+            "note": "Prospect requested human callback during Sophie call",
+        })
+        _notify_callback_requested(lead_id)
+
+    elif call_outcome == "not_interested":
+        update_lead(lead_id, {"status": "dead"})
+
+    elif call_outcome == "booked_demo_manually":
+        # Sophie confirmed sign-up / directed to practicedesk.live — just log it
+        update_lead(lead_id, {"status": "converted"})
+
+    # ── Always log completion ─────────────────────────────────────────────────
+    log_activity(lead_id, "outbound_call_completed", {
+        "dograh_run_id":  workflow_run_id,
+        "call_outcome":   call_outcome,
+        "recording_url":  recording_url,
+        "transcript_url": transcript_url,
+        "cost_info":      cost_info,
     })
 
     return {"ok": True}
 
 
-def _handle_book_demo(lead_id: str, call: dict, args: dict) -> str:
-    """Handle Aria's book_demo tool call. Books a Cal.com slot and confirms via WhatsApp."""
+def _handle_book_demo(
+    lead_id: str,
+    preferred_time: str = "",
+    attendee_email: str = "",
+    attendee_name: str = "",
+) -> str:
+    """Book a Cal.com demo slot and send WhatsApp confirmation. Called post-call from Dograh webhook."""
     try:
         from agents.cal_booking import book_demo, send_booking_whatsapp
         from database.client import get_lead_by_id, log_activity
 
         lead = get_lead_by_id(lead_id) if lead_id else None
-        caller_no = call.get("customer", {}).get("number", "")
+        name  = attendee_name or (lead.get("name", "") if lead else "")
+        email = attendee_email or (lead.get("email", "") if lead else "")
+        phone = lead.get("phone", "") if lead else ""
 
-        name   = args.get("attendee_name") or (lead.get("name", "") if lead else "")
-        email  = args.get("attendee_email") or (lead.get("email", "") if lead else "")
-        pref   = args.get("preferred_time", "")
         from utils.timezone import get_tz_name
-        tz = get_tz_name(lead.get("city", "") if lead else "", lead.get("market", "") if lead else "")
+        tz = get_tz_name(
+            lead.get("city", "") if lead else "",
+            lead.get("market", "") if lead else "",
+        )
 
         if not email:
-            # Can't book without email; fall back to directing them to Cal.com
-            return (
-                "I wasn't able to complete the booking automatically without an email address. "
-                "Please direct the prospect to cal.com/practicedesk to book directly."
-            )
+            return "No email — could not auto-book. Prospect should visit cal.com/practicedesk."
 
         result = book_demo(
             attendee_name=name,
             attendee_email=email,
-            preferred_time=pref,
-            attendee_phone=caller_no,
+            preferred_time=preferred_time,
+            attendee_phone=phone,
             attendee_tz=tz,
         )
 
@@ -696,27 +672,26 @@ def _handle_book_demo(lead_id: str, call: dict, args: dict) -> str:
             except Exception:
                 friendly = start_iso
 
-            # WhatsApp confirmation to prospect
-            send_booking_whatsapp(caller_no or (lead.get("phone", "") if lead else ""), name, friendly)
+            send_booking_whatsapp(phone, name, friendly)
 
             if lead_id:
                 log_activity(lead_id, "demo_booked", {
-                    "start_time": start_iso,
-                    "booking_uid": result.get("booking_uid"),
+                    "start_time":    start_iso,
+                    "booking_uid":   result.get("booking_uid"),
                     "attendee_email": email,
                 })
 
             return (
                 f"Booking confirmed for {friendly}. "
-                f"A confirmation has been sent. Meeting link: {result.get('meeting_url', 'cal.com/practicedesk')}."
+                f"Meeting link: {result.get('meeting_url', 'cal.com/practicedesk')}."
             )
         else:
             return (
-                f"I wasn't able to complete the booking automatically ({result.get('error', 'unknown error')}). "
-                f"Please direct the prospect to cal.com/practicedesk to book directly."
+                f"Auto-booking failed ({result.get('error', 'unknown error')}). "
+                f"Prospect should visit cal.com/practicedesk."
             )
     except Exception as exc:
-        return f"Booking failed: {exc}. Please direct the prospect to cal.com/practicedesk."
+        return f"Booking failed: {exc}."
 
 
 def _notify_callback_requested(lead_id: str) -> None:
@@ -892,7 +867,7 @@ async def preview_message(body: PreviewRequest, _=Depends(verify_token)):
 @app.post("/api/leads/{lead_id}/call")
 async def call_lead(lead_id: str, _=Depends(verify_token)):
     from database.client import get_lead_by_id, update_lead
-    from agents.voice_outreach import place_outbound_call
+    from agents.dograh_caller import place_outbound_call
 
     lead = get_lead_by_id(lead_id)
     if not lead:
@@ -900,9 +875,18 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     if not lead.get("phone"):
         raise HTTPException(status_code=400, detail="Lead has no phone number")
 
-    result = place_outbound_call(lead["phone"], lead["business_type"], lead["name"])
-    update_lead(lead_id, {"notes": f"Voice call placed — Vapi call ID: {result.get('id', 'unknown')}"})
-    return {"ok": True, "call_id": result.get("id")}
+    result = place_outbound_call(
+        phone=lead["phone"],
+        business_type=lead.get("business_type", ""),
+        business_name=lead.get("name", ""),
+        lead_id=lead_id,
+        city=lead.get("city", ""),
+        trigger="cold",
+    )
+    run_id = result.get("workflow_run_id", "")
+    _track_active_call(run_id, lead_id, lead.get("name", ""), lead.get("phone", ""), "outbound")
+    update_lead(lead_id, {"notes": f"Voice call placed — Dograh run ID: {run_id or 'unknown'}"})
+    return {"ok": True, "workflow_run_id": run_id}
 
 
 @app.post("/api/leads/{lead_id}/send")
@@ -1651,13 +1635,25 @@ async def _job_wa_followup():
 
 
 async def _job_voice_followup():
-    from agents.voice_outreach import place_outbound_call
+    from agents.dograh_caller import place_outbound_call
     from database.client import get_leads_for_voice_followup, log_activity
     leads = get_leads_for_voice_followup()
     for lead in leads:
         try:
-            place_outbound_call(lead["phone"], lead.get("business_type", ""), lead.get("name", ""))
-            log_activity(lead["id"], "voice_followup_placed", {"phone": lead["phone"]})
+            result = place_outbound_call(
+                phone=lead["phone"],
+                business_type=lead.get("business_type", ""),
+                business_name=lead.get("name", ""),
+                lead_id=str(lead["id"]),
+                city=lead.get("city", ""),
+                trigger="voice_followup",
+            )
+            run_id = result.get("workflow_run_id", "")
+            _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
+            log_activity(lead["id"], "voice_followup_placed", {
+                "dograh_run_id": run_id,
+                "phone": lead["phone"],
+            })
         except Exception as exc:
             log.error("Voice followup failed for lead %s: %s", lead.get("id"), exc)
         await asyncio.sleep(3)
@@ -1683,10 +1679,10 @@ async def _job_click_calls():
 
 
 async def _job_scheduled_callbacks():
-    """Call back leads who asked Aria to call them at a specific time."""
+    """Call back leads who asked Sophie to call them at a specific time."""
     try:
         from database.client import get_leads_due_callback, log_activity
-        from agents.click_caller import place_click_call
+        from agents.dograh_caller import place_outbound_call
         from utils.timezone import is_voice_window
         leads = get_leads_due_callback()
         for lead in leads:
@@ -1695,9 +1691,18 @@ async def _job_scheduled_callbacks():
             if not lead.get("phone"):
                 continue
             try:
-                call = place_click_call(lead)
+                result = place_outbound_call(
+                    phone=lead["phone"],
+                    business_type=lead.get("business_type", ""),
+                    business_name=lead.get("name", ""),
+                    lead_id=str(lead["id"]),
+                    city=lead.get("city", ""),
+                    trigger="scheduled_callback",
+                )
+                run_id = result.get("workflow_run_id", "")
+                _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
                 log_activity(str(lead["id"]), "outbound_call", {
-                    "vapi_call_id": call.get("id", ""),
+                    "dograh_run_id": run_id,
                     "trigger": "scheduled_callback",
                     "phone": lead["phone"],
                 })
@@ -1985,7 +1990,7 @@ async def cron_click_calls(request: Request):
 
 @app.post("/api/cron/voice-followup")
 async def cron_voice_followup(request: Request):
-    """Place outbound Vapi call to leads silent for 5+ days."""
+    """Place Dograh outbound call to leads silent for 5+ days."""
     import asyncio as _asyncio
     cron_secret = os.getenv("CRON_SECRET", "")
     if cron_secret:
@@ -1993,7 +1998,7 @@ async def cron_voice_followup(request: Request):
         if auth.removeprefix("Bearer ").strip() != cron_secret:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-    from agents.voice_outreach import place_outbound_call
+    from agents.dograh_caller import place_outbound_call
     from database.client import get_leads_for_voice_followup, log_activity
 
     leads = get_leads_for_voice_followup()
@@ -2001,12 +2006,20 @@ async def cron_voice_followup(request: Request):
 
     for lead in leads:
         try:
-            place_outbound_call(
-                lead["phone"],
-                lead.get("business_type", ""),
-                lead.get("name", ""),
+            result = place_outbound_call(
+                phone=lead["phone"],
+                business_type=lead.get("business_type", ""),
+                business_name=lead.get("name", ""),
+                lead_id=str(lead["id"]),
+                city=lead.get("city", ""),
+                trigger="voice_followup",
             )
-            log_activity(lead["id"], "voice_followup_placed", {"phone": lead["phone"]})
+            run_id = result.get("workflow_run_id", "")
+            _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
+            log_activity(lead["id"], "voice_followup_placed", {
+                "dograh_run_id": run_id,
+                "phone": lead["phone"],
+            })
             placed += 1
         except Exception:
             failed += 1
