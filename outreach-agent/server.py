@@ -1344,8 +1344,25 @@ async def activity_live():
 
     click_leads: list[dict] = []
     if click_pending_ids:
+        from utils.timezone import is_voice_window, CITY_TZ
+        import pytz
         raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).execute().data or []
-        click_leads = [{"id": str(r["id"]), "name": r.get("name",""), "city": r.get("city",""), "business_type": r.get("business_type","")} for r in raw]
+        _nanp_cities = {c for c, tz in CITY_TZ.items() if "America" in tz}
+        for r in raw:
+            city = r.get("city", "")
+            tz_name = CITY_TZ.get(city, "")
+            in_window = is_voice_window(city, "")
+            if in_window:
+                call_status = "ready"
+            elif "Australia" in tz_name:
+                # Show local time so it's clear when window opens
+                local_t = now_utc.astimezone(pytz.timezone(tz_name))
+                call_status = f"outside hours ({local_t.strftime('%H:%M')} {local_t.strftime('%Z')})"
+            elif city in _nanp_cities:
+                call_status = "blocked (Trust Hub)"
+            else:
+                call_status = "outside hours"
+            click_leads.append({"id": str(r["id"]), "name": r.get("name",""), "city": city, "business_type": r.get("business_type",""), "call_status": call_status})
 
     email_due = db.table("leads").select("id", count="exact").not_.is_("email", "null").neq("email", "").not_.is_("email_sequence_step", "null").eq("status", "contacted").execute()
     email_pending = email_due.count or 0

@@ -175,13 +175,21 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads, frequency, last_
           </button>
           {showLeads && (
             <div className="mt-2 space-y-1">
-              {leads.map(l => (
-                <div key={l.id} className="flex items-center gap-2 text-xs">
-                  <span className="text-slate-300 truncate flex-1">{l.name}</span>
-                  <span className="text-slate-600 shrink-0">{l.city}</span>
-                  <span className="text-slate-700 shrink-0 capitalize">{l.business_type}</span>
-                </div>
-              ))}
+              {leads.map(l => {
+                const s = l.call_status || ''
+                const statusColor = s === 'ready'
+                  ? 'text-green-400'
+                  : s.includes('blocked')
+                  ? 'text-red-400/70'
+                  : 'text-amber-500/70'
+                return (
+                  <div key={l.id} className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-300 truncate flex-1">{l.name}</span>
+                    <span className="text-slate-600 shrink-0">{l.city}</span>
+                    <span className={`shrink-0 ${statusColor}`}>{s}</span>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
