@@ -1,7 +1,7 @@
 DEMO_LINK = "https://cal.com/neeraj-khattar-3zszap/practicedesk-demo"
 PRODUCT_URL = "https://practicedesk.netlify.app"
-INBOUND_PHONE = "+1 (312) 940-8233"
-INBOUND_PHONE_RAW = "+13129408233"
+INBOUND_PHONE = "+1 (318) 770-6725"
+INBOUND_PHONE_RAW = "+13187706725"
 
 # YouTube intro video — shown for all medical/professional verticals
 YOUTUBE_INTRO = "https://youtu.be/zHVLE5ek7jY"

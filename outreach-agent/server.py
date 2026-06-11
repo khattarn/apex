@@ -601,9 +601,17 @@ async def dograh_webhook(request: Request):
     # Clear from live-call dashboard tracker
     _active_calls.pop(workflow_run_id, None)
 
-    # Inbound (Henry): Dograh doesn't inject lead_id — look up by caller phone
-    if not lead_id:
-        caller_phone = str(initial_ctx.get("phone_number", ""))
+    # Determine direction before any lookup — inbound has no lead_id in initial_ctx
+    henry_workflow = os.getenv("DOGRAH_WORKFLOW_UUID_HENRY", "caa24f24-6c10-4ec0-a105-150e5e2c314b")
+    is_inbound = not lead_id
+
+    # Henry inbound: look up lead by caller phone
+    if is_inbound:
+        caller_phone = (
+            str(initial_ctx.get("phone_number", ""))
+            or str(payload.get("caller_phone", ""))
+            or str(payload.get("from", ""))
+        )
         lead = _find_lead_by_phone(caller_phone)
         lead_id = str(lead["id"]) if lead else ""
 
@@ -612,7 +620,20 @@ async def dograh_webhook(request: Request):
 
     from database.client import update_lead, log_activity
 
-    # ── Route by Sophie's extracted call_outcome ──────────────────────────────
+    # ── Henry inbound — set replied, log call, done ───────────────────────────
+    if is_inbound:
+        update_lead(lead_id, {"status": "replied"})
+        log_activity(lead_id, "inbound_call", {
+            "dograh_run_id": workflow_run_id,
+            "caller":        caller_phone,
+            "recording_url": recording_url,
+            "transcript_url": transcript_url,
+            "summary":       (gathered_ctx.get("summary") or "")[:500],
+            "cost_info":     cost_info,
+        })
+        return {"ok": True}
+
+    # ── Sophie outbound — route by extracted call_outcome ────────────────────
     if call_outcome == "booked_demo":
         _handle_book_demo(
             lead_id=lead_id,
@@ -654,10 +675,9 @@ async def dograh_webhook(request: Request):
         update_lead(lead_id, {"status": "dead"})
 
     elif call_outcome == "booked_demo_manually":
-        # Sophie confirmed sign-up / directed to practicedesk.live — just log it
         update_lead(lead_id, {"status": "converted"})
 
-    # ── Always log completion ─────────────────────────────────────────────────
+    # ── Always log Sophie completion ──────────────────────────────────────────
     log_activity(lead_id, "outbound_call_completed", {
         "dograh_run_id":  workflow_run_id,
         "call_outcome":   call_outcome,
