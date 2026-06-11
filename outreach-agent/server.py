@@ -529,6 +529,47 @@ async def resend_webhook(request: Request):
     return {"ok": True}
 
 
+# ── Vapi webhook — Henry inbound only (number printed on outgoing emails) ───
+# Henry stays on Vapi until the printed number is retired. When a new inbound
+# number is set up in Dograh, update INBOUND_PHONE* in email_templates.py and
+# remove this endpoint.
+
+@app.post("/api/webhooks/vapi")
+async def vapi_webhook(request: Request):
+    payload    = await request.json()
+    event_type = payload.get("type", "")
+
+    if event_type != "end-of-call-report":
+        return {"ok": True}
+
+    call        = payload.get("call", {})
+    artifact    = payload.get("artifact", {})
+    caller      = call.get("customer", {}).get("number", "")
+    ended_reason = call.get("endedReason", "")
+    recording_url = artifact.get("recordingUrl", "")
+    summary       = (artifact.get("summary") or "")[:500]
+    transcript    = (artifact.get("transcript") or "")[:1000]
+
+    lead = _find_lead_by_phone(caller)
+    if not lead:
+        return {"ok": True}
+
+    lead_id = str(lead["id"])
+    from database.client import update_lead, log_activity
+    update_lead(lead_id, {
+        "status": "replied",
+        "notes": f"Inbound call via Henry. Ended: {ended_reason}. Recording: {recording_url}",
+    })
+    log_activity(lead_id, "inbound_call", {
+        "caller":        caller,
+        "ended_reason":  ended_reason,
+        "recording_url": recording_url,
+        "summary":       summary,
+        "transcript":    transcript,
+    })
+    return {"ok": True}
+
+
 # ── Dograh webhook (end-of-call for both outbound Sophie and inbound Henry) ────
 
 def _find_lead_by_phone(phone: str) -> dict | None:
