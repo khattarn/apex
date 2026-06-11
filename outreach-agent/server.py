@@ -875,14 +875,18 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     if not lead.get("phone"):
         raise HTTPException(status_code=400, detail="Lead has no phone number")
 
-    result = place_outbound_call(
-        phone=lead["phone"],
-        business_type=lead.get("business_type", ""),
-        business_name=lead.get("name", ""),
-        lead_id=lead_id,
-        city=lead.get("city", ""),
-        trigger="cold",
-    )
+    try:
+        result = place_outbound_call(
+            phone=lead["phone"],
+            business_type=lead.get("business_type", ""),
+            business_name=lead.get("name", ""),
+            lead_id=lead_id,
+            city=lead.get("city", ""),
+            trigger="cold",
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
     run_id = result.get("workflow_run_id", "")
     _track_active_call(run_id, lead_id, lead.get("name", ""), lead.get("phone", ""), "outbound")
     update_lead(lead_id, {"notes": f"Voice call placed — Dograh run ID: {run_id or 'unknown'}"})
