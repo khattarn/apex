@@ -85,9 +85,9 @@ WA_HOUR_START = 10
 WA_MINUTE_START = 0
 WA_HOUR_END = 18  # hour >= 18 → outside; 17:15 ✓, 18:15 ✗
 
-# Outbound voice calls: Mon–Fri, 10 AM – 5 PM local time
+# Outbound voice calls: Mon–Fri, 11 AM – 5 PM local time
 VOICE_SEND_DAYS = {0, 1, 2, 3, 4}
-VOICE_HOUR_START = 10
+VOICE_HOUR_START = 11
 VOICE_HOUR_END = 17
 
 

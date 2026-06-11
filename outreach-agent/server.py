@@ -1868,12 +1868,13 @@ async def start_scheduler():
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(_job_wa_followup,      "cron", hour=9,        minute=0)      # 9am UTC daily
-    scheduler.add_job(_job_voice_followup,   "cron", hour=9,        minute=0)      # 9am UTC daily
+    scheduler.add_job(_job_voice_followup,   "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 11am–5pm local
+                      day_of_week="mon-fri")
     scheduler.add_job(_job_observatory,      "cron", hour=1,        minute=30)     # 1:30am UTC = 7am IST
     scheduler.add_job(_job_email_campaign,   "cron", hour="22,13",  minute=0)      # 22:00 UTC = AU 8am | 13:00 UTC = CA 9am EDT
     scheduler.add_job(_job_wa_broadcast,     "cron", hour="*",      minute=15,     # every hour Mon–Fri — timezone filter inside handles 8:30am–7pm local
                       day_of_week="mon-fri")
-    scheduler.add_job(_job_click_calls,      "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 10am–5pm local
+    scheduler.add_job(_job_click_calls,      "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 11am–5pm local
                       day_of_week="mon-fri")
     scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",             # every 15 min — checks for due callbacks
                       day_of_week="mon-fri")
