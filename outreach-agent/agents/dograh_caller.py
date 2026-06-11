@@ -58,8 +58,15 @@ def place_outbound_call(
     if not cleaned or cleaned in ("+", ""):
         raise RuntimeError(f"Could not normalise phone '{phone}'")
 
-    india_telephony_id = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")
-    telephony_id = india_telephony_id if (cleaned.startswith("+91") and india_telephony_id) else None
+    india_telephony_id   = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")   # 477 — Vobiz +91
+    default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 478 — Twilio AU/US
+
+    if cleaned.startswith("+91") and india_telephony_id:
+        telephony_id = india_telephony_id
+    elif default_telephony_id:
+        telephony_id = default_telephony_id
+    else:
+        telephony_id = None
 
     # Build initial_context — Sophie can reference these via {{initial_context.field}}
     initial_context: dict = {
