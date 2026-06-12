@@ -35,8 +35,8 @@ _V2: dict[str, tuple[str, str | None]] = {
     "doctor":          ("apex_outreach_doctor_v2",     LOGO_URL),
 }
 
-# Flip this to _V2 once Meta approves all v2 templates.
-VERTICAL_TEMPLATE = _V1
+# v2 approved 2026-06-13 — sending with logo header + CTA buttons.
+VERTICAL_TEMPLATE = _V2
 
 _STOP_WORDS = {
     "dental", "dentistry", "clinic", "salon", "spa", "studio", "center", "centre",
