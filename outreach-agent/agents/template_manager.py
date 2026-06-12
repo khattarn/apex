@@ -10,8 +10,8 @@ HOME_URL    = "https://practicedesk.netlify.app/"
 HENRY_PHONE = "+13129408233"
 
 _V2_BUTTONS = [
-    {"type": "URL",          "text": "Watch Intro Video",     "url": YOUTUBE_URL},
     {"type": "URL",          "text": "Start using for free",  "url": HOME_URL},
+    {"type": "URL",          "text": "Watch Intro Video",     "url": YOUTUBE_URL},
     {"type": "PHONE_NUMBER", "text": "Call us with questions", "phone_number": HENRY_PHONE},
     {"type": "QUICK_REPLY",  "text": "Stop"},
 ]
