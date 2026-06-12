@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import Login from './views/Login'
@@ -34,6 +34,40 @@ function LiveCallBanner({ calls }) {
         {calls.map(c => c.phone).join(' · ')}
       </span>
     </div>
+  )
+}
+
+function RouteContent({ activeCalls, onMenuClick, onLogout, sidebarOpen, setSidebarOpen, inboxUnread }) {
+  const location = useLocation()
+  const isInbox = location.pathname === '/inbox'
+  return (
+    <>
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={onLogout} inboxUnread={inboxUnread} />
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <TopBar onMenuClick={onMenuClick} />
+        <LiveCallBanner calls={activeCalls} />
+        <div className={`flex-1 ${isInbox ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/live" element={<LiveActivity />} />
+            <Route path="/pipeline" element={<RunPipeline />} />
+            <Route path="/leads" element={<LeadsTable />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/agents" element={<Agents />} />
+            <Route path="/agents/:agentId" element={<AgentDetail />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:productId" element={<ProductDetail />} />
+            <Route path="/dialpad" element={<Dialpad />} />
+            <Route path="/inbox" element={<Inbox />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </main>
+    </>
   )
 }
 
@@ -76,34 +110,14 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} inboxUnread={inboxUnread} />
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-        <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <TopBar onMenuClick={() => setSidebarOpen(true)} />
-          <LiveCallBanner calls={activeCalls} />
-          <div className="flex-1 overflow-y-auto">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/live" element={<LiveActivity />} />
-            <Route path="/pipeline" element={<RunPipeline />} />
-            <Route path="/leads" element={<LeadsTable />} />
-            <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/agents/:agentId" element={<AgentDetail />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:productId" element={<ProductDetail />} />
-            <Route path="/dialpad" element={<Dialpad />} />
-            <Route path="/inbox" element={<Inbox />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </div>
-        </main>
+        <RouteContent
+          activeCalls={activeCalls}
+          onMenuClick={() => setSidebarOpen(true)}
+          onLogout={handleLogout}
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          inboxUnread={inboxUnread}
+        />
       </div>
     </BrowserRouter>
   )
