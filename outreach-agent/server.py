@@ -2116,7 +2116,6 @@ async def get_wa_inbox_api(_=Depends(verify_token)):
 
 @app.post("/api/inbox/wa/{inbox_id}/reply")
 async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
-    import logging as _log
     from database.client import get_client, update_wa_inbox
     from agents.outreach import send_whatsapp_message
 
@@ -2124,8 +2123,13 @@ async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
-    db  = get_client()
-    row = db.table("wa_inbox").select("*").eq("id", inbox_id).single().execute().data
+    try:
+        db     = get_client()
+        result = db.table("wa_inbox").select("*").eq("id", inbox_id).limit(1).execute()
+        row    = result.data[0] if result.data else None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB lookup failed: {e}")
+
     if not row:
         raise HTTPException(status_code=404, detail="Message not found")
 
@@ -2135,8 +2139,8 @@ async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
 
     try:
         update_wa_inbox(inbox_id, {"status": "replied", "reply_sent": text})
-    except Exception as _e:
-        _log.getLogger(__name__).warning("wa_inbox update failed after send: %s", _e)
+    except Exception:
+        pass  # DB update failure must not block a successfully sent message
 
     return {"ok": True}
 
