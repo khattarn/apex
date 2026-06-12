@@ -40,8 +40,17 @@ def send_whatsapp_message(phone: str, message: str, phone_number_id: str | None 
     raise RuntimeError(f"WhatsApp API error {response.status_code}: {error.get('message', response.text)}")
 
 
-def send_template_message(phone: str, template_name: str, body_params: list[str], phone_number_id: str | None = None) -> bool:
-    """Send a Meta-approved template message. Use for all business-initiated contacts."""
+def send_template_message(
+    phone: str,
+    template_name: str,
+    body_params: list[str],
+    phone_number_id: str | None = None,
+    image_url: str | None = None,
+) -> bool:
+    """Send a Meta-approved template message. Use for all business-initiated contacts.
+
+    Pass image_url for templates that have an IMAGE header component (v2 templates).
+    """
     access_token = os.getenv("WHATSAPP_ACCESS_TOKEN")
 
     cleaned = "".join(c for c in phone if c.isdigit() or c == "+")
@@ -57,6 +66,17 @@ def send_template_message(phone: str, template_name: str, body_params: list[str]
     if not phone_number_id or not access_token:
         raise RuntimeError("WhatsApp phone_number_id and WHATSAPP_ACCESS_TOKEN must be set")
 
+    components = []
+    if image_url:
+        components.append({
+            "type": "header",
+            "parameters": [{"type": "image", "image": {"link": image_url}}],
+        })
+    components.append({
+        "type": "body",
+        "parameters": [{"type": "text", "text": p} for p in body_params],
+    })
+
     url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
     payload = {
         "messaging_product": "whatsapp",
@@ -65,10 +85,7 @@ def send_template_message(phone: str, template_name: str, body_params: list[str]
         "template": {
             "name": template_name,
             "language": {"code": "en"},
-            "components": [{
-                "type": "body",
-                "parameters": [{"type": "text", "text": p} for p in body_params],
-            }],
+            "components": components,
         },
     }
     headers = {
