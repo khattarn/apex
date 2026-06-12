@@ -2116,9 +2116,9 @@ async def get_wa_inbox_api(_=Depends(verify_token)):
 
 @app.post("/api/inbox/wa/{inbox_id}/reply")
 async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
+    import logging as _log
     from database.client import get_client, update_wa_inbox
     from agents.outreach import send_whatsapp_message
-    from datetime import datetime, timezone
 
     text = (body.get("text") or "").strip()
     if not text:
@@ -2129,12 +2129,15 @@ async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
     if not row:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    send_whatsapp_message(row["from_phone"], text)
-    update_wa_inbox(inbox_id, {
-        "status":     "replied",
-        "reply_sent": text,
-        "replied_at": datetime.now(timezone.utc).isoformat(),
-    })
+    # Reply from the exact number that received the message (not auto-routed)
+    phone_number_id = row.get("to_number_id") or None
+    send_whatsapp_message(row["from_phone"], text, phone_number_id=phone_number_id)
+
+    try:
+        update_wa_inbox(inbox_id, {"status": "replied", "reply_sent": text})
+    except Exception as _e:
+        _log.getLogger(__name__).warning("wa_inbox update failed after send: %s", _e)
+
     return {"ok": True}
 
 
