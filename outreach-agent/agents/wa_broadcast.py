@@ -11,19 +11,32 @@ from collections import defaultdict
 
 from agents.outreach import send_template_message, send_whatsapp_message
 from agents.personalizer import generate_message
+from agents.template_manager import LOGO_URL
 from database.client import get_client, log_activity, mark_contacted
 from utils.timezone import is_wa_window
 
-# Maps business_type → approved Meta template name.
-# Add a new entry here whenever a new vertical template is approved.
-VERTICAL_TEMPLATE: dict[str, str] = {
-    "dentist":         "apex_outreach_dentist_v1",
-    "salon":           "apex_outreach_salon_v1",
-    "accountant":      "apex_outreach_accountant_v1",
-    "physiotherapist": "apex_outreach_physio_v1",
-    "lawyer":          "apex_outreach_lawyer_v1",
-    "doctor":          "apex_outreach_doctor_v1",
+# Maps business_type → (template_name, image_url | None).
+# v2 templates include IMAGE header + CTA buttons. Switch to v2 once approved.
+_V1: dict[str, tuple[str, str | None]] = {
+    "dentist":         ("apex_outreach_dentist_v1",    None),
+    "salon":           ("apex_outreach_salon_v1",      None),
+    "accountant":      ("apex_outreach_accountant_v1", None),
+    "physiotherapist": ("apex_outreach_physio_v1",     None),
+    "lawyer":          ("apex_outreach_lawyer_v1",     None),
+    "doctor":          ("apex_outreach_doctor_v1",     None),
 }
+
+_V2: dict[str, tuple[str, str | None]] = {
+    "dentist":         ("apex_outreach_dentist_v2",    LOGO_URL),
+    "salon":           ("apex_outreach_salon_v2",      LOGO_URL),
+    "accountant":      ("apex_outreach_accountant_v2", LOGO_URL),
+    "physiotherapist": ("apex_outreach_physio_v2",     LOGO_URL),
+    "lawyer":          ("apex_outreach_lawyer_v2",     LOGO_URL),
+    "doctor":          ("apex_outreach_doctor_v2",     LOGO_URL),
+}
+
+# Flip this to _V2 once Meta approves all v2 templates.
+VERTICAL_TEMPLATE = _V1
 
 _STOP_WORDS = {
     "dental", "dentistry", "clinic", "salon", "spa", "studio", "center", "centre",
@@ -87,11 +100,12 @@ def run_wa_broadcast() -> dict:
 
         try:
             btype = lead.get("business_type", "").lower()
-            template_name = VERTICAL_TEMPLATE.get(btype)
+            entry = VERTICAL_TEMPLATE.get(btype)
 
-            if template_name:
+            if entry:
+                template_name, image_url = entry
                 greeting = _greeting_name(lead["name"])
-                send_template_message(phone, template_name, [greeting, lead["name"]])
+                send_template_message(phone, template_name, [greeting, lead["name"]], image_url=image_url)
                 stored_message = f"[Template: {template_name}] {greeting} / {lead['name']}"
             else:
                 # Fallback for verticals without an approved template (free-form, session only)
@@ -104,13 +118,14 @@ def run_wa_broadcast() -> dict:
                 send_whatsapp_message(phone, stored_message)
 
             mark_contacted(str(lead["id"]), stored_message)
+            used_template = template_name if entry else "free_form"
             log_activity(str(lead["id"]), "wa_outreach_sent", {
                 "trigger": "broadcast_cron",
                 "city": city,
-                "template": template_name or "free_form",
+                "template": used_template,
             })
             sent += 1
-            log.info("WA broadcast sent to %s (%s) via %s", lead["name"], city, template_name or "free_form")
+            log.info("WA broadcast sent to %s (%s) via %s", lead["name"], city, used_template)
         except Exception as exc:
             log.error("WA broadcast failed for lead %s: %s", lead.get("id"), exc)
             errors += 1
