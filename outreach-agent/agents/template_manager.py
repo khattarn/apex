@@ -10,9 +10,10 @@ HOME_URL    = "https://practicedesk.netlify.app/"
 HENRY_PHONE = "+13129408233"
 
 _V2_BUTTONS = [
-    {"type": "URL",          "text": "Watch Intro Video",   "url": YOUTUBE_URL},
-    {"type": "URL",          "text": "Start using for free", "url": HOME_URL},
+    {"type": "URL",          "text": "Watch Intro Video",     "url": YOUTUBE_URL},
+    {"type": "URL",          "text": "Start using for free",  "url": HOME_URL},
     {"type": "PHONE_NUMBER", "text": "Call us with questions", "phone_number": HENRY_PHONE},
+    {"type": "QUICK_REPLY",  "text": "Stop"},
 ]
 
 TEMPLATES = {
@@ -325,6 +326,10 @@ TEMPLATES = {
     },
 }
 
+# v3 = v2 components + Stop quick-reply button (created after 24h edit limit hit on v2)
+for _k in [k for k in list(TEMPLATES) if k.endswith("_v2")]:
+    TEMPLATES[_k.replace("_v2", "_v3")] = TEMPLATES[_k]
+
 TEMPLATE_DISPLAY_NAMES = {
     "apex_outreach_salon_v1":      "Salon (v1)",
     "apex_outreach_dentist_v1":    "Dentist (v1)",
@@ -338,9 +343,16 @@ TEMPLATE_DISPLAY_NAMES = {
     "apex_outreach_physio_v2":     "Physiotherapist (v2 + logo)",
     "apex_outreach_accountant_v2": "Accountant (v2 + logo)",
     "apex_outreach_lawyer_v2":     "Lawyer (v2 + logo)",
+    "apex_outreach_salon_v3":      "Salon (v3 + logo + stop)",
+    "apex_outreach_dentist_v3":    "Dentist (v3 + logo + stop)",
+    "apex_outreach_doctor_v3":     "Doctor / GP (v3 + logo + stop)",
+    "apex_outreach_physio_v3":     "Physiotherapist (v3 + logo + stop)",
+    "apex_outreach_accountant_v3": "Accountant (v3 + logo + stop)",
+    "apex_outreach_lawyer_v3":     "Lawyer (v3 + logo + stop)",
 }
 
 _V2_NAMES = {k for k in TEMPLATES if k.endswith("_v2")}
+_V3_NAMES = {k for k in TEMPLATES if k.endswith("_v3")}
 
 
 def _headers():
@@ -419,8 +431,8 @@ def submit_template(name: str, logo_handle: str | None = None) -> dict:
     import copy, json as _json
     components = copy.deepcopy(defn["components"])
 
-    # Inject logo handle into IMAGE header example for v2 templates
-    if name in _V2_NAMES and logo_handle:
+    # Inject logo handle into IMAGE header example for v2/v3 templates
+    if name in (_V2_NAMES | _V3_NAMES) and logo_handle:
         for comp in components:
             if comp.get("type") == "HEADER" and comp.get("format") == "IMAGE":
                 comp["example"] = {"header_handle": [logo_handle]}

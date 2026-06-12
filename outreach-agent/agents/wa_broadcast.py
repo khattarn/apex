@@ -16,7 +16,6 @@ from database.client import get_client, log_activity, mark_contacted
 from utils.timezone import is_wa_window
 
 # Maps business_type → (template_name, image_url | None).
-# v2 templates include IMAGE header + CTA buttons. Switch to v2 once approved.
 _V1: dict[str, tuple[str, str | None]] = {
     "dentist":         ("apex_outreach_dentist_v1",    None),
     "salon":           ("apex_outreach_salon_v1",      None),
@@ -26,17 +25,18 @@ _V1: dict[str, tuple[str, str | None]] = {
     "doctor":          ("apex_outreach_doctor_v1",     None),
 }
 
-_V2: dict[str, tuple[str, str | None]] = {
-    "dentist":         ("apex_outreach_dentist_v2",    LOGO_URL),
-    "salon":           ("apex_outreach_salon_v2",      LOGO_URL),
-    "accountant":      ("apex_outreach_accountant_v2", LOGO_URL),
-    "physiotherapist": ("apex_outreach_physio_v2",     LOGO_URL),
-    "lawyer":          ("apex_outreach_lawyer_v2",     LOGO_URL),
-    "doctor":          ("apex_outreach_doctor_v2",     LOGO_URL),
+# v3 = logo header + Henry sign-off + Stop quick-reply + 3 CTA buttons (pending approval)
+_V3: dict[str, tuple[str, str | None]] = {
+    "dentist":         ("apex_outreach_dentist_v3",    LOGO_URL),
+    "salon":           ("apex_outreach_salon_v3",      LOGO_URL),
+    "accountant":      ("apex_outreach_accountant_v3", LOGO_URL),
+    "physiotherapist": ("apex_outreach_physio_v3",     LOGO_URL),
+    "lawyer":          ("apex_outreach_lawyer_v3",     LOGO_URL),
+    "doctor":          ("apex_outreach_doctor_v3",     LOGO_URL),
 }
 
-# v2 approved 2026-06-13 — sending with logo header + CTA buttons.
-VERTICAL_TEMPLATE = _V2
+# v3 approved 2026-06-13 — logo + Henry + Stop button.
+VERTICAL_TEMPLATE = _V3
 
 _STOP_WORDS = {
     "dental", "dentistry", "clinic", "salon", "spa", "studio", "center", "centre",
