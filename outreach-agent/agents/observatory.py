@@ -118,9 +118,12 @@ def build_digest() -> str:
 
 
 def send_observatory_digest() -> str:
-    recipient = os.getenv("OBSERVATORY_WA_RECIPIENT")
+    recipient = (
+        os.getenv("OBSERVATORY_WA_RECIPIENT")
+        or os.getenv("FOUNDER_WHATSAPP_NUMBER")
+    )
     if not recipient:
-        raise RuntimeError("OBSERVATORY_WA_RECIPIENT is not set")
+        raise RuntimeError("OBSERVATORY_WA_RECIPIENT and FOUNDER_WHATSAPP_NUMBER are both unset")
     digest = build_digest()
     send_whatsapp_message(recipient, digest)
     return digest
