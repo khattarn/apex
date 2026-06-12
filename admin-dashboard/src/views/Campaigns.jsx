@@ -90,7 +90,7 @@ export default function Campaigns() {
                   </td>
                   <td className="px-4 py-2.5">
                     <span className="text-xs px-2 py-0.5 rounded font-medium bg-slate-700 text-slate-300">
-                      {c.mode === 'live' ? 'Live' : 'Dry Run'}
+                      {c.mode === 'live' ? 'Live' : c.mode === 'scheduler' ? 'Auto' : c.mode === 'wa_blast' ? 'Blast' : 'Dry Run'}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-center">{c.prospects_found ?? 0}</td>
