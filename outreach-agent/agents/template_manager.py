@@ -30,7 +30,7 @@ TEMPLATES = {
                     "We built PracticeDesk for salons — it handles appointment bookings, sends automatic reminders, "
                     "and follows up after each visit. Most salons see 30% fewer no-shows in the first month.\n\n"
                     "Would a free 15-min demo be worth your time?\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Sarah", "Glow Studio"]]},
             },
@@ -56,7 +56,7 @@ TEMPLATES = {
                     "PracticeDesk is a WhatsApp AI assistant built for dental clinics — it books appointments, "
                     "sends reminders, answers patient queries, and follows up post-treatment. No extra staff needed.\n\n"
                     "Happy to show you a quick demo — free, no commitment. Worth 15 minutes?\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Sharma", "Smile Dental Clinic"]]},
             },
@@ -83,7 +83,7 @@ TEMPLATES = {
                     "PracticeDesk gives your clinic a WhatsApp AI receptionist — it books slots, confirms appointments, "
                     "answers common queries, and follows up automatically.\n\n"
                     "Would a free demo make sense for you?\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Patel", "City Health Clinic"]]},
             },
@@ -110,7 +110,7 @@ TEMPLATES = {
                     "PracticeDesk automates all of that on WhatsApp — appointment reminders, rebooking prompts "
                     "after treatment courses, and patient Q&A. Set it once, runs itself.\n\n"
                     "Free demo — 15 minutes. Interested?\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Rahul", "ActiveLife Physiotherapy"]]},
             },
@@ -137,7 +137,7 @@ TEMPLATES = {
                     "PracticeDesk handles all of that automatically — appointment booking, document nudges, "
                     "and follow-ups via WhatsApp. Keeps clients happy, keeps your team focused.\n\n"
                     "Worth a free 15-min walkthrough?\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Anil", "Sharma & Associates"]]},
             },
@@ -165,7 +165,7 @@ TEMPLATES = {
                     "sends reminders, and follows up with clients automatically. Keeps your pipeline moving "
                     "without adding admin.\n\n"
                     "Free 15-min demo — no strings. Interested?\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Mehta", "Mehta & Partners Law Firm"]]},
             },
@@ -196,7 +196,7 @@ TEMPLATES = {
                     "Are missed appointments or manual patient follow-ups eating into your day?\n\n"
                     "PracticeDesk is a WhatsApp AI assistant built for dental clinics — it books appointments, "
                     "sends reminders, answers patient queries, and follows up post-treatment. No extra staff needed.\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Sharma", "Smile Dental Clinic"]]},
             },
@@ -219,7 +219,7 @@ TEMPLATES = {
                     "Still managing bookings and client reminders manually on WhatsApp?\n\n"
                     "PracticeDesk automates appointment bookings, sends reminders, and follows up after each visit. "
                     "Most salons see 30% fewer no-shows in the first month.\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Sarah", "Glow Studio"]]},
             },
@@ -243,7 +243,7 @@ TEMPLATES = {
                     "reminders, and follow-up calls manually takes hours your team doesn't have.\n\n"
                     "PracticeDesk gives your clinic a WhatsApp AI receptionist — books slots, confirms appointments, "
                     "answers queries, and follows up automatically.\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Patel", "City Health Clinic"]]},
             },
@@ -267,7 +267,7 @@ TEMPLATES = {
                     "follow-up sessions manually?\n\n"
                     "PracticeDesk automates all of that on WhatsApp — appointment reminders, rebooking prompts "
                     "after treatment courses, and patient Q&A. Set it once, runs itself.\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Rahul", "ActiveLife Physiotherapy"]]},
             },
@@ -291,7 +291,7 @@ TEMPLATES = {
                     "or status updates?\n\n"
                     "PracticeDesk handles all of that automatically — appointment booking, document nudges, "
                     "and follow-ups via WhatsApp. Keeps clients happy, keeps your team focused.\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Anil", "Sharma & Associates"]]},
             },
@@ -316,7 +316,7 @@ TEMPLATES = {
                     "PracticeDesk gives your firm a WhatsApp AI assistant — it handles consultation bookings, "
                     "sends reminders, and follows up with clients automatically. Keeps your pipeline moving "
                     "without adding admin.\n\n"
-                    "— Neeraj, PracticeDesk"
+                    "— Henry, PracticeDesk"
                 ),
                 "example": {"body_text": [["Mehta", "Mehta & Partners Law Firm"]]},
             },
