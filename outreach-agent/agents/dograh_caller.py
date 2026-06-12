@@ -59,14 +59,15 @@ def place_outbound_call(
         raise RuntimeError(f"Could not normalise phone '{phone}'")
 
     india_telephony_id   = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")   # 477 — Vobiz +91
-    default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 478 — Twilio AU/US
+    default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 478 — Twilio AU/US (blocked pending Twilio review)
 
     if cleaned.startswith("+91") and india_telephony_id:
         telephony_id = india_telephony_id
     elif default_telephony_id:
         telephony_id = default_telephony_id
     else:
-        telephony_id = None
+        # Fallback: use India Vobiz for all destinations until Twilio unblocked
+        telephony_id = india_telephony_id or None
 
     # Build initial_context — Sophie can reference these via {{initial_context.field}}
     initial_context: dict = {
