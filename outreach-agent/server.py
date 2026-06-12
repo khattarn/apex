@@ -1726,45 +1726,55 @@ async def backfill_contacted(_=Depends(verify_token)):
 # ── Scheduled jobs (APScheduler — runs inside the server process) ─────────────
 
 async def _job_wa_followup():
-    from agents.followup import generate_followup_message
-    from agents.outreach import send_whatsapp_message
-    from database.client import get_leads_for_followup, log_activity
-    leads = get_leads_for_followup()
-    for lead in leads:
-        try:
-            msg = generate_followup_message(
-                lead.get("name", ""), lead.get("business_type", "practice"), lead.get("city", "")
-            )
-            send_whatsapp_message(lead["phone"], msg)
-            log_activity(lead["id"], "wa_followup_sent", {"message": msg})
-        except Exception as exc:
-            log.error("WA followup failed for lead %s: %s", lead.get("id"), exc)
-        await asyncio.sleep(2)
+    try:
+        from agents.followup import generate_followup_message
+        from agents.outreach import send_whatsapp_message
+        from database.client import get_leads_for_followup, log_activity
+        leads = get_leads_for_followup()
+        for lead in leads:
+            try:
+                msg = generate_followup_message(
+                    lead.get("name", ""), lead.get("business_type", "practice"), lead.get("city", "")
+                )
+                send_whatsapp_message(lead["phone"], msg)
+                log_activity(lead["id"], "wa_followup_sent", {"message": msg})
+            except Exception as exc:
+                log.error("WA followup failed for lead %s: %s", lead.get("id"), exc)
+            await asyncio.sleep(2)
+    except Exception as exc:
+        log.error("_job_wa_followup failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("wa_followup", exc)
 
 
 async def _job_voice_followup():
-    from agents.dograh_caller import place_outbound_call
-    from database.client import get_leads_for_voice_followup, log_activity
-    leads = get_leads_for_voice_followup()
-    for lead in leads:
-        try:
-            result = place_outbound_call(
-                phone=lead["phone"],
-                business_type=lead.get("business_type", ""),
-                business_name=lead.get("name", ""),
-                lead_id=str(lead["id"]),
-                city=lead.get("city", ""),
-                trigger="voice_followup",
-            )
-            run_id = result.get("workflow_run_id", "")
-            _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
-            log_activity(lead["id"], "voice_followup_placed", {
-                "dograh_run_id": run_id,
-                "phone": lead["phone"],
-            })
-        except Exception as exc:
-            log.error("Voice followup failed for lead %s: %s", lead.get("id"), exc)
-        await asyncio.sleep(3)
+    try:
+        from agents.dograh_caller import place_outbound_call
+        from database.client import get_leads_for_voice_followup, log_activity
+        leads = get_leads_for_voice_followup()
+        for lead in leads:
+            try:
+                result = place_outbound_call(
+                    phone=lead["phone"],
+                    business_type=lead.get("business_type", ""),
+                    business_name=lead.get("name", ""),
+                    lead_id=str(lead["id"]),
+                    city=lead.get("city", ""),
+                    trigger="voice_followup",
+                )
+                run_id = result.get("workflow_run_id", "")
+                _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
+                log_activity(lead["id"], "voice_followup_placed", {
+                    "dograh_run_id": run_id,
+                    "phone": lead["phone"],
+                })
+            except Exception as exc:
+                log.error("Voice followup failed for lead %s: %s", lead.get("id"), exc)
+            await asyncio.sleep(3)
+    except Exception as exc:
+        log.error("_job_voice_followup failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("voice_followup", exc)
 
 
 async def _job_observatory():
@@ -1776,6 +1786,8 @@ async def _job_observatory():
             log_activity(None, "observatory_sent", {"preview": digest[:200]})
     except Exception as exc:
         log.error("Observatory job failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("observatory", exc)
 
 
 async def _job_wa_broadcast():
@@ -1793,6 +1805,8 @@ async def _job_wa_broadcast():
         log.info("WA broadcast: %s", result)
     except Exception as exc:
         log.error("_job_wa_broadcast failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("wa_broadcast", exc)
 
 
 async def _job_click_calls():
@@ -1801,6 +1815,8 @@ async def _job_click_calls():
         await asyncio.to_thread(run_click_campaign)
     except Exception as exc:
         log.error("_job_click_calls failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("click_calls", exc)
 
 
 async def _job_scheduled_callbacks():
@@ -1909,6 +1925,8 @@ async def _job_email_campaign():
         log_activity(None, "email_campaign_auto", {"sent": sent, "skipped": skipped, "failed": failed})  # lead_id=None is intentional system-level event
     except Exception as exc:
         log.error("_job_email_campaign failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("email_campaign", exc)
 
 
 async def _job_signal_weekly():
@@ -1923,6 +1941,8 @@ async def _job_signal_weekly():
                  report.get("targets_behind", 0))
     except Exception as exc:
         log.error("Signal weekly job failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("signal_weekly", exc)
 
 
 @app.on_event("startup")

@@ -9,10 +9,34 @@ per invocation so we never flood the Meta API or a single city at once.
 import logging
 from collections import defaultdict
 
-from agents.outreach import send_whatsapp_message
+from agents.outreach import send_template_message, send_whatsapp_message
 from agents.personalizer import generate_message
 from database.client import get_client, log_activity, mark_contacted
 from utils.timezone import is_wa_window
+
+# Maps business_type → approved Meta template name.
+# Add a new entry here whenever a new vertical template is approved.
+VERTICAL_TEMPLATE: dict[str, str] = {
+    "dentist":         "apex_outreach_dentist_v1",
+    "salon":           "apex_outreach_salon_v1",
+    "accountant":      "apex_outreach_accountant_v1",
+    "physiotherapist": "apex_outreach_physio_v1",
+    "lawyer":          "apex_outreach_lawyer_v1",
+    "doctor":          "apex_outreach_doctor_v1",
+}
+
+_STOP_WORDS = {
+    "dental", "dentistry", "clinic", "salon", "spa", "studio", "center", "centre",
+    "physiotherapy", "physio", "therapy", "accounting", "accountants", "accountant",
+    "law", "legal", "firm", "associates", "partners", "office", "medical",
+    "health", "care", "services", "group", "practice", "dr.", "dr",
+}
+
+
+def _greeting_name(business_name: str) -> str:
+    """Extract a short first-word greeting from a business name, skipping generic suffixes."""
+    words = [w for w in business_name.split() if w.lower().rstrip(".,") not in _STOP_WORDS]
+    return words[0] if words else business_name.split()[0]
 
 log = logging.getLogger(__name__)
 
@@ -62,19 +86,31 @@ def run_wa_broadcast() -> dict:
             continue
 
         try:
-            message = generate_message(
-                name=lead["name"],
-                business_type=lead.get("business_type", ""),
-                city=city,
-            )
-            send_whatsapp_message(phone, message)
-            mark_contacted(str(lead["id"]), message)
+            btype = lead.get("business_type", "").lower()
+            template_name = VERTICAL_TEMPLATE.get(btype)
+
+            if template_name:
+                greeting = _greeting_name(lead["name"])
+                send_template_message(phone, template_name, [greeting, lead["name"]])
+                stored_message = f"[Template: {template_name}] {greeting} / {lead['name']}"
+            else:
+                # Fallback for verticals without an approved template (free-form, session only)
+                log.warning("No approved template for vertical '%s', using free-form", btype)
+                stored_message = generate_message(
+                    name=lead["name"],
+                    business_type=btype,
+                    city=city,
+                )
+                send_whatsapp_message(phone, stored_message)
+
+            mark_contacted(str(lead["id"]), stored_message)
             log_activity(str(lead["id"]), "wa_outreach_sent", {
                 "trigger": "broadcast_cron",
                 "city": city,
+                "template": template_name or "free_form",
             })
             sent += 1
-            log.info("WA broadcast sent to %s (%s)", lead["name"], city)
+            log.info("WA broadcast sent to %s (%s) via %s", lead["name"], city, template_name or "free_form")
         except Exception as exc:
             log.error("WA broadcast failed for lead %s: %s", lead.get("id"), exc)
             errors += 1
