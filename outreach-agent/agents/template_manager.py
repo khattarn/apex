@@ -327,8 +327,14 @@ TEMPLATES = {
 }
 
 # v3 = v2 components + Stop quick-reply button (created after 24h edit limit hit on v2)
+# Note: editing v3 to reorder buttons stripped the IMAGE header — templates are header-less.
 for _k in [k for k in list(TEMPLATES) if k.endswith("_v2")]:
     TEMPLATES[_k.replace("_v2", "_v3")] = TEMPLATES[_k]
+
+# v4 = final canonical version: logo header + correct button order (homepage first, YouTube second)
+# _V2_BUTTONS already has the correct order. v4 entries are identical to v3 definitions.
+for _k in [k for k in list(TEMPLATES) if k.endswith("_v2")]:
+    TEMPLATES[_k.replace("_v2", "_v4")] = TEMPLATES[_k]
 
 TEMPLATE_DISPLAY_NAMES = {
     "apex_outreach_salon_v1":      "Salon (v1)",
@@ -353,6 +359,7 @@ TEMPLATE_DISPLAY_NAMES = {
 
 _V2_NAMES = {k for k in TEMPLATES if k.endswith("_v2")}
 _V3_NAMES = {k for k in TEMPLATES if k.endswith("_v3")}
+_V4_NAMES = {k for k in TEMPLATES if k.endswith("_v4")}
 
 
 def _headers():
@@ -431,8 +438,8 @@ def submit_template(name: str, logo_handle: str | None = None) -> dict:
     import copy, json as _json
     components = copy.deepcopy(defn["components"])
 
-    # Inject logo handle into IMAGE header example for v2/v3 templates
-    if name in (_V2_NAMES | _V3_NAMES) and logo_handle:
+    # Inject logo handle into IMAGE header example for v2/v3/v4 templates
+    if name in (_V2_NAMES | _V3_NAMES | _V4_NAMES) and logo_handle:
         for comp in components:
             if comp.get("type") == "HEADER" and comp.get("format") == "IMAGE":
                 comp["example"] = {"header_handle": [logo_handle]}
