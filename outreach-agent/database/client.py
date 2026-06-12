@@ -526,6 +526,42 @@ def get_leads_for_voice_followup(limit=10) -> list:
     return leads[:limit]
 
 
+# ── WA Inbox ─────────────────────────────────────────────────────────────────
+
+PHONE_NUMBER_LABELS = {
+    "1122821020915109": "IN",
+    "1131796990021193": "US",
+}
+
+
+def save_wa_inbox(data: dict) -> dict | None:
+    db = get_client()
+    result = db.table("wa_inbox").insert(data).execute()
+    return result.data[0] if result.data else None
+
+
+def update_wa_inbox(inbox_id: str, data: dict) -> None:
+    get_client().table("wa_inbox").update(data).eq("id", inbox_id).execute()
+
+
+def get_wa_inbox(limit: int = 100, status: str | None = None) -> list[dict]:
+    db = get_client()
+    query = (
+        db.table("wa_inbox")
+        .select("*")
+        .order("received_at", desc=True)
+        .limit(limit)
+    )
+    if status:
+        query = query.eq("status", status)
+    return query.execute().data or []
+
+
+def get_wa_inbox_unread_count() -> int:
+    result = get_client().table("wa_inbox").select("id", count="exact").eq("status", "new").execute()
+    return result.count or 0
+
+
 # ── Danger zone ───────────────────────────────────────────────────────────────
 
 def clear_all_leads():

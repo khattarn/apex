@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone, X, Radio } from 'lucide-react'
+import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone, X, Radio, Inbox } from 'lucide-react'
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -7,13 +7,14 @@ const NAV = [
   { to: '/pipeline', icon: Play, label: 'Run Pipeline' },
   { to: '/leads', icon: Users, label: 'Leads' },
   { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+  { to: '/inbox', icon: Inbox, label: 'WA Inbox' },
   { to: '/agents', icon: Bot, label: 'Agents' },
   { to: '/products', icon: Package, label: 'Products' },
   { to: '/dialpad', icon: Phone, label: 'Dialpad' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
-export default function Sidebar({ isOpen, onClose, onLogout }) {
+export default function Sidebar({ isOpen, onClose, onLogout, inboxUnread = 0 }) {
   return (
     <aside className={`
       fixed lg:static inset-y-0 left-0 z-40
@@ -50,7 +51,12 @@ export default function Sidebar({ isOpen, onClose, onLogout }) {
             }
           >
             <Icon size={15} strokeWidth={1.75} />
-            {label}
+            <span className="flex-1">{label}</span>
+            {to === '/inbox' && inboxUnread > 0 && (
+              <span className="bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                {inboxUnread}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

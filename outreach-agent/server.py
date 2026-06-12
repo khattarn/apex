@@ -2020,7 +2020,11 @@ async def wa_outreach_webhook(request: Request):
     """Receive inbound WhatsApp messages, classify intent, and respond."""
     from agents.reply_handler import classify_intent, generate_reply, get_demo_message
     from agents.outreach import send_whatsapp_message
-    from database.client import get_lead_by_phone, update_lead, log_activity
+    from database.client import (
+        get_lead_by_phone, update_lead, log_activity,
+        save_wa_inbox, update_wa_inbox, PHONE_NUMBER_LABELS,
+    )
+    from datetime import datetime, timezone
 
     try:
         payload = await request.json()
@@ -2028,41 +2032,59 @@ async def wa_outreach_webhook(request: Request):
         return {"ok": True}
 
     try:
-        entry   = payload.get("entry", [{}])[0]
-        change  = entry.get("changes", [{}])[0]
-        value   = change.get("value", {})
+        entry    = payload.get("entry", [{}])[0]
+        change   = entry.get("changes", [{}])[0]
+        value    = change.get("value", {})
         messages = value.get("messages", [])
 
         if not messages or messages[0].get("type") != "text":
             return {"ok": True}
 
         msg    = messages[0]
-        sender = msg.get("from", "")          # digits-only from Meta
+        sender = msg.get("from", "")
         text   = msg.get("text", {}).get("body", "").strip()
         if not sender or not text:
             return {"ok": True}
 
-        phone = f"+{sender}" if not sender.startswith("+") else sender
-        lead  = get_lead_by_phone(phone)
+        phone          = f"+{sender}" if not sender.startswith("+") else sender
+        number_id      = value.get("metadata", {}).get("phone_number_id", "")
+        to_number      = PHONE_NUMBER_LABELS.get(number_id, "US")
+        received_at    = datetime.now(timezone.utc).isoformat()
+
+        # Save to inbox immediately — before lead lookup so unknowns are captured too
+        lead       = get_lead_by_phone(phone)
+        lead_id    = str(lead["id"]) if lead else None
+        lead_name  = lead.get("name") if lead else None
+
+        inbox_row = save_wa_inbox({
+            "from_phone":   phone,
+            "to_number":    to_number,
+            "to_number_id": number_id,
+            "message":      text,
+            "lead_id":      lead_id,
+            "lead_name":    lead_name,
+            "status":       "new",
+            "received_at":  received_at,
+        })
+        inbox_id = inbox_row["id"] if inbox_row else None
+
         if not lead:
-            return {"ok": True}
+            return {"ok": True}  # unknown sender stored, nothing more to do
 
-        lead_id = lead["id"]
-        name    = lead.get("name", "")
-        btype   = lead.get("business_type", "practice")
-
+        btype = lead.get("business_type", "practice")
         update_lead(lead_id, {"status": "replied"})
         log_activity(lead_id, "wa_reply_received", {"message": text, "sender": phone})
 
         intent = classify_intent(text)
+        reply  = None
 
         if intent == "interested":
-            reply = get_demo_message(name)
+            reply = get_demo_message(lead_name)
             send_whatsapp_message(phone, reply)
             log_activity(lead_id, "demo_booking_sent", {"message": reply})
 
         elif intent == "question":
-            reply = generate_reply(text, name, btype)
+            reply = generate_reply(text, lead_name, btype)
             send_whatsapp_message(phone, reply)
             log_activity(lead_id, "wa_reply_sent", {"message": reply})
 
@@ -2070,11 +2092,49 @@ async def wa_outreach_webhook(request: Request):
             update_lead(lead_id, {"status": "dead"})
             log_activity(lead_id, "marked_not_interested", {"message": text})
 
-        # out_of_office: logged above, no reply sent
+        if inbox_id:
+            update_wa_inbox(inbox_id, {
+                "intent":     intent,
+                "status":     "replied" if reply else "read",
+                "reply_sent": reply,
+                "replied_at": datetime.now(timezone.utc).isoformat() if reply else None,
+            })
 
     except Exception:
         pass  # Always 200 — Meta will retry on non-200
 
+    return {"ok": True}
+
+
+@app.get("/api/inbox/wa")
+async def get_wa_inbox_api(_=Depends(verify_token)):
+    from database.client import get_wa_inbox, get_wa_inbox_unread_count
+    messages = get_wa_inbox(limit=200)
+    unread   = get_wa_inbox_unread_count()
+    return {"messages": messages, "unread": unread}
+
+
+@app.post("/api/inbox/wa/{inbox_id}/reply")
+async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
+    from database.client import get_client, update_wa_inbox
+    from agents.outreach import send_whatsapp_message
+    from datetime import datetime, timezone
+
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    db  = get_client()
+    row = db.table("wa_inbox").select("*").eq("id", inbox_id).single().execute().data
+    if not row:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    send_whatsapp_message(row["from_phone"], text)
+    update_wa_inbox(inbox_id, {
+        "status":     "replied",
+        "reply_sent": text,
+        "replied_at": datetime.now(timezone.utc).isoformat(),
+    })
     return {"ok": True}
 
 

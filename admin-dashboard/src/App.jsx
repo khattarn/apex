@@ -14,7 +14,8 @@ import Products from './views/Products'
 import ProductDetail from './views/ProductDetail'
 import Dialpad from './views/Dialpad'
 import LiveActivity from './views/LiveActivity'
-import { getActiveCalls } from './api'
+import Inbox from './views/Inbox'
+import { getActiveCalls, getWaInbox } from './api'
 
 function LiveCallBanner({ calls }) {
   if (!calls || calls.length === 0) return null
@@ -39,6 +40,7 @@ function LiveCallBanner({ calls }) {
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('pd_token'))
   const [activeCalls, setActiveCalls] = useState([])
+  const [inboxUnread, setInboxUnread] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
@@ -46,6 +48,14 @@ export default function App() {
     const poll = () => getActiveCalls().then(r => setActiveCalls(r?.calls || [])).catch(() => {})
     poll()
     const id = setInterval(poll, 10000)
+    return () => clearInterval(id)
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    const poll = () => getWaInbox().then(r => setInboxUnread(r?.unread || 0)).catch(() => {})
+    poll()
+    const id = setInterval(poll, 30000)
     return () => clearInterval(id)
   }, [token])
 
@@ -66,7 +76,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="flex h-screen bg-[#0f172a] text-white overflow-hidden">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} onLogout={handleLogout} inboxUnread={inboxUnread} />
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-30 lg:hidden"
@@ -89,6 +99,7 @@ export default function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/products/:productId" element={<ProductDetail />} />
             <Route path="/dialpad" element={<Dialpad />} />
+            <Route path="/inbox" element={<Inbox />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </div>

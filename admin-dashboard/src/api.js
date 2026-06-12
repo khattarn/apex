@@ -236,6 +236,12 @@ export function streamPipeline(payload, onLine, onDone, onError) {
   return () => ctrl.abort()
 }
 
+export const getWaInbox = () => request('/api/inbox/wa')
+export const replyWaInbox = (id, text) =>
+  request(`/api/inbox/wa/${id}/reply`, { method: 'POST', body: JSON.stringify({ text }) })
+export const markWaRead = (id) =>
+  request(`/api/inbox/wa/${id}/reply`, { method: 'POST', body: JSON.stringify({ text: '' }) })
+
 export const getActiveCalls = () => request('/api/active-calls')
 export const getCalledIds = () => request('/api/leads/called-ids')
 
