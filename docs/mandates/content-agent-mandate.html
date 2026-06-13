@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Content Agent — Operating Mandate v1.0</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #cbd5e1;
+      line-height: 1.7;
+      padding: 48px 24px 80px;
+    }
+
+    .page { max-width: 860px; margin: 0 auto; }
+
+    /* ── Cover ── */
+    .cover {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 40px 44px;
+      margin-bottom: 48px;
+    }
+    .cover-eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: #6366f1; margin-bottom: 10px;
+    }
+    .cover h1 {
+      font-size: 2rem; font-weight: 800; color: #f1f5f9;
+      letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 6px;
+    }
+    .cover-sub {
+      font-size: 0.95rem; color: #64748b; margin-bottom: 28px;
+    }
+    .cover-meta {
+      display: flex; gap: 24px; flex-wrap: wrap;
+    }
+    .cover-chip {
+      font-size: 12px; color: #94a3b8;
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 6px; padding: 5px 12px;
+    }
+    .cover-chip strong { color: #e2e8f0; }
+
+    /* ── TOC ── */
+    .toc {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 12px; padding: 24px 28px; margin-bottom: 48px;
+    }
+    .toc h2 {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #475569; margin-bottom: 14px;
+    }
+    .toc ol { padding-left: 18px; }
+    .toc li { margin-bottom: 6px; }
+    .toc a { color: #818cf8; text-decoration: none; font-size: 0.88rem; }
+    .toc a:hover { color: #a5b4fc; text-decoration: underline; }
+
+    /* ── Sections ── */
+    section { margin-bottom: 52px; }
+    section:target { scroll-margin-top: 24px; }
+
+    h2.section-heading {
+      font-size: 1.15rem; font-weight: 700; color: #f1f5f9;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 10px; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .section-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 8px;
+      background: #312e81; color: #a5b4fc;
+      font-size: 12px; font-weight: 800; flex-shrink: 0;
+    }
+
+    h3 { font-size: 0.95rem; font-weight: 600; color: #e2e8f0; margin: 20px 0 8px; }
+    p { margin-bottom: 12px; font-size: 0.92rem; color: #94a3b8; }
+    ul, ol { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 0.92rem; color: #94a3b8; margin-bottom: 5px; }
+    li strong, p strong { color: #e2e8f0; }
+
+    blockquote {
+      border-left: 3px solid #6366f1;
+      background: #1e293b;
+      padding: 16px 20px; border-radius: 0 10px 10px 0;
+      margin: 16px 0;
+      font-size: 0.95rem; color: #c7d2fe; font-style: italic;
+    }
+
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.8rem; background: #1e293b;
+      color: #a5b4fc; padding: 2px 6px; border-radius: 4px;
+      border: 1px solid #334155;
+    }
+
+    pre {
+      background: #0f172a; border: 1px solid #1e293b;
+      border-radius: 10px; padding: 16px 20px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem; color: #94a3b8;
+      overflow-x: auto; margin: 12px 0; line-height: 1.6;
+    }
+
+    /* ── Org chart ── */
+    .org-block {
+      background: #0f172a; border: 1px solid #1e293b;
+      border-radius: 10px; padding: 20px 24px; margin: 12px 0;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem; line-height: 1.9;
+    }
+    .org-ceo     { color: #818cf8; font-weight: 700; }
+    .org-vpm     { color: #a78bfa; }
+    .org-content { color: #34d399; font-weight: 700; }
+    .org-agent   { color: #64748b; }
+    .org-receive { color: #6366f1; }
+    .org-gmc     { color: #f59e0b; }
+    .org-obs     { color: #06b6d4; }
+
+    /* ── Tables ── */
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.87rem; margin: 16px 0; border-radius: 10px; overflow: hidden;
+    }
+    thead tr { background: #1e293b; }
+    thead th {
+      text-align: left; padding: 10px 14px;
+      color: #64748b; font-weight: 600; font-size: 0.78rem;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    tbody tr { border-top: 1px solid #1e293b; }
+    tbody tr:hover { background: #1e293b50; }
+    td { padding: 10px 14px; color: #94a3b8; vertical-align: top; }
+    td:first-child { color: #e2e8f0; }
+    .check { color: #22c55e; font-weight: 700; }
+    .dash  { color: #334155; }
+
+    /* ── YES / NO badges ── */
+    .badge-yes { display: inline-block; background: #14532d; color: #86efac; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+    .badge-no  { display: inline-block; background: #450a0a; color: #fca5a5; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+
+    /* ── Tier cards ── */
+    .tier {
+      border: 1px solid #334155; border-radius: 10px;
+      padding: 16px 20px; margin: 12px 0;
+    }
+    .tier-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .tier-num {
+      width: 24px; height: 24px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; flex-shrink: 0;
+    }
+    .t1 { background: #4f46e5; color: #e0e7ff; border-color: #4f46e5; }
+    .t1 .tier-num { background: #6366f1; color: #fff; }
+    .t2 { background: #0f172a; border-color: #334155; }
+    .t2 .tier-num { background: #1e3a5f; color: #7dd3fc; }
+    .t3 { background: #0f172a; border-color: #334155; }
+    .t3 .tier-num { background: #1a2e1a; color: #86efac; }
+    .t4 { background: #0f172a; border-color: #334155; }
+    .t4 .tier-num { background: #2d1f3d; color: #d8b4fe; }
+    .tier-label { font-size: 0.88rem; font-weight: 600; color: #e2e8f0; }
+    .tier-sub   { font-size: 0.78rem; color: #64748b; }
+
+    /* ── Output flow cards ── */
+    .output-card {
+      border: 1px solid #1e293b; border-radius: 10px;
+      padding: 16px 20px; margin: 12px 0; background: #0f172a;
+    }
+    .output-card-header {
+      font-size: 0.88rem; font-weight: 600; color: #e2e8f0; margin-bottom: 6px;
+    }
+    .output-card-meta { font-size: 0.78rem; color: #64748b; margin-bottom: 10px; }
+    .flow-row {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 6px; font-size: 0.78rem; color: #64748b; margin-top: 8px;
+    }
+    .flow-step {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 5px; padding: 3px 9px; color: #94a3b8;
+    }
+    .flow-arrow { color: #334155; font-size: 1rem; }
+    .gate-warning {
+      display: inline-block; background: #451a03; border: 1px solid #92400e;
+      color: #fcd34d; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px; margin-top: 8px;
+    }
+    .gate-ok {
+      display: inline-block; background: #14532d; border: 1px solid #166534;
+      color: #86efac; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px; margin-top: 8px;
+    }
+
+    /* ── Escalation list ── */
+    .esc-item {
+      display: flex; gap: 12px; padding: 12px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .esc-item:last-child { border-bottom: none; }
+    .esc-num {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: #450a0a; color: #fca5a5;
+      font-size: 11px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .esc-title { font-size: 0.88rem; font-weight: 600; color: #e2e8f0; margin-bottom: 3px; }
+    .esc-body  { font-size: 0.83rem; color: #64748b; }
+
+    /* ── Not list ── */
+    .not-item {
+      display: flex; gap: 12px; padding: 10px 14px;
+      background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; margin-bottom: 8px;
+    }
+    .not-icon { color: #ef4444; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+    .not-title { font-size: 0.88rem; font-weight: 600; color: #e2e8f0; }
+    .not-body  { font-size: 0.83rem; color: #64748b; }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 64px; border-top: 1px solid #1e293b;
+      padding-top: 24px; font-size: 0.78rem; color: #334155;
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .next-mandate {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 8px; padding: 12px 16px; margin-top: 32px;
+      font-size: 0.83rem; color: #64748b;
+    }
+    .next-mandate strong { color: #94a3b8; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Cover ──────────────────────────────────────────────────────────────── -->
+  <div class="cover">
+    <div class="cover-eyebrow">Apex · Internal Multi-Agent Platform</div>
+    <h1>Content Agent — Agent 8</h1>
+    <div class="cover-sub">Operating Mandate v1.0</div>
+    <div class="cover-meta">
+      <div class="cover-chip"><strong>Issued:</strong> 2026-06-13</div>
+      <div class="cover-chip"><strong>Authority:</strong> CEO — Neeraj Khattar</div>
+      <div class="cover-chip"><strong>Status:</strong> Live</div>
+      <div class="cover-chip"><strong>Reports to:</strong> VP Marketing</div>
+    </div>
+  </div>
+
+  <!-- ── TOC ────────────────────────────────────────────────────────────────── -->
+  <div class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#s1">Position in the Org</a></li>
+      <li><a href="#s2">Mission</a></li>
+      <li><a href="#s3">Products and Verticals in Scope</a></li>
+      <li><a href="#s4">Inputs — Where the Content Agent Gets Its Instructions</a></li>
+      <li><a href="#s5">Outputs — What the Content Agent Produces and Who Receives It</a></li>
+      <li><a href="#s6">Autonomous Authority</a></li>
+      <li><a href="#s7">Escalation Protocol</a></li>
+      <li><a href="#s8">Performance Metrics</a></li>
+      <li><a href="#s9">Operating Cadence and Triggers</a></li>
+      <li><a href="#s10">What the Content Agent Is NOT</a></li>
+      <li><a href="#s11">File Locations</a></li>
+    </ol>
+  </div>
+
+  <!-- ── 1. Org ──────────────────────────────────────────────────────────────── -->
+  <section id="s1">
+    <h2 class="section-heading"><span class="section-num">1</span> Position in the Org</h2>
+
+    <svg viewBox="0 0 840 540" width="100%" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-top:24px;margin-bottom:8px;" aria-label="Content Agent org chart">
+      <defs>
+        <marker id="ah-hier" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+          <polygon points="0 0, 8 3.5, 0 7" fill="#475569"/>
+        </marker>
+        <marker id="ah-flow" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+          <polygon points="0 0, 8 3.5, 0 7" fill="#818cf8"/>
+        </marker>
+        <!-- Teal arrowhead: Signal → Content (performance feedback) -->
+        <marker id="ah-teal" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+          <polygon points="0 0, 8 3.5, 0 7" fill="#10b981"/>
+        </marker>
+        <!-- Violet arrowhead: Content → VP Marketing (content suggestions) -->
+        <marker id="ah-violet" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+          <polygon points="0 0, 8 3.5, 0 7" fill="#a78bfa"/>
+        </marker>
+      </defs>
+
+      <!-- ── HIERARCHY LINES ── -->
+      <!-- CEO → junction bar -->
+      <line x1="420" y1="76" x2="420" y2="110" stroke="#334155" stroke-width="1.5"/>
+      <line x1="127" y1="110" x2="703" y2="110" stroke="#334155" stroke-width="1.5"/>
+      <line x1="127" y1="110" x2="127" y2="128" stroke="#334155" stroke-width="1.5"/>
+      <line x1="410" y1="110" x2="410" y2="128" stroke="#334155" stroke-width="1.5"/>
+      <line x1="703" y1="110" x2="703" y2="128" stroke="#334155" stroke-width="1.5"/>
+      <!-- VPM spine → Signal + Content (branch at y=228) -->
+      <line x1="127" y1="192" x2="127" y2="365" stroke="#334155" stroke-width="1.5"/>
+      <line x1="71"  y1="228" x2="199" y2="228" stroke="#334155" stroke-width="1.5"/>
+      <line x1="71"  y1="228" x2="71"  y2="248" stroke="#334155" stroke-width="1.5"/>
+      <line x1="199" y1="228" x2="199" y2="248" stroke="#334155" stroke-width="1.5"/>
+      <!-- VPM spine → Row 4 bar -->
+      <line x1="130" y1="365" x2="710" y2="365" stroke="#334155" stroke-width="1.5"/>
+      <line x1="130" y1="365" x2="130" y2="382" stroke="#334155" stroke-width="1.5"/>
+      <line x1="246" y1="365" x2="246" y2="382" stroke="#334155" stroke-width="1.5"/>
+      <line x1="362" y1="365" x2="362" y2="382" stroke="#334155" stroke-width="1.5"/>
+      <line x1="478" y1="365" x2="478" y2="382" stroke="#334155" stroke-width="1.5"/>
+      <line x1="594" y1="365" x2="594" y2="382" stroke="#334155" stroke-width="1.5"/>
+      <line x1="710" y1="365" x2="710" y2="382" stroke="#334155" stroke-width="1.5"/>
+      <!-- GMC → Ag4, Ag5, Ag7 -->
+      <line x1="410" y1="192" x2="410" y2="228" stroke="#92400e" stroke-width="1.5"/>
+      <line x1="353" y1="228" x2="557" y2="228" stroke="#92400e" stroke-width="1.5"/>
+      <line x1="353" y1="228" x2="353" y2="248" stroke="#92400e" stroke-width="1.5"/>
+      <line x1="449" y1="228" x2="449" y2="248" stroke="#92400e" stroke-width="1.5"/>
+      <line x1="557" y1="228" x2="557" y2="248" stroke="#92400e" stroke-width="1.5"/>
+
+      <!-- ── DASHED CONTENT FLOW ARROWS ── -->
+      <!-- Content → Ag2 (WA personalised copy) -->
+      <path d="M199,310 C199,347 246,347 246,382" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ah-flow)"/>
+      <!-- Content → Ag3 (broadcast templates) -->
+      <path d="M212,310 C255,353 362,353 362,382" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ah-flow)"/>
+      <!-- Content → Ag6 (follow-up copy) -->
+      <path d="M232,310 C355,352 478,352 478,382" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ah-flow)"/>
+      <!-- Content → Ag7 (voice scripts) — routes below all boxes at y=460 -->
+      <path d="M199,310 L199,460 L557,460 L557,310" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ah-flow)"/>
+      <text x="378" y="453" text-anchor="middle" fill="#818cf8" font-size="9" font-family="system-ui,sans-serif" font-style="italic">voice scripts</text>
+
+      <!-- Signal → Content: performance feedback (teal U-curve below row 3) -->
+      <path d="M71,310 C71,338 199,338 199,310" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ah-teal)"/>
+      <text x="135" y="350" text-anchor="middle" fill="#10b981" font-size="9" font-family="system-ui,sans-serif" font-style="italic">perf. feedback</text>
+
+      <!-- Content → VP Marketing: content suggestions (violet curve up-left) -->
+      <path d="M199,248 C199,212 242,212 242,192" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#ah-violet)"/>
+      <text x="232" y="205" text-anchor="middle" fill="#a78bfa" font-size="9" font-family="system-ui,sans-serif" font-style="italic">suggestions</text>
+
+      <!-- ── BOXES (drawn after lines so they sit on top) ── -->
+
+      <!-- CEO -->
+      <rect x="295" y="14" width="250" height="62" rx="10" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+      <text x="420" y="41" text-anchor="middle" fill="#a5b4fc" font-size="13" font-weight="700" font-family="system-ui,sans-serif">CEO — Neeraj Khattar</text>
+      <text x="420" y="58" text-anchor="middle" fill="#6366f1" font-size="10" font-family="system-ui,sans-serif">human now · AI agent later via ceo.py</text>
+
+      <!-- VP Marketing (now live) -->
+      <rect x="9" y="125" width="236" height="70" rx="11" fill="#a78bfa" fill-opacity="0.07" stroke="#a78bfa" stroke-width="1" stroke-opacity="0.35"/>
+      <rect x="12" y="128" width="230" height="64" rx="10" fill="#1a1040" stroke="#7c3aed" stroke-width="2"/>
+      <text x="127" y="150" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700" font-family="system-ui,sans-serif">VP Marketing</text>
+      <text x="127" y="165" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 12 · live</text>
+      <text x="127" y="179" text-anchor="middle" fill="#7c3aed" font-size="10" font-family="system-ui,sans-serif">orchestrates Agt 1-3, 6, 8, 9, 11</text>
+
+      <!-- GM Care -->
+      <rect x="310" y="128" width="200" height="64" rx="10" fill="#1c1200" stroke="#d97706" stroke-width="2"/>
+      <text x="410" y="154" text-anchor="middle" fill="#fcd34d" font-size="12" font-weight="700" font-family="system-ui,sans-serif">GM Care</text>
+      <text x="410" y="170" text-anchor="middle" fill="#d97706" font-size="10" font-family="system-ui,sans-serif">human → agent later</text>
+
+      <!-- Observatory -->
+      <rect x="578" y="128" width="250" height="64" rx="10" fill="#001820" stroke="#0891b2" stroke-width="2"/>
+      <text x="703" y="152" text-anchor="middle" fill="#67e8f9" font-size="12" font-weight="700" font-family="system-ui,sans-serif">Observatory</text>
+      <text x="703" y="168" text-anchor="middle" fill="#0891b2" font-size="10" font-family="system-ui,sans-serif">Agent 10 — live</text>
+      <text x="703" y="182" text-anchor="middle" fill="#0891b2" font-size="10" font-family="system-ui,sans-serif">daily digest → Neeraj's WA</text>
+
+      <!-- Signal -->
+      <rect x="12" y="248" width="118" height="62" rx="8" fill="#0d2416" stroke="#10b981" stroke-width="1.5"/>
+      <text x="71" y="270" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="600" font-family="system-ui,sans-serif">Signal</text>
+      <text x="71" y="284" text-anchor="middle" fill="#10b981" font-size="9" font-family="system-ui,sans-serif">A/B scoring · analytics</text>
+      <text x="71" y="297" text-anchor="middle" fill="#10b981" font-size="9" font-family="system-ui,sans-serif">live</text>
+
+      <!-- Content Agent (Ag8) — HIGHLIGHTED -->
+      <rect x="137" y="245" width="124" height="68" rx="9" fill="#22c55e" fill-opacity="0.07" stroke="#22c55e" stroke-width="1" stroke-opacity="0.35"/>
+      <rect x="140" y="248" width="118" height="62" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="2.5"/>
+      <text x="199" y="268" text-anchor="middle" fill="#bbf7d0" font-size="11" font-weight="700" font-family="system-ui,sans-serif">Agent 8 · Content</text>
+      <text x="199" y="283" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="700" font-family="system-ui,sans-serif">THIS AGENT</text>
+      <text x="199" y="297" text-anchor="middle" fill="#4ade80" font-size="9" font-family="system-ui,sans-serif">all copy · live</text>
+
+      <!-- Ag4 - Reply Handler -->
+      <rect x="310" y="248" width="86" height="62" rx="8" fill="#1c1200" stroke="#d97706" stroke-width="1.5" stroke-opacity="0.8"/>
+      <text x="353" y="271" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 4</text>
+      <text x="353" y="285" text-anchor="middle" fill="#d97706" font-size="9" font-family="system-ui,sans-serif">Reply Handler</text>
+      <text x="353" y="299" text-anchor="middle" fill="#d97706" font-size="9" font-family="system-ui,sans-serif">live</text>
+
+      <!-- Ag5 - Demo Booking -->
+      <rect x="406" y="248" width="86" height="62" rx="8" fill="#1c1200" stroke="#d97706" stroke-width="1.5" stroke-opacity="0.8"/>
+      <text x="449" y="271" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 5</text>
+      <text x="449" y="285" text-anchor="middle" fill="#d97706" font-size="9" font-family="system-ui,sans-serif">Demo Booking</text>
+      <text x="449" y="299" text-anchor="middle" fill="#d97706" font-size="9" font-family="system-ui,sans-serif">live</text>
+
+      <!-- Ag7 - Voice/Aria (receives voice scripts from Content) -->
+      <rect x="499" y="245" width="116" height="68" rx="9" fill="#6366f1" fill-opacity="0.06" stroke="#6366f1" stroke-width="1" stroke-opacity="0.4"/>
+      <rect x="502" y="248" width="110" height="62" rx="8" fill="#1c1200" stroke="#d97706" stroke-width="1.5" stroke-opacity="0.8"/>
+      <text x="557" y="271" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 7 · Aria</text>
+      <text x="557" y="285" text-anchor="middle" fill="#d97706" font-size="9" font-family="system-ui,sans-serif">Voice Follow-up</text>
+      <text x="557" y="299" text-anchor="middle" fill="#d97706" font-size="9" font-family="system-ui,sans-serif">live</text>
+
+      <!-- ── ROW 4: VPM operational agents ── -->
+
+      <!-- Ag1 - Prospector -->
+      <rect x="79" y="382" width="102" height="52" rx="8" fill="#0f2419" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.5"/>
+      <text x="130" y="403" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 1</text>
+      <text x="130" y="418" text-anchor="middle" fill="#22c55e" font-size="9" font-family="system-ui,sans-serif">Prospector · live</text>
+
+      <!-- Ag2 - Personalizer (receives from Content) -->
+      <rect x="192" y="379" width="108" height="58" rx="9" fill="#6366f1" fill-opacity="0.06" stroke="#6366f1" stroke-width="1" stroke-opacity="0.4"/>
+      <rect x="195" y="382" width="102" height="52" rx="8" fill="#0f2419" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.5"/>
+      <text x="246" y="403" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 2</text>
+      <text x="246" y="418" text-anchor="middle" fill="#22c55e" font-size="9" font-family="system-ui,sans-serif">Personalizer · live</text>
+
+      <!-- Ag3 - Outreach (receives from Content) -->
+      <rect x="308" y="379" width="108" height="58" rx="9" fill="#6366f1" fill-opacity="0.06" stroke="#6366f1" stroke-width="1" stroke-opacity="0.4"/>
+      <rect x="311" y="382" width="102" height="52" rx="8" fill="#0f2419" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.5"/>
+      <text x="362" y="403" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 3</text>
+      <text x="362" y="418" text-anchor="middle" fill="#22c55e" font-size="9" font-family="system-ui,sans-serif">Outreach · live</text>
+
+      <!-- Ag6 - Follow-up (receives from Content) -->
+      <rect x="424" y="379" width="108" height="58" rx="9" fill="#6366f1" fill-opacity="0.06" stroke="#6366f1" stroke-width="1" stroke-opacity="0.4"/>
+      <rect x="427" y="382" width="102" height="52" rx="8" fill="#0f2419" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.5"/>
+      <text x="478" y="403" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 6</text>
+      <text x="478" y="418" text-anchor="middle" fill="#22c55e" font-size="9" font-family="system-ui,sans-serif">Follow-up · live</text>
+
+      <!-- Ag9 - Re-engagement (planned) -->
+      <rect x="543" y="382" width="102" height="52" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+      <text x="594" y="403" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 9</text>
+      <text x="594" y="418" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui,sans-serif">Re-engagement · planned</text>
+
+      <!-- Ag11 - Affiliate (planned) -->
+      <rect x="659" y="382" width="102" height="52" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+      <text x="710" y="403" text-anchor="middle" fill="#64748b" font-size="10" font-weight="600" font-family="system-ui,sans-serif">Agent 11</text>
+      <text x="710" y="418" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui,sans-serif">Affiliate · planned</text>
+
+      <!-- ── LEGEND row 1 ── -->
+      <line x1="14" y1="490" x2="46" y2="490" stroke="#475569" stroke-width="1.5"/>
+      <polygon points="46,486 54,490 46,494" fill="#475569"/>
+      <text x="59" y="494" fill="#64748b" font-size="9" font-family="system-ui,sans-serif">Hierarchy</text>
+
+      <line x1="140" y1="490" x2="172" y2="490" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="172,486 180,490 172,494" fill="#818cf8"/>
+      <text x="185" y="494" fill="#818cf8" font-size="9" font-family="system-ui,sans-serif">Content Agent feeds copy</text>
+
+      <rect x="360" y="484" width="10" height="10" rx="2" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
+      <text x="376" y="494" fill="#22c55e" font-size="9" font-family="system-ui,sans-serif">Live (receives from Agt 8)</text>
+
+      <rect x="534" y="484" width="10" height="10" rx="2" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+      <text x="550" y="494" fill="#64748b" font-size="9" font-family="system-ui,sans-serif">Planned</text>
+
+      <!-- ── LEGEND row 2 ── -->
+      <line x1="14" y1="514" x2="46" y2="514" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="46,510 54,514 46,518" fill="#10b981"/>
+      <text x="59" y="518" fill="#10b981" font-size="9" font-family="system-ui,sans-serif">Signal → Content: performance feedback</text>
+
+      <line x1="330" y1="514" x2="362" y2="514" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="362,510 370,514 362,518" fill="#a78bfa"/>
+      <text x="375" y="518" fill="#a78bfa" font-size="9" font-family="system-ui,sans-serif">Content → VP Marketing: content suggestions</text>
+    </svg>
+
+    <p><strong>Reports to:</strong> VP Marketing Agent (currently: Neeraj acting as VP Marketing)</p>
+    <p><strong>Instructs:</strong> Agents 2, 3, 6, 7, 9, 11 — via file updates or direct API calls</p>
+  </section>
+
+  <!-- ── 2. Mission ─────────────────────────────────────────────────────────── -->
+  <section id="s2">
+    <h2 class="section-heading"><span class="section-num">2</span> Mission</h2>
+
+    <blockquote>
+      The Content Agent is the single source of truth for all outbound copy across the Apex portfolio. Every word that a prospect, lead, advocate, or citizen receives — whether by WhatsApp, email, voice, or social media — originates from or passes through the Content Agent.
+    </blockquote>
+
+    <p>Its purpose is to ensure that every piece of outbound content is:</p>
+    <ul>
+      <li><strong>On-brand</strong> — correct positioning, approved framings, right persona</li>
+      <li><strong>Vertical-specific</strong> — addresses the exact pain of the recipient's profession</li>
+      <li><strong>Market-aware</strong> — tone, stats, and compliance adapted to AU / US / CA / IN</li>
+      <li><strong>Performance-driven</strong> — informed by what Signal is seeing in the funnel</li>
+    </ul>
+  </section>
+
+  <!-- ── 3. Scope ───────────────────────────────────────────────────────────── -->
+  <section id="s3">
+    <h2 class="section-heading"><span class="section-num">3</span> Products and Verticals in Scope</h2>
+
+    <h3>PracticeDesk (AU / US / CA / IN)</h3>
+    <table>
+      <thead><tr><th>Vertical</th><th>WA</th><th>Email</th><th>Voice</th><th>Social</th></tr></thead>
+      <tbody>
+        <tr><td>Dentist / Doctor</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Physiotherapist</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Salon</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Accountant</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Lawyer</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+      </tbody>
+    </table>
+
+    <h3>LegalAidAI / Nyaya Saathi (IN — English + Hindi)</h3>
+    <table>
+      <thead><tr><th>Module</th><th>WA</th><th>Email</th><th>Voice</th><th>Social</th></tr></thead>
+      <tbody>
+        <tr><td>Advocate</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Corporate / In-house</td><td class="dash">—</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+        <tr><td>Citizen</td><td class="check">✓</td><td class="dash">—</td><td class="check">✓ (inbound)</td><td class="check">✓</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 4. Inputs ──────────────────────────────────────────────────────────── -->
+  <section id="s4">
+    <h2 class="section-heading"><span class="section-num">4</span> Inputs</h2>
+    <p>The Content Agent operates on <strong>four tiers of input</strong>, in descending priority:</p>
+
+    <div class="tier t1">
+      <div class="tier-header">
+        <div class="tier-num">1</div>
+        <div>
+          <div class="tier-label">CEO Directives</div>
+          <div class="tier-sub">Highest authority — overrides everything</div>
+        </div>
+      </div>
+      <p>Issued via <code>ceo.py → issue_directive()</code> or direct founder instruction in the admin UI.</p>
+      <p>Examples: change CTA wording, add a new vertical, reposition a module. When a CEO directive is received, the Content Agent <strong>must re-generate all affected content</strong> before VP Marketing can deploy it.</p>
+    </div>
+
+    <div class="tier t2">
+      <div class="tier-header">
+        <div class="tier-num">2</div>
+        <div>
+          <div class="tier-label">VP Marketing Campaign Briefs</div>
+          <div class="tier-sub">Operational authority — day-to-day requests</div>
+        </div>
+      </div>
+      <p>Issued via Admin Dashboard → Content tab, or <code>POST /api/content/generate</code>.</p>
+      <p>A brief specifies: product, vertical/module, content type, tone, market, language, and any additional instructions. VP Marketing issues briefs based on the campaign calendar, Signal's recommendations, and A/B test conclusions.</p>
+    </div>
+
+    <div class="tier t3">
+      <div class="tier-header">
+        <div class="tier-num">3</div>
+        <div>
+          <div class="tier-label">Performance Feedback from Signal</div>
+          <div class="tier-sub">Analytical input — informs refresh cycles</div>
+        </div>
+      </div>
+      <p>Signal (<code>agents/signal.py</code>) scores every template for reply rate, open rate, and booking rate. Signal does not instruct the Content Agent directly — it surfaces recommendations to VP Marketing, who then issues a brief.</p>
+      <ul>
+        <li>Template at &lt;1% reply rate after 30 sends → content refresh needed</li>
+        <li>Tone variant significantly outperforming others → replicate the winning pattern</li>
+        <li>Vertical with no content → flag to VP Marketing to commission it</li>
+      </ul>
+    </div>
+
+    <div class="tier t4">
+      <div class="tier-header">
+        <div class="tier-num">4</div>
+        <div>
+          <div class="tier-label">Knowledge Base</div>
+          <div class="tier-sub">Passive, always-on context — loaded before every generation</div>
+        </div>
+      </div>
+      <ul>
+        <li><code>knowledge/brand/practicedesk-brief.md</code> — approved positioning, rejected framings, tone rules</li>
+        <li><code>knowledge/brand/legalaidai-brief.md</code> — 3-module breakdown, Hindi rules, pricing</li>
+        <li><code>knowledge/practicedesk/*.md</code> — vertical-specific product knowledge (from source docs)</li>
+        <li><code>knowledge/legalaidai/*.md</code> — module-specific product knowledge (from source docs)</li>
+      </ul>
+      <p>To update: run <code>python ingest_knowledge.py</code> or edit brand brief files directly.</p>
+    </div>
+  </section>
+
+  <!-- ── 5. Outputs ─────────────────────────────────────────────────────────── -->
+  <section id="s5">
+    <h2 class="section-heading"><span class="section-num">5</span> Outputs</h2>
+
+    <div class="output-card">
+      <div class="output-card-header">5a · WhatsApp Broadcast Templates</div>
+      <div class="output-card-meta">Format: Meta-approved template body (HEADER + BODY + BUTTONS)</div>
+      <div class="flow-row">
+        <span class="flow-step">Content Agent generates</span><span class="flow-arrow">→</span>
+        <span class="flow-step">Admin dashboard review</span><span class="flow-arrow">→</span>
+        <span class="flow-step">VP Marketing approves</span><span class="flow-arrow">→</span>
+        <span class="flow-step">submit_v6_templates.py</span><span class="flow-arrow">→</span>
+        <span class="flow-step">Meta approval (hours–days)</span><span class="flow-arrow">→</span>
+        <span class="flow-step">wa_broadcast.py cron</span>
+      </div>
+      <div><span class="gate-warning">⚠ Cannot auto-deploy — Meta approval gate mandatory</span></div>
+    </div>
+
+    <div class="output-card">
+      <div class="output-card-header">5b · Personalised WA Messages (free-form)</div>
+      <div class="output-card-meta">Format: copy.yaml update — wa_message per vertical · Recipient: Agent 2 (Personalizer)</div>
+      <div class="flow-row">
+        <span class="flow-step">Content Agent generates</span><span class="flow-arrow">→</span>
+        <span class="flow-step">VP Marketing approves</span><span class="flow-arrow">→</span>
+        <span class="flow-step">update copy.yaml</span><span class="flow-arrow">→</span>
+        <span class="flow-step">Agent 2 picks up on next run</span>
+      </div>
+      <div><span class="gate-ok">✓ No Meta gate — VP Marketing approval sufficient</span></div>
+    </div>
+
+    <div class="output-card">
+      <div class="output-card-header">5c · Email Templates</div>
+      <div class="output-card-meta">Format: HTML body + A/B subject lines · Recipient: email_personalizer.py → Resend</div>
+      <div class="flow-row">
+        <span class="flow-step">Content Agent generates</span><span class="flow-arrow">→</span>
+        <span class="flow-step">VP Marketing reviews</span><span class="flow-arrow">→</span>
+        <span class="flow-step">update email_templates.py</span><span class="flow-arrow">→</span>
+        <span class="flow-step">Railway redeploy</span>
+      </div>
+    </div>
+
+    <div class="output-card">
+      <div class="output-card-header">5d · Voice Scripts (Aria)</div>
+      <div class="output-card-meta">Format: aria_opener, aria_insight, aria_pain_question per vertical in copy.yaml · Recipient: Agent 7</div>
+      <div class="flow-row">
+        <span class="flow-step">Content Agent generates</span><span class="flow-arrow">→</span>
+        <span class="flow-step">VP Marketing approves</span><span class="flow-arrow">→</span>
+        <span class="flow-step">update copy.yaml</span><span class="flow-arrow">→</span>
+        <span class="flow-step">Aria picks up on next call</span>
+      </div>
+      <div><span class="gate-ok">✓ Low risk — no redeploy needed</span></div>
+    </div>
+
+    <div class="output-card">
+      <div class="output-card-header">5e · Social Media Posts</div>
+      <div class="output-card-meta">Format: LinkedIn (hook + body + hashtags) or Instagram · Recipient: Founder → manual publish</div>
+      <div class="flow-row">
+        <span class="flow-step">Content Agent generates</span><span class="flow-arrow">→</span>
+        <span class="flow-step">VP Marketing reviews</span><span class="flow-arrow">→</span>
+        <span class="flow-step">Founder publishes</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. Autonomous Authority ────────────────────────────────────────────── -->
+  <section id="s6">
+    <h2 class="section-heading"><span class="section-num">6</span> Autonomous Authority</h2>
+    <p>The Content Agent can act on the following <strong>without escalation</strong>:</p>
+
+    <table>
+      <thead><tr><th>Action</th><th>Autonomous?</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>Generate any content type for review</td><td><span class="badge-yes">YES</span></td><td>Generation is always reversible</td></tr>
+        <tr><td>Update copy.yaml voice scripts after VP Marketing approval</td><td><span class="badge-yes">YES</span></td><td>Low blast radius, no external gate</td></tr>
+        <tr><td>Update copy.yaml WA messages after VP Marketing approval</td><td><span class="badge-yes">YES</span></td><td>Low blast radius, no external gate</td></tr>
+        <tr><td>Refresh knowledge base (run ingest_knowledge.py)</td><td><span class="badge-yes">YES</span></td><td>Read-only from source</td></tr>
+        <tr><td>Generate A/B tone variants on Signal's recommendation</td><td><span class="badge-yes">YES</span></td><td>VP Marketing still reviews before deploy</td></tr>
+        <tr><td>Submit Meta templates</td><td><span class="badge-no">NO</span></td><td>Requires Meta approval; VP Marketing must confirm</td></tr>
+        <tr><td>Update email_templates.py</td><td><span class="badge-no">NO</span></td><td>Requires code deploy; VP Marketing must confirm</td></tr>
+        <tr><td>Change brand positioning rules</td><td><span class="badge-no">NO</span></td><td>CEO-only authority</td></tr>
+        <tr><td>Add a new product or vertical</td><td><span class="badge-no">NO</span></td><td>CEO-only authority</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 7. Escalation ──────────────────────────────────────────────────────── -->
+  <section id="s7">
+    <h2 class="section-heading"><span class="section-num">7</span> Escalation Protocol</h2>
+    <p>The Content Agent <strong>must flag and pause</strong> — not act autonomously — when any of the following occur:</p>
+
+    <div style="margin-top:16px;">
+      <div class="esc-item">
+        <div class="esc-num">1</div>
+        <div>
+          <div class="esc-title">Positioning Conflict</div>
+          <div class="esc-body">A brief asks for copy that contradicts the brand brief (e.g. "describe it as a WhatsApp chatbot"). Refuse, explain why, and flag to VP Marketing.</div>
+        </div>
+      </div>
+      <div class="esc-item">
+        <div class="esc-num">2</div>
+        <div>
+          <div class="esc-title">Missing Knowledge</div>
+          <div class="esc-body">Brief references a product, feature, or stat not in the knowledge base. Flag to VP Marketing to update the knowledge base before generating.</div>
+        </div>
+      </div>
+      <div class="esc-item">
+        <div class="esc-num">3</div>
+        <div>
+          <div class="esc-title">Brand Rule Change Request</div>
+          <div class="esc-body">Any instruction to change an approved positioning rule. Escalate to CEO for written directive before changing brand briefs.</div>
+        </div>
+      </div>
+      <div class="esc-item">
+        <div class="esc-num">4</div>
+        <div>
+          <div class="esc-title">New Vertical</div>
+          <div class="esc-body">Brief asks for content for a vertical not yet in the knowledge base. Flag to VP Marketing — knowledge base update required first.</div>
+        </div>
+      </div>
+      <div class="esc-item">
+        <div class="esc-num">5</div>
+        <div>
+          <div class="esc-title">Hindi Content for Non-IN Market</div>
+          <div class="esc-body">Flag as likely misconfiguration before generating.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 8. Performance Metrics ─────────────────────────────────────────────── -->
+  <section id="s8">
+    <h2 class="section-heading"><span class="section-num">8</span> Performance Metrics</h2>
+    <p>Content Agent performance is measured by the downstream outcome of content it generates. Signal tracks these and feeds results back.</p>
+
+    <table>
+      <thead><tr><th>Metric</th><th>Target</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td>WA broadcast reply rate</td><td>&gt;5% (AU)</td><td>Signal template_scores</td></tr>
+        <tr><td>Email open rate</td><td>&gt;25%</td><td>Signal funnel_metrics</td></tr>
+        <tr><td>Email click-to-call rate</td><td>&gt;4%</td><td>Signal funnel_metrics</td></tr>
+        <tr><td>Aria opener → discovery rate</td><td>&gt;60%</td><td>Signal funnel_metrics</td></tr>
+        <tr><td>Time from brief to approved content</td><td>&lt;10 min</td><td>Admin dashboard</td></tr>
+        <tr><td>Content freshness</td><td>No template &gt;90 days without Signal review</td><td>Signal dead-end detection</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 9. Cadence ─────────────────────────────────────────────────────────── -->
+  <section id="s9">
+    <h2 class="section-heading"><span class="section-num">9</span> Operating Cadence and Triggers</h2>
+
+    <table>
+      <thead><tr><th>Trigger</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>VP Marketing issues brief (manual or scheduled)</td><td>Generate and return content for review</td></tr>
+        <tr><td>Signal flags template at &lt;1% reply after 30 sends</td><td>VP Marketing notified → issues refresh brief</td></tr>
+        <tr><td>New vertical or market added</td><td>CEO directive → knowledge base update → full content suite generated</td></tr>
+        <tr><td>Monthly Signal report identifies funnel bottleneck</td><td>Signal proposes copy experiment → VP Marketing issues A/B brief</td></tr>
+        <tr><td>Founder updates brand brief files</td><td>Content Agent picks up on next generation (no restart needed)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 10. What it is NOT ──────────────────────────────────────────────────── -->
+  <section id="s10">
+    <h2 class="section-heading"><span class="section-num">10</span> What the Content Agent Is NOT</h2>
+
+    <div class="not-item">
+      <div class="not-icon">✗</div>
+      <div>
+        <div class="not-title">Not a publisher</div>
+        <div class="not-body">It generates; humans (or future agents) approve and deploy.</div>
+      </div>
+    </div>
+    <div class="not-item">
+      <div class="not-icon">✗</div>
+      <div>
+        <div class="not-title">Not a strategist</div>
+        <div class="not-body">Campaign timing, targeting, and channel decisions belong to VP Marketing and Signal.</div>
+      </div>
+    </div>
+    <div class="not-item">
+      <div class="not-icon">✗</div>
+      <div>
+        <div class="not-title">Not a data agent</div>
+        <div class="not-body">It does not query Supabase or track leads. That is Observatory and Signal.</div>
+      </div>
+    </div>
+    <div class="not-item">
+      <div class="not-icon">✗</div>
+      <div>
+        <div class="not-title">Not a replacement for the founder's judgment on brand</div>
+        <div class="not-body">Brand rules are authored by the CEO. The Content Agent enforces them — it does not define them.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 11. File Locations ──────────────────────────────────────────────────── -->
+  <section id="s11">
+    <h2 class="section-heading"><span class="section-num">11</span> File Locations</h2>
+
+    <table>
+      <thead><tr><th>Artefact</th><th>Location</th></tr></thead>
+      <tbody>
+        <tr><td>Agent code</td><td><code>outreach-agent/agents/content_agent.py</code></td></tr>
+        <tr><td>Knowledge base</td><td><code>outreach-agent/knowledge/</code></td></tr>
+        <tr><td>PracticeDesk brand brief</td><td><code>outreach-agent/knowledge/brand/practicedesk-brief.md</code></td></tr>
+        <tr><td>LegalAidAI brand brief</td><td><code>outreach-agent/knowledge/brand/legalaidai-brief.md</code></td></tr>
+        <tr><td>Ingestion script</td><td><code>outreach-agent/ingest_knowledge.py</code></td></tr>
+        <tr><td>API endpoints</td><td><code>POST /api/content/generate</code> · <code>GET /api/content/modules</code></td></tr>
+        <tr><td>WA templates (Meta)</td><td><code>outreach-agent/agents/template_manager.py</code></td></tr>
+        <tr><td>WA / Voice copy</td><td><code>outreach-agent/assets/copy.yaml</code></td></tr>
+        <tr><td>Email templates</td><td><code>outreach-agent/agents/email_templates.py</code></td></tr>
+        <tr><td>This mandate</td><td><code>apex/docs/mandates/content-agent-mandate.md</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Next mandate ───────────────────────────────────────────────────────── -->
+  <div class="next-mandate">
+    <strong>Next mandate to write:</strong> VP Marketing Agent — orchestrates Agents 1, 2, 3, 6, 8, 9, 11 and receives Signal reports.
+  </div>
+
+  <footer>
+    <span>Apex · Internal Multi-Agent Platform · Content Agent Mandate v1.0</span>
+    <span>Issued 2026-06-13 · Authority: CEO — Neeraj Khattar</span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -291,3 +291,10 @@ export function streamWaBlast(payload, onLine, onDone, onError) {
 
   return () => ctrl.abort()
 }
+
+// ── Content Agent (Agent 8) ───────────────────────────────────────────────────
+
+export const generateContent = (payload) =>
+  request('/api/content/generate', { method: 'POST', body: JSON.stringify(payload) })
+
+export const getContentModules = () => request('/api/content/modules')

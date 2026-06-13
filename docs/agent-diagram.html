@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apex — Agent System Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      padding: 40px 24px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #f8fafc;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      margin-bottom: 48px;
+    }
+    .section {
+      margin-bottom: 60px;
+    }
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .diagram-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 32px;
+      overflow-x: auto;
+    }
+    .legend {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #334155;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-live   { background: #22c55e; }
+    .dot-next   { background: #f59e0b; }
+    .dot-planned { background: #64748b; }
+  </style>
+</head>
+<body>
+
+  <h1>Apex — Agent System</h1>
+  <p class="subtitle">Internal multi-agent platform · promotes &amp; operates LegalAidAI and PracticeDesk</p>
+
+  <!-- ── 1. ORG HIERARCHY ─────────────────────────────────────────── -->
+  <div class="section">
+    <h2>1 · Organisational Hierarchy</h2>
+    <div class="diagram-card">
+      <div class="mermaid">
+graph TD
+    Founder["👤 Neeraj — Founder"]
+
+    VPM["🎯 VP Marketing\n(human)"]
+    GMC["🤝 GM Care\n(human)"]
+    OBS["📊 Observatory\nAgent 10 ✅ live"]
+
+    A1["Agent 1\nProspector ✅"]
+    A2["Agent 2\nPersonalizer ✅"]
+    A3["Agent 3\nOutreach ✅"]
+    A6["Agent 6\nFollow-up 📋"]
+    A8["Agent 8\nContent 📋"]
+    A9["Agent 9\nRe-engagement 📋"]
+    A11["Agent 11\nAffiliate Tracker 📋"]
+
+    A4["Agent 4\nReply Handler 🔨"]
+    A5["Agent 5\nDemo Booking ✅"]
+    A7["Agent 7\nVoice Follow-up / Aria ✅"]
+
+    Founder --> VPM
+    Founder --> GMC
+    Founder --> OBS
+
+    VPM --> A1
+    VPM --> A2
+    VPM --> A3
+    VPM --> A6
+    VPM --> A8
+    VPM --> A9
+    VPM --> A11
+
+    GMC --> A4
+    GMC --> A5
+    GMC --> A7
+
+    style Founder fill:#6366f1,color:#fff,stroke:#818cf8
+    style VPM fill:#0f172a,color:#e2e8f0,stroke:#334155
+    style GMC fill:#0f172a,color:#e2e8f0,stroke:#334155
+    style OBS fill:#0f172a,color:#e2e8f0,stroke:#334155
+
+    style A1  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A2  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A3  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A6  fill:#1e293b,color:#94a3b8,stroke:#475569
+    style A8  fill:#1e293b,color:#94a3b8,stroke:#475569
+    style A9  fill:#1e293b,color:#94a3b8,stroke:#475569
+    style A11 fill:#1e293b,color:#94a3b8,stroke:#475569
+
+    style A4  fill:#78350f,color:#fef3c7,stroke:#f59e0b
+    style A5  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A7  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="dot dot-live"></div> Live / deployed</div>
+        <div class="legend-item"><div class="dot dot-next"></div> Next to build</div>
+        <div class="legend-item"><div class="dot dot-planned"></div> Planned</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. PIPELINE FLOW ─────────────────────────────────────────── -->
+  <div class="section">
+    <h2>2 · Lead Pipeline Flow</h2>
+    <div class="diagram-card">
+      <div class="mermaid">
+flowchart LR
+    subgraph EXT1["External Services — Discovery"]
+        Maps["🗺️ Google\nMaps API"]
+        Haiku["🤖 Claude\nHaiku"]
+        WA["💬 WhatsApp\nCloud API"]
+    end
+
+    subgraph PIPE["Outreach Pipeline  (VP Marketing)"]
+        direction TB
+        A1["1 · Prospector"]
+        A2["2 · Personalizer"]
+        A3["3 · Outreach"]
+    end
+
+    subgraph DB_BLOCK["Data Store"]
+        DB[("Supabase\nleads table")]
+    end
+
+    subgraph CARE["Response Pipeline  (GM Care)"]
+        direction TB
+        A4["4 · Reply Handler"]
+        A5["5 · Demo Booking"]
+        A7["7 · Voice Follow-up\n(Aria — Vapi)"]
+    end
+
+    subgraph NURTURE["Nurture  (VP Marketing)"]
+        direction TB
+        A6["6 · Follow-up WA\n(3-day silence)"]
+    end
+
+    subgraph OBS_BLOCK["Observatory  (reports to Neeraj)"]
+        A10["10 · Observatory"]
+    end
+
+    subgraph EXT2["External Services — Conversion"]
+        Cal["📅 Cal.com"]
+        Vapi["📞 Vapi.ai\nAria"]
+        AnthAPI["📈 Anthropic\nUsage API"]
+    end
+
+    Founder["👤 Neeraj"]
+
+    %% Discovery → Pipeline
+    Maps -->|places data| A1
+    Haiku -->|copy generation| A2
+    A1 -->|lead list| A2
+    A2 -->|message + lead| A3
+    A3 <-->|send WA| WA
+    A3 -->|status: contacted| DB
+
+    %% DB → Care
+    DB -->|incoming reply| A4
+    A4 -->|intent: interested| A5
+    A4 -->|intent: question\nAI auto-reply| WA
+    A5 <--> Cal
+    A5 -->|Cal.com link| WA
+
+    %% DB → Nurture / Voice
+    DB -->|3-day no reply| A6
+    A6 -->|follow-up WA| WA
+    DB -->|5-day no reply| A7
+    A7 <--> Vapi
+
+    %% Observatory
+    A10 -->|query metrics| DB
+    A10 -->|query usage| AnthAPI
+    A10 -->|query minutes| Vapi
+    A10 -->|daily WA digest| Founder
+
+    style A1  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A2  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A3  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A4  fill:#78350f,color:#fef3c7,stroke:#f59e0b
+    style A5  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A6  fill:#1e293b,color:#94a3b8,stroke:#475569
+    style A7  fill:#14532d,color:#bbf7d0,stroke:#22c55e
+    style A10 fill:#14532d,color:#bbf7d0,stroke:#22c55e
+
+    style DB fill:#1e3a5f,color:#bae6fd,stroke:#38bdf8
+    style Founder fill:#6366f1,color:#fff,stroke:#818cf8
+
+    style EXT1 fill:#0f172a,stroke:#1e293b,color:#64748b
+    style EXT2 fill:#0f172a,stroke:#1e293b,color:#64748b
+    style PIPE fill:#0a1f14,stroke:#166534,color:#4ade80
+    style CARE fill:#1c0a00,stroke:#92400e,color:#fcd34d
+    style NURTURE fill:#0a1520,stroke:#1e3a5f,color:#7dd3fc
+    style OBS_BLOCK fill:#0f172a,stroke:#334155,color:#94a3b8
+    style DB_BLOCK fill:#0f172a,stroke:#1e3a5f,color:#64748b
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. AGENT REFERENCE TABLE ─────────────────────────────────── -->
+  <div class="section">
+    <h2>3 · Agent Reference</h2>
+    <div class="diagram-card" style="padding:0;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+        <thead>
+          <tr style="background:#0f172a;color:#94a3b8;text-align:left;">
+            <th style="padding:12px 16px;">#</th>
+            <th style="padding:12px 16px;">Agent</th>
+            <th style="padding:12px 16px;">Owner</th>
+            <th style="padding:12px 16px;">Status</th>
+            <th style="padding:12px 16px;">Trigger</th>
+            <th style="padding:12px 16px;">Tech</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">1</td>
+            <td style="padding:11px 16px;font-weight:600;">Prospector</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#22c55e;">✅ live</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">Manual / pipeline run</td>
+            <td style="padding:11px 16px;color:#64748b;">Google Maps Places API</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">2</td>
+            <td style="padding:11px 16px;font-weight:600;">Personalizer</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#22c55e;">✅ live</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">After Prospector</td>
+            <td style="padding:11px 16px;color:#64748b;">Claude Haiku</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">3</td>
+            <td style="padding:11px 16px;font-weight:600;">Outreach</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#22c55e;">✅ live</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">After Personalizer</td>
+            <td style="padding:11px 16px;color:#64748b;">Meta WhatsApp Cloud API</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">4</td>
+            <td style="padding:11px 16px;font-weight:600;">Reply Handler</td>
+            <td style="padding:11px 16px;color:#94a3b8;">GM Care</td>
+            <td style="padding:11px 16px;"><span style="color:#f59e0b;">🔨 next</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">WA webhook (inbound reply)</td>
+            <td style="padding:11px 16px;color:#64748b;">Netlify function · Claude Haiku</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">5</td>
+            <td style="padding:11px 16px;font-weight:600;">Demo Booking</td>
+            <td style="padding:11px 16px;color:#94a3b8;">GM Care</td>
+            <td style="padding:11px 16px;"><span style="color:#22c55e;">✅ live</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">Interested signal from Agent 4</td>
+            <td style="padding:11px 16px;color:#64748b;">Cal.com · WhatsApp</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">6</td>
+            <td style="padding:11px 16px;font-weight:600;">Follow-up</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#64748b;">📋 planned</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">3-day silence cron</td>
+            <td style="padding:11px 16px;color:#64748b;">WhatsApp · APScheduler</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">7</td>
+            <td style="padding:11px 16px;font-weight:600;">Voice Follow-up (Aria)</td>
+            <td style="padding:11px 16px;color:#94a3b8;">GM Care</td>
+            <td style="padding:11px 16px;"><span style="color:#22c55e;">✅ live</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">5-day silence cron</td>
+            <td style="padding:11px 16px;color:#64748b;">Vapi.ai outbound · APScheduler</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">8</td>
+            <td style="padding:11px 16px;font-weight:600;">Content</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#64748b;">📋 planned</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">Weekly cron</td>
+            <td style="padding:11px 16px;color:#64748b;">Claude · LinkedIn · Instagram</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">9</td>
+            <td style="padding:11px 16px;font-weight:600;">Re-engagement</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#64748b;">📋 planned</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">Churned user event</td>
+            <td style="padding:11px 16px;color:#64748b;">WhatsApp · Email</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">10</td>
+            <td style="padding:11px 16px;font-weight:600;">Observatory</td>
+            <td style="padding:11px 16px;color:#94a3b8;">Neeraj (direct)</td>
+            <td style="padding:11px 16px;"><span style="color:#22c55e;">✅ live</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">Daily 7am IST cron</td>
+            <td style="padding:11px 16px;color:#64748b;">Supabase · Anthropic API · Vapi · WhatsApp</td>
+          </tr>
+          <tr style="border-top:1px solid #1e293b;">
+            <td style="padding:11px 16px;color:#64748b;">11</td>
+            <td style="padding:11px 16px;font-weight:600;">Affiliate Tracker</td>
+            <td style="padding:11px 16px;color:#94a3b8;">VP Marketing</td>
+            <td style="padding:11px 16px;"><span style="color:#64748b;">📋 planned</span></td>
+            <td style="padding:11px 16px;color:#94a3b8;">Referral link click / signup</td>
+            <td style="padding:11px 16px;color:#64748b;">Supabase · Razorpay</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p style="color:#334155;font-size:0.8rem;text-align:center;margin-top:20px;">
+    Apex · Internal Platform · Generated 2026-06-13
+  </p>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        background: '#1e293b',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#e2e8f0',
+        primaryBorderColor: '#334155',
+        lineColor: '#475569',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#0f172a',
+        edgeLabelBackground: '#1e293b',
+        clusterBkg: '#0f172a',
+        clusterBorder: '#334155',
+        titleColor: '#e2e8f0',
+        nodeTextColor: '#e2e8f0',
+        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 20,
+      },
+    });
+  </script>
+</body>
+</html>

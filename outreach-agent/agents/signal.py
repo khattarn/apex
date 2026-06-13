@@ -874,3 +874,78 @@ Be direct. No preamble. Use plain English."""
     logger.info("Signal weekly report complete: %d scores, %d dead ends, %d targets behind",
                 len(scores), len(dead), len(missed_targets))
     return report
+
+
+# ── 9. Performance Feedback Brief (for Content Agent + VP Marketing) ──────────
+
+def get_performance_feedback_brief() -> dict:
+    """
+    Compile a structured performance feedback brief for VP Marketing and Content Agent.
+    Reads template_scores, funnel_metrics, and detected dead ends.
+    Returns: winning patterns, underperformers, dead ends, recommended content actions.
+    """
+    db = get_client()
+
+    scores = db.table("template_scores").select("*").execute().data or []
+    targets_missed = db.table("targets").select("*").in_(
+        "status", ["missed", "behind"]
+    ).execute().data or []
+    dead_ends = detect_dead_ends()
+
+    winning = sorted(
+        [
+            s for s in scores
+            if s.get("sends", 0) >= 10
+            and (s.get("reply_rate") or s.get("open_rate") or 0) >= 0.05
+        ],
+        key=lambda x: x.get("reply_rate") or x.get("open_rate") or 0,
+        reverse=True,
+    )[:5]
+
+    underperforming = sorted(
+        [
+            s for s in scores
+            if s.get("sends", 0) >= 10
+            and (s.get("reply_rate") or s.get("open_rate") or 0) < 0.03
+            and s.get("status") != "killed"
+        ],
+        key=lambda x: x.get("sends", 0),
+        reverse=True,
+    )[:5]
+
+    return {
+        "generated_at":              _now(),
+        "winning_templates":         winning,
+        "underperforming_templates": underperforming,
+        "dead_ends":                 dead_ends[:3],
+        "targets_missed":            targets_missed[:5],
+        "recommended_actions":       _generate_feedback_actions(winning, underperforming, dead_ends),
+    }
+
+
+def _generate_feedback_actions(
+    winning: list[dict],
+    underperforming: list[dict],
+    dead_ends: list[dict],
+) -> list[str]:
+    """Produce human-readable recommended content actions from Signal data."""
+    actions = []
+    for s in underperforming[:3]:
+        rate = (s.get("reply_rate") or s.get("open_rate") or 0) * 100
+        actions.append(
+            f"Refresh {s.get('channel')} template for {s.get('business_type')}/{s.get('country')}"
+            f" — {rate:.1f}% rate on {s.get('sends')} sends, new angle needed"
+        )
+    if winning:
+        top = winning[0]
+        rate = (top.get("reply_rate") or top.get("open_rate") or 0) * 100
+        actions.append(
+            f"Replicate winning pattern from {top.get('business_type')}/{top.get('country')}"
+            f" ({rate:.1f}% {top.get('channel')} rate) across underperforming verticals"
+        )
+    for d in dead_ends[:2]:
+        actions.append(
+            f"Stop {d['channel']} for {d['business_type']}/{d['country']}"
+            f" — {d['sends']} sends, {d['rate']*100:.1f}% after {d['age_days']} days"
+        )
+    return actions

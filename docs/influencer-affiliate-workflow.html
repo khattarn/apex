@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LegalAidAI — Advocate Influencer Affiliate Workflow</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8f7f4;
+      color: #1a1a1a;
+      padding: 48px 24px;
+    }
+
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 48px;
+    }
+    .header-left h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.5px;
+    }
+    .header-left p {
+      margin-top: 6px;
+      font-size: 15px;
+      color: #666;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eef2ff;
+      color: #4f46e5;
+      border: 1px solid #c7d2fe;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      margin-top: 4px;
+    }
+
+    /* Section headings */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 16px;
+    }
+
+    /* ── PIPELINE FLOW ── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 48px;
+    }
+
+    .pipeline-step {
+      display: flex;
+      gap: 20px;
+      position: relative;
+    }
+
+    .step-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 48px;
+      flex-shrink: 0;
+    }
+    .step-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+    .step-line {
+      width: 2px;
+      flex: 1;
+      min-height: 24px;
+      background: #e2e8f0;
+      margin: 4px 0;
+    }
+
+    .step-body {
+      flex: 1;
+      padding-bottom: 28px;
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+    .step-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: #aaa;
+      letter-spacing: 0.5px;
+    }
+    .step-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+    }
+    .step-desc {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .step-detail {
+      margin-top: 10px;
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.6;
+    }
+    .step-detail code {
+      background: #f1f5f9;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #334155;
+    }
+
+    /* colour per step */
+    .s1 .step-icon { background: #fef3c7; }
+    .s2 .step-icon { background: #e0f2fe; }
+    .s3 .step-icon { background: #f0fdf4; }
+    .s4 .step-icon { background: #fdf4ff; }
+    .s5a .step-icon { background: #f0fdf4; }
+    .s5b .step-icon { background: #fff7ed; }
+
+    /* Branch split */
+    .branch-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    .branch-card {
+      border-radius: 14px;
+      padding: 20px;
+      border: 1px solid;
+    }
+    .branch-wa {
+      background: #f0fdf4;
+      border-color: #86efac;
+    }
+    .branch-dm {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+    .branch-card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .branch-wa h3 { color: #15803d; }
+    .branch-dm h3 { color: #c2410c; }
+    .branch-card p {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .branch-card .tag {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .branch-wa .tag { background: #dcfce7; color: #166534; }
+    .branch-dm .tag { background: #ffedd5; color: #9a3412; }
+
+    /* ── BUILD TABLE ── */
+    .build-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 48px;
+      font-size: 13.5px;
+    }
+    .build-table thead tr {
+      background: #f8fafc;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .build-table th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #888;
+    }
+    .build-table td {
+      padding: 13px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #333;
+      vertical-align: top;
+    }
+    .build-table tr:last-child td { border-bottom: none; }
+    .build-table td:first-child { font-weight: 600; color: #111; }
+    .build-table td code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #334155;
+    }
+    .effort-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .e-low  { background: #f0fdf4; color: #166534; }
+    .e-med  { background: #fef9c3; color: #854d0e; }
+    .e-high { background: #fef2f2; color: #991b1b; }
+
+    /* ── DASHBOARD UI ── */
+    .ui-section {
+      margin-bottom: 48px;
+    }
+    .ui-tabs {
+      display: flex;
+      gap: 2px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 20px;
+      width: fit-content;
+    }
+    .ui-tab {
+      padding: 7px 18px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #888;
+      cursor: default;
+    }
+    .ui-tab.active {
+      background: #fff;
+      color: #111;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .ui-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .ui-card {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .ui-card h4 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #888;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .ui-card .ui-content {
+      font-size: 13.5px;
+      color: #333;
+      line-height: 1.6;
+    }
+    .score-strong { color: #15803d; font-weight: 700; }
+    .score-mod    { color: #b45309; font-weight: 700; }
+    .score-skip   { color: #dc2626; font-weight: 700; }
+
+    /* ── DEPENDENCY BOX ── */
+    .dep-box {
+      background: #fff;
+      border: 1px solid #e0e7ff;
+      border-left: 4px solid #6366f1;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 48px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .dep-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+    .dep-box h3 { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 6px; }
+    .dep-box p  { font-size: 13.5px; color: #555; line-height: 1.6; }
+    .dep-box code {
+      background: #eef2ff;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #4338ca;
+    }
+
+    /* ── TIMELINE ── */
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 48px;
+    }
+    .tl-card {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .tl-day {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #6366f1;
+      margin-bottom: 8px;
+    }
+    .tl-card h4 { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }
+    .tl-card p  { font-size: 12.5px; color: #666; line-height: 1.5; }
+
+    /* ── COMMISSION BOX ── */
+    .commission-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 48px;
+    }
+    .comm-card {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .comm-card .amount {
+      font-size: 32px;
+      font-weight: 800;
+      color: #111;
+      letter-spacing: -1px;
+    }
+    .comm-card .label {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .comm-card .sub {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 3px;
+    }
+    .comm-highlight {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+    .comm-highlight .amount { color: #15803d; }
+
+    /* footer */
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #bbb;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid #e8e8e8;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>Advocate Influencer Affiliate Programme</h1>
+      <p>LegalAidAI &nbsp;·&nbsp; Agent 11 — Affiliate Tracker &nbsp;·&nbsp; Apex Internal</p>
+      <span class="badge">Agent 11 — Planned</span>
+    </div>
+  </div>
+
+  <!-- Commission model -->
+  <div class="section-title">Commission Structure</div>
+  <div class="commission-row">
+    <div class="comm-card">
+      <div class="amount">₹2,500</div>
+      <div class="label">Advocate subscription (Month 1)</div>
+      <div class="sub">Price paid by referred advocate</div>
+    </div>
+    <div class="comm-card comm-highlight">
+      <div class="amount">₹500</div>
+      <div class="label">Affiliate earns on first conversion</div>
+      <div class="sub">20% of Month 1 revenue</div>
+    </div>
+    <div class="comm-card comm-highlight">
+      <div class="amount">₹500</div>
+      <div class="label">Affiliate earns on first renewal</div>
+      <div class="sub">10% of ₹5,000 renewal</div>
+    </div>
+  </div>
+
+  <!-- Pipeline flow -->
+  <div class="section-title">End-to-End Workflow</div>
+  <div class="pipeline">
+
+    <div class="pipeline-step s1">
+      <div class="step-left">
+        <div class="step-icon">📋</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <span class="step-num">STEP 1</span>
+          <span class="step-title">You paste Instagram URLs</span>
+        </div>
+        <div class="step-desc">Paste one or more Instagram profile URLs into the Apex dashboard Influencers tab. These are advocates you've found manually via hashtag search or referrals.</div>
+        <div class="step-detail">
+          Example input:<br />
+          <code>https://www.instagram.com/advocate.delhi/</code><br />
+          <code>https://www.instagram.com/rahul_lawyer_mumbai/</code><br />
+          <code>https://www.instagram.com/highcourtadvocate/</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="pipeline-step s2">
+      <div class="step-left">
+        <div class="step-icon">🔍</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <span class="step-num">STEP 2</span>
+          <span class="step-title">Apify scrapes profile data</span>
+        </div>
+        <div class="step-desc">The <code>influencer_discovery.py</code> agent calls the Apify <code>instagram-profile-scraper</code> actor with the URL list. Returns structured data for each profile.</div>
+        <div class="step-detail">
+          Data returned per profile: follower count · following count · post count · bio text · is_verified · recent post captions · external URL
+        </div>
+      </div>
+    </div>
+
+    <div class="pipeline-step s3">
+      <div class="step-left">
+        <div class="step-icon">🧮</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <span class="step-num">STEP 3</span>
+          <span class="step-title">Agent scores and filters</span>
+        </div>
+        <div class="step-desc">Python scoring logic qualifies each profile automatically before it reaches your review queue.</div>
+        <div class="step-detail">
+          <strong>Strong</strong> — 1,000–50,000 followers · bio contains advocate/LLB/court/law · posts ≥ 10<br /><br />
+          <strong>Moderate</strong> — follower range OK but bio unclear, or low post frequency<br /><br />
+          <strong>Skip</strong> — under 500 followers · no legal keywords · private account
+        </div>
+      </div>
+    </div>
+
+    <div class="pipeline-step s4">
+      <div class="step-left">
+        <div class="step-icon">📞</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <span class="step-num">STEP 4</span>
+          <span class="step-title">Bio parser extracts contact info</span>
+        </div>
+        <div class="step-desc">Most Indian advocates include their WhatsApp number in their bio. A regex parser extracts Indian mobile numbers (+91 or 10-digit) and emails from the bio text.</div>
+        <div class="step-detail">
+          Patterns detected: <code>+91XXXXXXXXXX</code> &nbsp;·&nbsp; <code>9XXXXXXXXXX</code> &nbsp;·&nbsp; <code>name@domain.com</code><br /><br />
+          Phone found → flagged <strong>WA Ready</strong><br />
+          No phone → flagged <strong>DM Only</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="pipeline-step s5a">
+      <div class="step-left">
+        <div class="step-icon">✍️</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <span class="step-num">STEP 5</span>
+          <span class="step-title">Claude drafts personalised outreach message</span>
+        </div>
+        <div class="step-desc">Claude Haiku generates a personalised message per candidate using their name, follower count, and bio content. Tone is peer-to-peer, not corporate.</div>
+        <div class="step-detail">
+          Message references their specific content theme (e.g. consumer law, criminal practice, family court) and leads with a pain-point question before introducing the affiliate offer.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Branch split -->
+  <div class="section-title">Delivery Branch — Based on Contact Info Found</div>
+  <div class="branch-container">
+    <div class="branch-card branch-wa">
+      <h3>📱 WA Ready — Phone number found in bio</h3>
+      <p>Message goes through the existing Apex WhatsApp outreach pipeline (<code>outreach.py</code>). You review the drafted message in the dashboard, edit if needed, and click Send. Delivered via the outreach number +1 385-363-3720.</p>
+      <span class="tag">Fully automated after your approval</span>
+    </div>
+    <div class="branch-card branch-dm">
+      <h3>💬 DM Only — No phone number in bio</h3>
+      <p>Claude drafts an Instagram DM message. The dashboard shows a copy button so you can paste it into Instagram manually. No automation possible here without violating Instagram ToS on sending.</p>
+      <span class="tag">Message drafted, manual send</span>
+    </div>
+  </div>
+
+  <!-- Dashboard UI -->
+  <div class="ui-section">
+    <div class="section-title">Dashboard UI — Influencers Tab (New)</div>
+    <div class="ui-tabs">
+      <div class="ui-tab">Dashboard</div>
+      <div class="ui-tab">Run Pipeline</div>
+      <div class="ui-tab">Leads</div>
+      <div class="ui-tab">Campaigns</div>
+      <div class="ui-tab active">Influencers ✦</div>
+      <div class="ui-tab">Settings</div>
+    </div>
+    <div class="ui-cards">
+      <div class="ui-card">
+        <h4>Paste Tab</h4>
+        <div class="ui-content">Textarea for Instagram URLs (one per line). "Process" button triggers the Apify scrape + scoring pipeline.</div>
+      </div>
+      <div class="ui-card">
+        <h4>Review Tab</h4>
+        <div class="ui-content">
+          Candidate cards showing:<br />
+          · Name, followers, bio snippet<br />
+          · Score: <span class="score-strong">Strong</span> / <span class="score-mod">Moderate</span> / <span class="score-skip">Skip</span><br />
+          · Extracted phone / email<br />
+          · Drafted message (editable)<br />
+          · Send or Dismiss button
+        </div>
+      </div>
+      <div class="ui-card">
+        <h4>Partners Tab</h4>
+        <div class="ui-content">Approved affiliates with referral codes, conversion counts, earnings, and commission payout status. Reuses the existing <code>Affiliates.jsx</code> component.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Build table -->
+  <div class="section-title">What Gets Built</div>
+  <table class="build-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>File</th>
+        <th>Effort</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Supabase migration — influencer_candidates table</td>
+        <td><code>database/migrations/007_influencer_candidates.sql</code></td>
+        <td><span class="effort-badge e-low">30 min</span></td>
+      </tr>
+      <tr>
+        <td>Apify profile scraper + bio parser + scoring</td>
+        <td><code>agents/influencer_discovery.py</code></td>
+        <td><span class="effort-badge e-high">1 day</span></td>
+      </tr>
+      <tr>
+        <td>Influencer-specific personalizer prompt</td>
+        <td>Extend <code>agents/personalizer.py</code></td>
+        <td><span class="effort-badge e-low">2 hours</span></td>
+      </tr>
+      <tr>
+        <td>API endpoints — process URLs, list candidates, send</td>
+        <td>Extend <code>server.py</code></td>
+        <td><span class="effort-badge e-med">3 hours</span></td>
+      </tr>
+      <tr>
+        <td>Influencers tab — paste, review, send UI</td>
+        <td><code>admin-dashboard/src/views/Influencers.jsx</code></td>
+        <td><span class="effort-badge e-high">1 day</span></td>
+      </tr>
+      <tr>
+        <td>Wire WA send through existing pipeline</td>
+        <td>Reuse <code>agents/outreach.py</code> as-is</td>
+        <td><span class="effort-badge e-low">1 hour</span></td>
+      </tr>
+      <tr>
+        <td>Move Affiliates.jsx to Apex dashboard + wire nav</td>
+        <td><code>admin-dashboard/src/views/Affiliates.jsx</code></td>
+        <td><span class="effort-badge e-low">1 hour</span></td>
+      </tr>
+      <tr>
+        <td>Fix admin_list action in affiliate-auth.js</td>
+        <td><code>netlify/functions/affiliate-auth.js</code> (LegalAidAI repo)</td>
+        <td><span class="effort-badge e-low">30 min</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Dependency -->
+  <div class="dep-box">
+    <div class="dep-icon">⚙️</div>
+    <div>
+      <h3>One External Dependency — Apify</h3>
+      <p>Requires an Apify account (~$49/month). Uses the <code>apify/instagram-profile-scraper</code> actor. One new environment variable: <code>APIFY_API_KEY</code> added to Railway. No other new services needed — everything else reuses existing Apex infrastructure.</p>
+    </div>
+  </div>
+
+  <!-- Build timeline -->
+  <div class="section-title">Build Timeline — ~3 Days</div>
+  <div class="timeline">
+    <div class="tl-card">
+      <div class="tl-day">Day 1 — Morning</div>
+      <h4>Data layer</h4>
+      <p>Supabase migration · Apify integration · bio parser · scoring logic</p>
+    </div>
+    <div class="tl-card">
+      <div class="tl-day">Day 1 — Afternoon</div>
+      <h4>API endpoints</h4>
+      <p>POST /api/influencers/process · GET /api/influencers/candidates · POST /api/influencers/send</p>
+    </div>
+    <div class="tl-card">
+      <div class="tl-day">Day 2</div>
+      <h4>Dashboard UI</h4>
+      <p>Influencers.jsx — paste tab, review cards, send flow · wire into nav</p>
+    </div>
+    <div class="tl-card">
+      <div class="tl-day">Day 3</div>
+      <h4>Affiliate wiring</h4>
+      <p>Fix admin_list · move Affiliates.jsx to Apex · referral link handler on LegalAidAI signup page</p>
+    </div>
+  </div>
+
+  <!-- Scale projection -->
+  <div class="section-title">Revenue Projection</div>
+  <table class="build-table">
+    <thead>
+      <tr>
+        <th>Active Affiliates</th>
+        <th>Conversions / month each</th>
+        <th>New paid advocates / month</th>
+        <th>MRR added</th>
+        <th>Commission paid out</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>10</td>
+        <td>2</td>
+        <td>20</td>
+        <td>₹50,000</td>
+        <td>₹10,000</td>
+      </tr>
+      <tr>
+        <td>20</td>
+        <td>3</td>
+        <td>60</td>
+        <td>₹1,50,000</td>
+        <td>₹30,000</td>
+      </tr>
+      <tr>
+        <td>30</td>
+        <td>5</td>
+        <td>150</td>
+        <td>₹3,75,000</td>
+        <td>₹75,000</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    LegalAidAI &nbsp;·&nbsp; Apex Internal &nbsp;·&nbsp; Agent 11 — Affiliate Tracker &nbsp;·&nbsp; Generated 2026-06-12
+  </div>
+
+</div>
+</body>
+</html>

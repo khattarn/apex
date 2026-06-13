@@ -2278,6 +2278,143 @@ async def cron_observatory(request: Request):
     return {"ok": True, "digest": digest}
 
 
+# ── Content Agent (Agent 8) ────────────────────────────────────────────────────
+
+class ContentGenerateRequest(BaseModel):
+    product: str
+    module: str
+    content_type: str
+    tone: str = "structured"
+    market: str = "AU"
+    language: str = "en"
+    platform: str = ""
+    brief: str = ""
+    signal_feedback: str = ""   # optional: Signal performance context from VP Marketing
+
+
+@app.post("/api/content/generate")
+async def content_generate(body: ContentGenerateRequest):
+    """Content Agent — generates WA templates, email copy, voice guidance, or social posts."""
+    from agents.content_agent import generate_content, ContentRequest
+
+    req = ContentRequest(
+        product=body.product,
+        module=body.module,
+        content_type=body.content_type,
+        tone=body.tone,
+        market=body.market,
+        language=body.language,
+        platform=body.platform,
+        brief=body.brief,
+        signal_feedback=body.signal_feedback,
+    )
+    result = generate_content(req)
+    return {
+        "content": result.content,
+        "product": result.product,
+        "module": result.module,
+        "content_type": result.content_type,
+        "tone": result.tone,
+        "market": result.market,
+        "language": result.language,
+        "usage": {
+            "input_tokens": result.input_tokens,
+            "output_tokens": result.output_tokens,
+        },
+    }
+
+
+@app.get("/api/content/modules")
+async def content_modules():
+    """List available products and their modules."""
+    from agents.content_agent import PRODUCT_MODULES
+    return {
+        "products": PRODUCT_MODULES,
+        "content_types": ["wa_template", "email", "voice_guidance", "social_post"],
+        "tones": ["structured", "pain_first", "outcome_first", "conversational"],
+        "markets": ["AU", "US", "CA", "IN"],
+        "languages": ["en", "hi"],
+    }
+
+
+# ── Signal — Performance Feedback (Agent 1 → VP Marketing → Content Agent) ───
+
+@app.get("/api/signal/feedback")
+async def signal_feedback(_: str = Depends(verify_token)):
+    """
+    Signal compiles a performance feedback brief.
+    VP Marketing reads this to decide what content to commission.
+    Content Agent uses it to improve underperforming templates.
+    """
+    from agents.signal import get_performance_feedback_brief
+    return get_performance_feedback_brief()
+
+
+# ── VP Marketing Agent (Agent 12) ─────────────────────────────────────────────
+
+class VPMarketingPlanRequest(BaseModel):
+    additional_brief: str = ""
+    include_signal: bool = True   # whether to pull live Signal data before planning
+
+
+class VPMarketingCommissionRequest(BaseModel):
+    commission: dict              # one item from the content_queue
+    signal_context: str = ""     # Signal context string to pass to Content Agent
+
+
+@app.post("/api/vp-marketing/plan")
+async def vp_marketing_plan(body: VPMarketingPlanRequest, _: str = Depends(verify_token)):
+    """
+    VP Marketing generates a comprehensive campaign plan for all verticals.
+    Optionally pulls Signal performance data first to prioritise refreshes.
+    Returns strategic brief + ordered content queue for Agent 8.
+    """
+    from agents.vp_marketing import generate_campaign_plan
+
+    signal_feedback = None
+    if body.include_signal:
+        try:
+            from agents.signal import get_performance_feedback_brief
+            signal_feedback = get_performance_feedback_brief()
+        except Exception as exc:
+            log.warning("Signal feedback unavailable: %s", exc)
+
+    plan = generate_campaign_plan(
+        signal_feedback=signal_feedback,
+        additional_brief=body.additional_brief,
+    )
+    return {
+        "generated_at":    plan.generated_at,
+        "strategic_brief": plan.strategic_brief,
+        "content_queue":   plan.content_queue,
+        "signal_context":  plan.signal_context,
+        "queue_length":    len(plan.content_queue),
+        "usage": {
+            "input_tokens":  plan.input_tokens,
+            "output_tokens": plan.output_tokens,
+        },
+    }
+
+
+@app.post("/api/vp-marketing/commission")
+async def vp_marketing_commission(body: VPMarketingCommissionRequest, _: str = Depends(verify_token)):
+    """
+    VP Marketing executes one content commission → calls Content Agent.
+    Result is returned for review; not auto-deployed.
+    """
+    from agents.vp_marketing import execute_commission
+
+    result = execute_commission(body.commission, signal_context=body.signal_context)
+    return {
+        "content":      result.content,
+        "commission":   result.commission,
+        "usage": {
+            "input_tokens":  result.input_tokens,
+            "output_tokens": result.output_tokens,
+        },
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
