@@ -1233,14 +1233,14 @@ async def bridge_call(request: Request, _=Depends(verify_token)):
     destination = (body.get("to") or "").strip()
     if not destination:
         raise HTTPException(status_code=400, detail="Missing 'to'")
-    from agents.sip_bridge import start_bridge
+    from agents.vapi_bridge import start_bridge
     bridge_id = start_bridge(destination)
     return {"bridge_id": bridge_id}
 
 
 @app.get("/api/bridge/status/{bridge_id}")
 async def bridge_status(bridge_id: str, _=Depends(verify_token)):
-    from agents.sip_bridge import get_bridge_status
+    from agents.vapi_bridge import get_bridge_status
     return get_bridge_status(bridge_id)
 
 
