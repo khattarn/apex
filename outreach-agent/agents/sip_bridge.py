@@ -313,8 +313,8 @@ class _SIPClient:
 
 def probe_vobiz() -> dict:
     """
-    Attempt a test INVITE to Vobiz and return the raw SIP exchange.
-    Useful for debugging auth/connectivity issues without placing a real call.
+    Full two-step auth probe: INVITE → 407 → ACK → re-INVITE with credentials.
+    Returns both raw responses so we can see exactly where auth fails.
     """
     client = _SIPClient()
     result: dict = {}
@@ -323,19 +323,52 @@ def probe_vobiz() -> dict:
         result["connected"] = True
         result["local"] = f"{client._local_ip}:{client._local_port}"
 
-        # Send a test INVITE to a dummy number — we just want to see Vobiz's response
         call_id = uuid.uuid4().hex
         from_tag = uuid.uuid4().hex[:8]
-        msg, _branch = client._invite_msg("+910000000000", call_id, from_tag)
-        client._send(msg)
-        resp = client._recv(8)
-        result["invite_response_code"] = client._status(resp)
-        result["invite_response_raw"] = resp[:600]
+        to_number = "+910000000000"
+        to_uri = f"sip:{to_number}@{client._host}"
 
-        if client._status(resp) in (401, 407):
-            result["auth_challenge_parsed"] = bool(
-                re.search(r'realm="', resp) and re.search(r'nonce="', resp)
+        # Step 1: initial INVITE (no auth)
+        msg, branch = client._invite_msg(to_number, call_id, from_tag, cseq=1)
+        client._send(msg)
+        resp1 = client._recv(8)
+        code1 = client._status(resp1)
+        result["step1_code"] = code1
+        result["step1_raw"] = resp1[:800]
+
+        if code1 not in (401, 407):
+            result["diagnosis"] = f"Unexpected first response {code1} — not a challenge"
+            return result
+
+        # Step 2: ACK the challenge (same branch), then re-INVITE with auth
+        to_tag_407 = client._to_tag(resp1)
+        client._send(client._ack(to_number, call_id, from_tag, to_tag_407,
+                                 cseq_num=1, via_branch=branch))
+        auth = client._auth_hdr(resp1, "INVITE", to_uri)
+        result["auth_header_built"] = bool(auth)
+
+        client._cseq = 2
+        msg2, _ = client._invite_msg(to_number, call_id, from_tag, cseq=2, auth=auth)
+        client._send(msg2)
+        resp2 = client._recv(10)
+        code2 = client._status(resp2)
+        result["step2_code"] = code2
+        result["step2_raw"] = resp2[:800]
+
+        if code2 == 407:
+            stale = bool(re.search(r"stale\s*=\s*true", resp2, re.IGNORECASE))
+            result["diagnosis"] = (
+                "Nonce stale — retry might work" if stale
+                else "Wrong credentials (407 again, stale=false)"
             )
+        elif code2 == 403:
+            result["diagnosis"] = "IP not whitelisted (403 Forbidden) — add Railway IP to Vobiz ACL"
+        elif code2 in (404, 480, 486):
+            result["diagnosis"] = f"Auth OK — call rejected for other reason ({code2})"
+        elif code2 == 200:
+            result["diagnosis"] = "Auth OK — call answered (unexpected for dummy number)"
+        else:
+            result["diagnosis"] = f"Auth step returned {code2}"
 
     except Exception as exc:
         result["error"] = str(exc)
