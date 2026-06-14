@@ -4,7 +4,7 @@ import Vapi from '@vapi-ai/web'
 import { Device } from '@twilio/voice-sdk'
 import { fetchTwilioToken } from '../api'
 
-const VAPI_KEY = '1908bdb6-968b-4f6a-ab9e-75ab32137cb2'
+const VAPI_KEY = 'c6c3d332-0a2d-42a8-89c8-477bcdc5449a' // public key — safe for browser
 const VAPI_INDIA_PHONE_ID = '55328e0f-b12b-4108-a3b2-ee282aa7bed9'
 
 const KEYS = [
@@ -54,34 +54,30 @@ function IndiaBridge() {
     vapi.on('speech-start', () => setCallState('on-call'))
     vapi.on('call-end',    () => { setCallState('ended'); vapiRef.current = null })
     vapi.on('error', (e) => {
-      const msg = e?.error?.message || e?.message || JSON.stringify(e)
+      console.error('Vapi error:', e)
+      const msg = e?.error?.message || e?.message ||
+        (typeof e === 'object' ? JSON.stringify(e) : String(e))
       setCallState('error')
-      setErrorMsg(msg)
+      setErrorMsg(msg || 'Unknown Vapi error — check browser console (F12)')
       vapiRef.current = null
     })
 
     try {
       setCallState('connecting')
-      // Web SDK: no phoneNumberId/customer here — those are backend-only params.
-      // The assistant uses transferCall to dial the destination from the India number.
       await vapi.start({
         firstMessage: 'Connecting you to your lead now.',
-        silenceTimeoutSeconds: 120,
         model: {
           provider: 'anthropic',
           model: 'claude-haiku-4-5-20251001',
-          messages: [{ role: 'system', content: `Immediately use the transferCall function to transfer this call to ${dest}. Do not say anything else after your first message.` }],
-          tools: [{
-            type: 'transferCall',
-            destinations: [{ type: 'number', number: dest, callerId: '+919262171423' }],
-          }],
+          messages: [{ role: 'system', content: `Your only job: immediately call the transferCall function to transfer this call to ${dest}. Do not say anything else.` }],
+          tools: [{ type: 'transferCall', destinations: [{ type: 'number', number: dest }] }],
         },
         voice: { provider: 'azure', voiceId: 'en-IN-NeerjaNeural' },
-        endCallFunctionEnabled: false,
       })
     } catch (err) {
+      console.error('Vapi start error:', err)
       setCallState('error')
-      setErrorMsg(err.message || JSON.stringify(err))
+      setErrorMsg(err?.message || JSON.stringify(err) || 'Start failed — check browser console (F12)')
       vapiRef.current = null
     }
   }
