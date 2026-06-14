@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apex — Multi-Agent Architecture</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0: #0d1117; --bg1: #161b22; --bg2: #21262d; --bg3: #1c2128;
+      --bdr: #30363d;
+      --t0: #e6edf3; --t1: #8b949e; --t2: #6e7681;
+      --live: #3fb950;  --live-bg: #1b4332;  --live-bdr: #40916c;
+      --bld:  #f0883e;  --bld-bg:  #3d2100;  --bld-bdr:  #fca311;
+      --pln:  #7c83ff;  --pln-bg:  #1a1a3a;  --pln-bdr:  #4c52b0;
+      --hum:  #4fc3f7;  --hum-bg:  #0d2137;  --hum-bdr:  #2a7bbf;
+      --tol:  #c77dff;  --tol-bg:  #200d30;  --tol-bdr:  #7b2ff7;
+      --db:   #48cae4;  --db-bg:   #071929;  --db-bdr:   #0096c7;
+      --prd:  #52b788;  --prd-bg:  #0f2617;  --prd-bdr:  #2d6a4f;
+      --voi:  #e0aaff;  --voi-bg:  #2a0d35;  --voi-bdr:  #c77dff;
+      --acc:  #58a6ff;  --acc-glo: rgba(88,166,255,.12);
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--bg0); color: var(--t0);
+           font-family: -apple-system,BlinkMacSystemFont,'Segoe UI','Roboto',sans-serif;
+           display: flex; flex-direction: column; }
+
+    /* ── HEADER ── */
+    .hdr { flex-shrink:0; background:var(--bg1); border-bottom:1px solid var(--bdr);
+           padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .hdr-l { display:flex; align-items:center; gap:14px; }
+    .logo { font-size:18px; font-weight:800; letter-spacing:-.5px;
+            background:linear-gradient(135deg,var(--acc) 0%,var(--tol) 100%);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .sub  { font-size:12px; color:var(--t1); border-left:1px solid var(--bdr); padding-left:14px; }
+    .bdgs { display:flex; gap:8px; flex-wrap:wrap; }
+    .bdg  { display:inline-flex; align-items:center; gap:5px;
+            padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+    .bdg-d { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .bdg.live  { background:var(--live-bg); color:var(--live); border:1px solid var(--live-bdr); }
+    .bdg.bld   { background:var(--bld-bg);  color:var(--bld);  border:1px solid var(--bld-bdr); }
+    .bdg.pln   { background:var(--pln-bg);  color:var(--pln);  border:1px solid var(--pln-bdr); }
+    .bdg.voi   { background:var(--voi-bg);  color:var(--voi);  border:1px solid var(--voi-bdr); }
+
+    /* ── LAYOUT ── */
+    .lay { display:grid; grid-template-columns:210px 1fr 335px; flex:1; overflow:hidden; min-height:0; }
+
+    /* ── SIDEBAR ── */
+    .sb { background:var(--bg1); border-right:1px solid var(--bdr);
+          overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:14px; }
+    .sec { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+           color:var(--t2); padding-bottom:6px; border-bottom:1px solid var(--bdr); }
+    .row { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:5px;
+           cursor:pointer; border:1px solid transparent; transition:all .15s ease; }
+    .row:hover { background:var(--bg2); border-color:var(--bdr); }
+    .row.sel   { background:var(--acc-glo); border-color:var(--acc); }
+    .rn { font-size:11px; font-weight:700; color:var(--t2); min-width:18px; }
+    .rl { font-size:12px; font-weight:500; flex:1; line-height:1.3; }
+    .sd { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .sd.live { background:var(--live); box-shadow:0 0 5px var(--live); }
+    .sd.bld  { background:var(--bld);  box-shadow:0 0 5px var(--bld); }
+    .sd.pln  { background:var(--pln-bdr); }
+    .sd.hum  { background:var(--hum); }
+    .sd.voi  { background:var(--voi); box-shadow:0 0 5px var(--voi); }
+    .leg { display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+    .leg-r { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--t1); }
+    .sw { width:11px; height:11px; border-radius:3px; flex-shrink:0; }
+
+    /* ── DIAGRAM ── */
+    .da { display:flex; flex-direction:column; background:var(--bg0); overflow:hidden; min-width:0; }
+    .tb { flex-shrink:0; display:flex; align-items:center; justify-content:space-between;
+          padding:8px 16px; background:var(--bg1); border-bottom:1px solid var(--bdr); }
+    .tl { font-size:11px; color:var(--t1); }
+    .zr { display:flex; gap:4px; }
+    .zb { background:var(--bg2); border:1px solid var(--bdr); color:var(--t0);
+          padding:3px 9px; border-radius:4px; cursor:pointer; font-size:13px; transition:background .1s; }
+    .zb:hover { background:var(--bg3); }
+    #dsc { flex:1; overflow:auto; padding:20px; display:flex; justify-content:center; align-items:flex-start; }
+    #din { transform-origin:top center; transition:transform .2s ease; }
+    #din .mermaid svg { max-width:none !important; }
+
+    /* ── DETAIL ── */
+    .dp { background:var(--bg1); border-left:1px solid var(--bdr);
+          overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+    .de { display:flex; flex-direction:column; align-items:center; justify-content:center;
+          height:100%; color:var(--t2); text-align:center; gap:10px; }
+    .dei { font-size:36px; opacity:.35; }
+    .det { font-size:12px; line-height:1.7; }
+    #dc  { display:none; flex-direction:column; gap:14px; }
+    .dh  { display:flex; align-items:flex-start; gap:12px; }
+    .di  { font-size:26px; flex-shrink:0; line-height:1; }
+    .dn  { font-size:15px; font-weight:700; }
+    .ds  { font-size:11px; color:var(--t1); margin-top:2px; }
+    .dst { display:inline-flex; align-items:center; gap:5px;
+           padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; margin-top:5px; }
+    .dvd { height:1px; background:var(--bdr); }
+    .sl  { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+           color:var(--t2); margin-bottom:5px; }
+    .dt  { font-size:12px; line-height:1.65; color:var(--t1); }
+    .tw  { display:flex; flex-wrap:wrap; gap:4px; }
+    .tt  { display:inline-flex; align-items:center; gap:4px; padding:2px 7px;
+           border-radius:4px; font-size:11px; font-weight:500;
+           background:var(--tol-bg); color:var(--tol); border:1px solid var(--tol-bdr); }
+    .ht  { display:inline-flex; align-items:center; gap:4px; padding:2px 7px;
+           border-radius:4px; font-size:11px;
+           background:var(--db-bg); color:var(--db); border:1px solid var(--db-bdr); }
+    .ft  { font-family:'Courier New',monospace; font-size:11px; color:var(--acc); }
+    .fr  { display:flex; align-items:flex-start; gap:6px; padding:5px 8px;
+           background:var(--bg2); border-radius:5px; font-size:11px; }
+    .fd  { color:var(--t2); font-weight:700; min-width:65px; flex-shrink:0; }
+    .fa  { color:var(--acc); font-size:12px; flex-shrink:0; }
+    .fv  { color:var(--t1); line-height:1.4; }
+    .pb  { font-size:11px; font-style:italic; line-height:1.6; color:var(--t1);
+           padding:9px 10px; background:var(--bg2); border-radius:5px;
+           border-left:3px solid var(--acc); }
+
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--bg2); border-radius:3px; }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-l">
+    <span class="logo">⚡ APEX</span>
+    <span class="sub">Multi-Agent Platform &nbsp;·&nbsp; Internal Operations &nbsp;·&nbsp; Neeraj Khattar</span>
+  </div>
+  <div class="bdgs">
+    <span class="bdg live"><span class="bdg-d"></span>5 Live</span>
+    <span class="bdg bld"><span class="bdg-d"></span>1 Building</span>
+    <span class="bdg pln"><span class="bdg-d"></span>7 Planned</span>
+    <span class="bdg voi"><span class="bdg-d"></span>2 Voice Agents</span>
+  </div>
+</header>
+
+<div class="lay">
+
+  <!-- SIDEBAR -->
+  <aside class="sb">
+    <div>
+      <div class="sec">Legend</div>
+      <div class="leg">
+        <div class="leg-r"><div class="sw" style="background:var(--hum-bg);border:1px solid var(--hum-bdr)"></div>Human Operator</div>
+        <div class="leg-r"><div class="sw" style="background:var(--live-bg);border:1px solid var(--live-bdr)"></div>✅ Live / Active</div>
+        <div class="leg-r"><div class="sw" style="background:var(--bld-bg);border:1px solid var(--bld-bdr)"></div>🔨 Building Now</div>
+        <div class="leg-r"><div class="sw" style="background:var(--pln-bg);border:1px solid var(--pln-bdr)"></div>📋 Planned</div>
+        <div class="leg-r"><div class="sw" style="background:var(--voi-bg);border:1px solid var(--voi-bdr)"></div>🎙️ Voice Agent</div>
+        <div class="leg-r"><div class="sw" style="background:var(--tol-bg);border:1px solid var(--tol-bdr)"></div>🔧 Tool / API</div>
+        <div class="leg-r"><div class="sw" style="background:var(--db-bg);border:1px solid var(--db-bdr)"></div>🗄️ Infrastructure</div>
+        <div class="leg-r"><div class="sw" style="background:var(--prd-bg);border:1px solid var(--prd-bdr)"></div>🛍️ Product</div>
+      </div>
+    </div>
+    <div>
+      <div class="sec">Human Layer</div>
+      <div class="row" id="c-founder" onclick="sel('founder')"><span class="rn">👤</span><span class="rl">Neeraj Khattar</span><span class="sd hum"></span></div>
+      <div class="row" id="c-vpm"     onclick="sel('vpm')">    <span class="rn">🎯</span><span class="rl">VP Marketing</span>   <span class="sd hum"></span></div>
+      <div class="row" id="c-gmc"     onclick="sel('gmc')">    <span class="rn">💼</span><span class="rl">GM Care</span>         <span class="sd hum"></span></div>
+    </div>
+    <div>
+      <div class="sec">Outreach Pipeline</div>
+      <div class="row" id="c-a1" onclick="sel('a1')"><span class="rn">1</span><span class="rl">Prospector</span>  <span class="sd live"></span></div>
+      <div class="row" id="c-a2" onclick="sel('a2')"><span class="rn">2</span><span class="rl">Personalizer</span><span class="sd live"></span></div>
+      <div class="row" id="c-a3" onclick="sel('a3')"><span class="rn">3</span><span class="rl">Outreach</span>    <span class="sd live"></span></div>
+    </div>
+    <div>
+      <div class="sec">Care Pipeline</div>
+      <div class="row" id="c-a4" onclick="sel('a4')"><span class="rn">4</span><span class="rl">Reply Handler</span>  <span class="sd bld"></span></div>
+      <div class="row" id="c-a5" onclick="sel('a5')"><span class="rn">5</span><span class="rl">Demo Booking</span>   <span class="sd pln"></span></div>
+      <div class="row" id="c-a7" onclick="sel('a7')"><span class="rn">7</span><span class="rl">Voice Follow-up</span><span class="sd pln"></span></div>
+    </div>
+    <div>
+      <div class="sec">Voice Agents (Vapi.ai)</div>
+      <div class="row" id="c-henry" onclick="sel('henry')"><span class="rn">🎙️</span><span class="rl">Henry · Inbound</span> <span class="sd voi"></span></div>
+      <div class="row" id="c-aria"  onclick="sel('aria')"> <span class="rn">📤</span><span class="rl">Aria · Outbound</span> <span class="sd voi"></span></div>
+    </div>
+    <div>
+      <div class="sec">Growth Pipeline</div>
+      <div class="row" id="c-a6"  onclick="sel('a6')"> <span class="rn">6</span> <span class="rl">Follow-up</span>        <span class="sd pln"></span></div>
+      <div class="row" id="c-a8"  onclick="sel('a8')"> <span class="rn">8</span> <span class="rl">Content</span>           <span class="sd pln"></span></div>
+      <div class="row" id="c-a9"  onclick="sel('a9')"> <span class="rn">9</span> <span class="rl">Re-engagement</span>     <span class="sd pln"></span></div>
+      <div class="row" id="c-a10" onclick="sel('a10')"><span class="rn">10</span><span class="rl">Observatory</span>       <span class="sd pln"></span></div>
+      <div class="row" id="c-a11" onclick="sel('a11')"><span class="rn">11</span><span class="rl">Affiliate Tracker</span> <span class="sd pln"></span></div>
+    </div>
+  </aside>
+
+  <!-- DIAGRAM -->
+  <main class="da">
+    <div class="tb">
+      <span class="tl">🏗️ Agent Hierarchy &amp; Data Flow &nbsp;·&nbsp; Click any node or sidebar card for details</span>
+      <div class="zr">
+        <button class="zb" title="Zoom in"    onclick="doZ(1.25)">＋</button>
+        <button class="zb" title="Zoom out"   onclick="doZ(0.8)">－</button>
+        <button class="zb" title="Reset zoom" onclick="rstZ()">⟳ Fit</button>
+      </div>
+    </div>
+    <div id="dsc">
+      <div id="din">
+        <div class="mermaid">
+flowchart TB
+    classDef hC  fill:#0d2137,stroke:#4fc3f7,color:#cce8ff,font-weight:bold
+    classDef lC  fill:#1b4332,stroke:#52b788,color:#d8f3dc,font-weight:bold
+    classDef bC  fill:#2e1600,stroke:#f4a261,color:#ffe8cc,font-weight:bold
+    classDef pC  fill:#16163a,stroke:#5a5aad,color:#9898d0
+    classDef tC  fill:#1e0d2d,stroke:#9d4edd,color:#e0c0ff
+    classDef dC  fill:#071929,stroke:#0096c7,color:#caf0f8
+    classDef prC fill:#0f2617,stroke:#40916c,color:#d8f3dc
+    classDef vC  fill:#2a0d35,stroke:#d4a0ff,color:#f5e0ff,font-weight:bold
+
+    FOUNDER(["👤 Neeraj Khattar<br/>Founder and Operator"]):::hC
+
+    subgraph MGMT ["Management Layer"]
+        direction LR
+        VPM(["🎯 VP Marketing"]):::hC
+        GMC(["💼 GM Care"]):::hC
+        OBS10(["📡 Observatory AI - Agent 10"]):::lC
+    end
+
+    subgraph OUT ["Outreach Pipeline - Agents 1, 2, 3"]
+        direction LR
+        A1(["1 - Prospector<br/>Live"]):::lC
+        A2(["2 - Personalizer<br/>Live"]):::lC
+        A3(["3 - Outreach<br/>Live"]):::lC
+        A1 -->|lead data| A2
+        A2 -->|WA message| A3
+    end
+
+    subgraph CAR ["Care Pipeline - Agents 4, 5, 7"]
+        direction LR
+        A4(["4 - Reply Handler<br/>Building"]):::bC
+        A5(["5 - Demo Booking<br/>Planned"]):::pC
+        A7(["7 - Voice Follow-up<br/>Planned"]):::pC
+        A4 -->|interested| A5
+        A4 -->|5-day silence| A7
+    end
+
+    subgraph VOI ["Voice Layer"]
+        direction LR
+        HENRY(["Henry<br/>Inbound"]):::vC
+        ARIA(["Aria<br/>Outbound Sales"]):::vC
+    end
+
+    subgraph GRW ["Growth Pipeline - Agents 6, 8, 9, 11"]
+        direction LR
+        A6(["6 - Follow-up<br/>Planned"]):::pC
+        A8(["8 - Content<br/>Planned"]):::pC
+        A9(["9 - Re-engage<br/>Planned"]):::pC
+        A11(["11 - Affiliate<br/>Planned"]):::pC
+    end
+
+    subgraph EXT ["External APIs and Tools"]
+        direction LR
+        GMAPS(["Google Maps API"]):::tC
+        CAPI(["Anthropic Claude<br/>Haiku and Sonnet"]):::tC
+        WAPI(["Meta WhatsApp<br/>Cloud API"]):::tC
+        VAPIT(["Vapi.ai<br/>Voice Platform"]):::tC
+        CAL(["Cal.com<br/>Scheduling"]):::tC
+        TWI(["Twilio<br/>PSTN BYOT"]):::tC
+        RSND(["Resend<br/>Email API"]):::tC
+    end
+
+    subgraph INF ["Infrastructure"]
+        direction LR
+        SUPA(["Supabase<br/>PostgreSQL"]):::dC
+        RAIL(["Railway<br/>FastAPI"]):::dC
+        NETL(["Netlify<br/>Functions + UI"]):::dC
+    end
+
+    subgraph PRD ["Products Promoted"]
+        direction LR
+        PDESK(["PracticeDesk<br/>AU - US - Global"]):::prC
+        LAIDAI(["LegalAidAI<br/>India"]):::prC
+    end
+
+    FOUNDER --> VPM
+    FOUNDER --> GMC
+    FOUNDER --> OBS10
+    VPM --> OUT
+    VPM --> GRW
+    GMC --> CAR
+    A7 --> VAPIT
+    VAPIT --> VOI
+    TWI --> VAPIT
+    A5 --> CAL
+    ARIA --> CAL
+    A1 --> GMAPS
+    A1 --> SUPA
+    A2 --> CAPI
+    A2 --> SUPA
+    A3 --> WAPI
+    A3 --> SUPA
+    A4 --> WAPI
+    A4 --> SUPA
+    A4 --> CAPI
+    A8 --> RSND
+    ARIA --> CAPI
+    ARIA --> SUPA
+    OBS10 --> SUPA
+    OBS10 --> CAPI
+    OBS10 -->|daily digest| FOUNDER
+    RAIL --> OUT
+    NETL --> CAR
+    NETL --> GRW
+    A3 -->|promotes| PRD
+    A5 -->|promotes| PRD
+    ARIA -->|promotes| PRD
+
+    click FOUNDER handleClick "View details"
+    click VPM handleClick "View details"
+    click GMC handleClick "View details"
+    click OBS10 handleClick "View details"
+    click A1 handleClick "View details"
+    click A2 handleClick "View details"
+    click A3 handleClick "View details"
+    click A4 handleClick "View details"
+    click A5 handleClick "View details"
+    click A6 handleClick "View details"
+    click A7 handleClick "View details"
+    click A8 handleClick "View details"
+    click A9 handleClick "View details"
+    click A11 handleClick "View details"
+    click HENRY handleClick "View details"
+    click ARIA handleClick "View details"
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- DETAIL PANEL -->
+  <aside class="dp" id="det">
+    <div class="de" id="de">
+      <div class="dei">🔍</div>
+      <div class="det">Select an agent from the sidebar<br>or click any node in the diagram.</div>
+    </div>
+    <div id="dc"></div>
+  </aside>
+
+</div>
+
+<script>
+/* ── Mermaid ── */
+mermaid.initialize({
+  startOnLoad: true, theme: 'dark', securityLevel: 'loose',
+  flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+  themeVariables: {
+    background: '#0d1117', primaryColor: '#1b4332', primaryBorderColor: '#40916c',
+    primaryTextColor: '#d8f3dc', lineColor: '#444c56', secondaryColor: '#161b22',
+    tertiaryColor: '#21262d', clusterBkg: '#161b22', clusterBorder: '#30363d',
+    edgeLabelBackground: '#1c2128', titleColor: '#8b949e',
+  }
+});
+
+/* ── Zoom ── */
+let z = 1;
+const din = document.getElementById('din');
+function doZ(f) { z = Math.min(3, Math.max(.25, z * f)); din.style.transform = `scale(${z})`; }
+function rstZ() { z = 1; din.style.transform = 'scale(1)'; }
+
+/* ── Node → agent map ── */
+const nmap = {
+  FOUNDER:'founder', VPM:'vpm', GMC:'gmc', OBS10:'a10',
+  A1:'a1', A2:'a2', A3:'a3', A4:'a4', A5:'a5', A6:'a6',
+  A7:'a7', A8:'a8', A9:'a9', A11:'a11', HENRY:'henry', ARIA:'aria',
+};
+function handleClick(nid) { const id = nmap[nid]; if (id) sel(id); }
+
+/* ── Agent data ── */
+const D = {
+  founder: {
+    ic:'👤', n:'Neeraj Khattar', t:'Founder & Operator', s:'hum', sl:'Operator — Active',
+    role:'Ultimate decision-maker and architect of the Apex platform. Oversees all three product lines (LegalAidAI, PracticeDesk, Apex). Monitors the Observatory daily digest and is the final escalation point for all pipeline decisions.',
+    tools:['WhatsApp personal +91 9810982019','Railway Dashboard','Netlify — mpex.netlify.app','Supabase Studio','GitHub — apex repo'],
+    host:null, file:null,
+    flow:[{d:'Receives',v:'Daily digest from Observatory (Agent 10) via WhatsApp'},{d:'Directs',v:'VP Marketing → Agents 1,2,3,6,8,9,11'},{d:'Directs',v:'GM Care → Agents 4,5,7'},{d:'Reviews',v:'Campaign stats in admin dashboard'}],
+    prompt:null,
+  },
+  vpm: {
+    ic:'🎯', n:'VP Marketing', t:'Human Apex Operator', s:'hum', sl:'Operator — Active',
+    role:'Oversees all demand-generation agents: the full outreach pipeline (Agents 1–3), follow-up sequences (6), content distribution (8), re-engagement (9), and affiliate tracking (11). Reviews pipeline runs and optimises WhatsApp prompt templates.',
+    tools:['Admin Dashboard — mpex.netlify.app','Supabase leads table','WhatsApp Business Manager'],
+    host:null, file:null,
+    flow:[{d:'Manages',v:'Agents 1, 2, 3, 6, 8, 9, 11'},{d:'Reviews',v:'Pipeline logs in RunPipeline view (SSE streaming)'},{d:'Reviews',v:'Campaign history in Campaigns tab'},{d:'Configures',v:'WA prompt template in Settings tab'}],
+    prompt:null,
+  },
+  gmc: {
+    ic:'💼', n:'GM Care', t:'Human Apex Operator', s:'hum', sl:'Operator — Active',
+    role:'Oversees all inbound-response and relationship-management agents. Ensures warm leads from WA replies are handled quickly: Reply Handler classifies intent, Demo Booking sends Cal.com links, Voice Follow-up escalates cold leads to Aria.',
+    tools:['Admin Dashboard — mpex.netlify.app','Vapi.ai Console','Cal.com Dashboard','Supabase leads table'],
+    host:null, file:null,
+    flow:[{d:'Manages',v:'Agents 4, 5, 7'},{d:'Monitors',v:'Inbound WhatsApp replies on outreach number'},{d:'Reviews',v:'Demo bookings in Cal.com'},{d:'Monitors',v:'Aria outbound call outcomes in lead activity log'}],
+    prompt:null,
+  },
+  a1: {
+    ic:'🗺️', n:'Agent 1: Prospector', t:'Lead Discovery Agent', s:'live', sl:'✅ Live on Railway',
+    role:'Finds businesses matching the target profile (dentist, salon, accountant, physiotherapist, lawyer) in a specified city using Google Maps Places API. Deduplicates by place_id before inserting into Supabase. Feeds clean lead records to the Personalizer.',
+    tools:['Google Maps Places API','Supabase — leads table (write)'],
+    host:'Railway · serene-passion-production-cd82.up.railway.app',
+    file:'outreach-agent/agents/prospector.py',
+    flow:[{d:'Input',v:'business_type + city + max_count from RunPipeline UI'},{d:'Calls',v:'Google Maps Places API → returns matching businesses'},{d:'Dedupes',v:'by place_id — skips already-stored leads'},{d:'Writes',v:'leads: name, address, phone, website, place_id, business_type, city'},{d:'Streams',v:'SSE log events to RunPipeline dashboard'},{d:'Passes to',v:'Agent 2 (Personalizer)'}],
+    prompt:'No LLM — pure Google Maps API. Uses Places Text Search / Nearby Search with type filter. Extracts: displayName, formattedAddress, nationalPhoneNumber, websiteUri, id (place_id).',
+  },
+  a2: {
+    ic:'✍️', n:'Agent 2: Personalizer', t:'Message Personalization Agent', s:'live', sl:'✅ Live on Railway',
+    role:'Takes raw lead data and generates a tailored WhatsApp opening message using Claude Haiku. Uses PROFESSION_CONTEXT — a per-business-type dictionary of pain points and value propositions — to make each message highly relevant.',
+    tools:['Anthropic Claude Haiku (claude-haiku-4-5)','Supabase — reads leads, writes outreach_message'],
+    host:'Railway · serene-passion-production-cd82.up.railway.app',
+    file:'outreach-agent/agents/personalizer.py',
+    flow:[{d:'Input',v:'Lead record (name, type, city, address, website) from Supabase'},{d:'Builds',v:'System prompt with PROFESSION_CONTEXT for the business type'},{d:'Calls',v:'Claude Haiku — generates personalised WA opening message'},{d:'Writes',v:'outreach_message field on lead row in Supabase'},{d:'Passes to',v:'Agent 3 (Outreach)'}],
+    prompt:'System: PROFESSION_CONTEXT[business_type] — pain points + value prop per type (dentist | salon | accountant | physiotherapist | lawyer). Instruction: "Generate a concise, friendly WA message for {name} at {address} in {city}. Reference their profession\'s specific challenges. Max 3 sentences."',
+  },
+  a3: {
+    ic:'📱', n:'Agent 3: Outreach', t:'WhatsApp Delivery Agent', s:'live', sl:'✅ Live on Railway',
+    role:'Delivers the personalised message via Meta WhatsApp Cloud API using the dedicated outreach number (+1 385-363-3720, Phone Number ID: 1131796990021193 — separate from PracticeDesk customer number). Updates lead status and timestamps.',
+    tools:['Meta WhatsApp Cloud API — Phone Number ID: 1131796990021193','Supabase — updates status, outreach_date, outreach_sent'],
+    host:'Railway · serene-passion-production-cd82.up.railway.app',
+    file:'outreach-agent/agents/outreach.py',
+    flow:[{d:'Input',v:'Lead phone + outreach_message from Agent 2'},{d:'Sends',v:'WA message via Meta Cloud API with OUTREACH_WA_PHONE_NUMBER_ID'},{d:'Writes',v:'status → "contacted", outreach_sent = true, outreach_date = now'},{d:'Streams',v:'SSE log back to RunPipeline UI per message sent'}],
+    prompt:'No LLM — pure Meta API call. Sends freeform text message in dry-run or live mode. OUTREACH_WA_PHONE_NUMBER_ID must never be mixed with PracticeDesk customer number.',
+  },
+  a4: {
+    ic:'💬', n:'Agent 4: Reply Handler', t:'Inbound Reply Classification Agent', s:'bld', sl:'🔨 Currently Building',
+    role:'Catches inbound WhatsApp replies on the outreach number. Verifies Meta webhook signatures, looks up sender in Supabase by phone, classifies intent with Claude Haiku, then routes: questions get an AI reply, interested leads go to Demo Booking, not-interested leads are marked dead.',
+    tools:['Meta WhatsApp Cloud API (inbound webhook)','Anthropic Claude Haiku (intent classifier)','Supabase — reads leads by phone, writes status','Netlify Functions'],
+    host:'Netlify · practicedesk.netlify.app/.netlify/functions/outreach-webhook',
+    file:'reply-handler/outreach-webhook.js (planned)',
+    flow:[{d:'Trigger',v:'POST from Meta webhook on inbound WA reply'},{d:'Verifies',v:'Meta hub.verify_token + X-Hub-Signature-256'},{d:'Looks up',v:'Supabase leads table by sender phone'},{d:'Calls',v:'Claude Haiku → classifies: interested | not_interested | question | out_of_office'},{d:'Routes',v:'"interested" → Agent 5 (Demo Booking)'},{d:'Routes',v:'"question" → Claude generates reply → sends WA'},{d:'Routes',v:'"not_interested" → status → "dead"'},{d:'Writes',v:'status → "replied", logs message to Supabase activity'}],
+    prompt:'Claude Haiku — "Classify the intent of this WhatsApp reply: [{message}]. Respond with exactly one word: interested | not_interested | question | out_of_office. If question, also provide a concise helpful reply on the next line."',
+  },
+  a5: {
+    ic:'📅', n:'Agent 5: Demo Booking', t:'Calendar Booking Agent', s:'pln', sl:'📋 Planned',
+    role:'Handles warm leads flagged as "interested" by the Reply Handler. Sends a WhatsApp message with the Cal.com 15-minute PracticeDesk Demo Zoom link. Listens for Cal.com booking confirmation webhook to update lead status.',
+    tools:['Cal.com API — Event ID: 5901537 (PracticeDesk Demo 15min Zoom)','Meta WhatsApp Cloud API','Supabase — updates status'],
+    host:'Netlify Functions (planned)',
+    file:'reply-handler/demo-booking.js (planned)',
+    flow:[{d:'Trigger',v:'"interested" signal from Agent 4 Reply Handler'},{d:'Sends',v:'WA message with Cal.com link to lead phone'},{d:'Writes',v:'status → "demo_sent"'},{d:'Listens',v:'Cal.com booking.created webhook → status → "demo_scheduled"'}],
+    prompt:'No LLM — pre-written template: "Hi! Thanks for your interest in PracticeDesk. Book a free 15-min demo here: [Cal.com link]. Looking forward to showing you around!"',
+  },
+  a6: {
+    ic:'🔔', n:'Agent 6: Follow-up', t:'3-Day Silence Re-engagement Agent', s:'pln', sl:'📋 Planned',
+    role:'Daily cron that scans leads with status="contacted" and no reply for 3+ days. Generates a softer follow-up WA message (acknowledging they may be busy) and sends it. A follow_up_sent guard prevents duplicate sends.',
+    tools:['Anthropic Claude Haiku (follow-up message)','Meta WhatsApp Cloud API','Supabase — reads leads, writes follow_up flags','APScheduler (Railway cron)'],
+    host:'Railway APScheduler — daily cron (planned)',
+    file:'outreach-agent/agents/followup.py (planned)',
+    flow:[{d:'Cron',v:'Daily — queries contacted + outreach_date > 3 days + follow_up_sent = false'},{d:'Calls',v:'Claude Haiku → generate soft follow-up message per lead'},{d:'Sends',v:'WA follow-up via outreach number'},{d:'Writes',v:'follow_up_sent = true, follow_up_date = now'}],
+    prompt:'Claude Haiku — softer tone follow-up. Acknowledges they may have been busy. Briefly reminds of value prop. Single question to invite response. Max 2 sentences.',
+  },
+  a7: {
+    ic:'📞', n:'Agent 7: Voice Follow-up', t:'5-Day Silence Voice Escalation Agent', s:'pln', sl:'📋 Planned',
+    role:'Escalates cold leads (5+ days no reply) to a live Vapi.ai outbound voice call using Aria. Aria uses the 7-phase sales playbook to qualify, pitch, handle objections, and book a demo.',
+    tools:['Vapi.ai — Aria outbound agent','Twilio BYOT +1 318-770-6725 (VAPI_PHONE_NUMBER_ID: 88104176)','Supabase — reads leads, writes call activity'],
+    host:'Railway APScheduler — daily cron (planned)',
+    file:'outreach-agent/agents/voice_followup.py (planned)',
+    flow:[{d:'Cron',v:'Daily — queries follow_up_sent + no reply > 5 days total'},{d:'Triggers',v:'Vapi.ai outbound call via Aria agent (7-phase playbook)'},{d:'Writes',v:'Call SID, duration, outcome, transcript to Supabase lead activity'},{d:'Updates',v:'Lead status based on call outcome'}],
+    prompt:'Delegates to Aria voice agent playbook — Open → Discovery → Insight → Trial Close → Objection Handling → 3-Attempt Close → Exit. 330s call cap enforced by APScheduler.',
+  },
+  henry: {
+    ic:'🎙️', n:'Henry', t:'Inbound Voice Agent (Vapi.ai)', s:'live', sl:'✅ Live · +1 (312) 940-8233',
+    role:'Handles inbound calls to the PracticeDesk demo / support line. Qualifies leads, answers feature and pricing questions, and can book a demo via Cal.com. Call recording and transcripts enabled. Sets lead status to "replied" on call receipt.',
+    tools:['Vapi.ai (Agent ID: 897ca5ec)','Twilio +1 (312) 940-8233','Cal.com (booking)','Supabase — writes call activity + sets status "replied"'],
+    host:'Vapi.ai cloud · Railway webhook handler',
+    file:'outreach-agent/server.py → /vapi-webhook endpoint',
+    flow:[{d:'Handles',v:'Inbound calls to +1 (312) 940-8233'},{d:'Answers',v:'PracticeDesk feature, pricing, and onboarding questions'},{d:'Books',v:'Cal.com 15-min demo on request'},{d:'Writes',v:'Call recording, transcript, activity log to Supabase'},{d:'Sets',v:'Lead status → "replied" on call receipt webhook'}],
+    prompt:'Warm, professional receptionist + product expert persona. Knows PracticeDesk verticals (dentists, salons, accountants, physios). 9 tool slots remaining for expansion.',
+  },
+  aria: {
+    ic:'📤', n:'Aria', t:'Outbound Sales Voice Agent (Vapi.ai)', s:'live', sl:'✅ Live · Outbound Sales',
+    role:'Powers all outbound sales calls using a 7-phase consultative playbook. Triggered by Agent 7 or manually via the dashboard. Automatically books Cal.com demos on an "interested" signal. Sends callback alert to founder WhatsApp on key outcomes. 330s call cap.',
+    tools:['Vapi.ai outbound','Twilio BYOT +1 318-770-6725 (VAPI_PHONE_NUMBER_ID: 88104176)','Anthropic Claude (underlying LLM)','Cal.com (auto-booking on interested signal)','Supabase — writes call outcome + activity'],
+    host:'Vapi.ai cloud · Railway APScheduler + webhook',
+    file:'outreach-agent/server.py → /aria-call endpoint',
+    flow:[{d:'Triggered by',v:'Agent 7 (Voice F/U) cron, or manual Aria button in dashboard'},{d:'Playbook',v:'Open → Discovery → Insight → Trial → Objection → 3-Close → Exit'},{d:'On "interested"',v:'Books Cal.com PracticeDesk Demo 15min Zoom automatically'},{d:'Callback alert',v:'WhatsApp to founder +91 9810982019 after key outcomes'},{d:'Cap',v:'330s max per call · APScheduler enforces cutoff'},{d:'Writes',v:'Call SID, duration, transcript, outcome → Supabase lead activity'}],
+    prompt:'7-phase sales playbook. Trained on PracticeDesk + LegalAidAI value props. Handles price, time, and competitor objections. Attempts close 3× before graceful exit. Professional, warm persona.',
+  },
+  a8: {
+    ic:'📝', n:'Agent 8: Content', t:'Social & Email Content Agent', s:'pln', sl:'📋 Planned',
+    role:'Generates weekly LinkedIn and Instagram posts promoting PracticeDesk and LegalAidAI, and distributes an email newsletter via Resend. Uses Claude Sonnet for higher-quality long-form content.',
+    tools:['Anthropic Claude Sonnet','Resend Email API (henry@practicedesk.live)','LinkedIn API (planned)','Instagram Graph API (planned)'],
+    host:'Railway APScheduler — Monday 8am IST weekly (planned)',
+    file:'outreach-agent/agents/content.py (planned)',
+    flow:[{d:'Cron',v:'Weekly — Monday 8am IST'},{d:'Generates',v:'LinkedIn post per product (PracticeDesk + LegalAidAI)'},{d:'Generates',v:'Instagram caption + suggested visual prompt'},{d:'Sends',v:'Email newsletter to subscriber list via Resend'}],
+    prompt:'Claude Sonnet — professional SaaS content voice. Target: healthcare + legal + professional service verticals. Hook, insight, soft CTA. No hard sell.',
+  },
+  a9: {
+    ic:'🔄', n:'Agent 9: Re-engagement', t:'Win-back Sequence Agent', s:'pln', sl:'📋 Planned',
+    role:'Detects churned leads (status="dead", >30 days) and runs personalised win-back WA + email sequences. Adjusts tone and angle based on original lead profile and reason they went cold.',
+    tools:['Anthropic Claude Haiku (re-engagement copy)','Meta WhatsApp Cloud API','Resend Email API','Supabase — reads dead leads, writes re-engage flags'],
+    host:'Railway APScheduler — monthly cron (planned)',
+    file:'outreach-agent/agents/reengagement.py (planned)',
+    flow:[{d:'Cron',v:'Monthly — queries status="dead" + dead_date > 30 days'},{d:'Calls',v:'Claude Haiku → generate win-back message tailored to lead profile'},{d:'Sends',v:'WA message + optional email sequence via Resend'},{d:'Tracks',v:'Response → updates status + logs to Supabase activity'}],
+    prompt:'Claude Haiku — re-engagement angle: product has improved, new feature relevant to vertical, limited-time offer framing. Warm, non-pushy. Single soft CTA.',
+  },
+  a10: {
+    ic:'📡', n:'Agent 10: Observatory', t:'Daily Operations Monitoring Agent', s:'pln', sl:'📋 Planned — AI-only, reports to Founder',
+    role:'Daily cron at 7am IST. Pulls Anthropic API token usage (cost), Supabase pipeline metrics, and Vapi.ai voice minutes. Formats a concise digest and sends it directly to the founder\'s personal WhatsApp. Primary error-reporting mechanism once built.',
+    tools:['Anthropic API — usage endpoint','Supabase — queries leads + campaign_runs','Vapi.ai API — call minutes','Meta WhatsApp API — sends to founder +91 9810982019'],
+    host:'Railway APScheduler — 7am IST daily (planned)',
+    file:'outreach-agent/agents/observatory.py (planned)',
+    flow:[{d:'Cron',v:'Daily at 7am IST — queries yesterday window'},{d:'Queries',v:'Anthropic API → token count → calculate $ cost'},{d:'Queries',v:'Supabase → leads added, converted, WA messages sent'},{d:'Queries',v:'Vapi.ai API → voice minutes used by Henry + Aria'},{d:'Formats',v:'Digest message with deltas vs previous day'},{d:'Sends',v:'WhatsApp to founder +91 9810982019'}],
+    prompt:'Format: "📊 Apex Daily — {date}\\n\\nAnthropic: ${cost} ({delta})\\nWA sent: {n}\\nLeads added: {new} · Converted: {conv}\\nVoice mins: {mins}\\n\\nPipeline last ran: {time} — {city} {type}"',
+  },
+  a11: {
+    ic:'🔗', n:'Agent 11: Affiliate Tracker', t:'Referral & Commission Management Agent', s:'pln', sl:'📋 Planned',
+    role:'Manages the LegalAidAI affiliate programme. Tracks referral links (legalaidai.in/advocate?ref=CODE), attributes sign-ups to affiliates, calculates commissions (₹500 on first paid subscription + ₹500 on first renewal), and manages payout status.',
+    tools:['Supabase — affiliates, referrals, commissions tables','Razorpay (affiliate payouts)','Meta WhatsApp API (affiliate notifications)'],
+    host:'Netlify Function + Railway (planned)',
+    file:'affiliate-tracker/ (planned)',
+    flow:[{d:'Tracks',v:'Referral clicks → legalaidai.in/advocate?ref=HANDLE123'},{d:'Attributes',v:'Sign-ups + conversions to affiliate_id in Supabase'},{d:'Creates',v:'Commission row: ₹500 on first paid sub + ₹500 on renewal'},{d:'Notifies',v:'Affiliate via WA: "You earned ₹500! Check your UPI."'},{d:'Manages',v:'Payout status: pending → paid via Razorpay'}],
+    prompt:'Flat ₹500 on first paid subscription + ₹500 on first renewal. No tiers. Referral code = Instagram handle + 3-digit suffix. URL param ?ref=CODE tracked on LegalAidAI signup page.',
+  },
+};
+
+/* ── Selection ── */
+let cur = null;
+function sel(id) {
+  if (cur) { const p = document.getElementById('c-' + cur); if (p) p.classList.remove('sel'); }
+  cur = id;
+  const c = document.getElementById('c-' + id);
+  if (c) c.classList.add('sel');
+  renderDet(id);
+  document.getElementById('det').scrollTop = 0;
+}
+
+/* ── Status styles ── */
+const SS = {
+  live: 'background:var(--live-bg);color:var(--live);border:1px solid var(--live-bdr)',
+  bld:  'background:var(--bld-bg);color:var(--bld);border:1px solid var(--bld-bdr)',
+  pln:  'background:var(--pln-bg);color:var(--pln);border:1px solid var(--pln-bdr)',
+  hum:  'background:var(--hum-bg);color:var(--hum);border:1px solid var(--hum-bdr)',
+};
+
+/* ── Render detail ── */
+function renderDet(id) {
+  const d = D[id]; if (!d) return;
+  document.getElementById('de').style.display = 'none';
+  const el = document.getElementById('dc');
+  el.style.display = 'flex';
+  let h = `
+    <div class="dh">
+      <div class="di">${d.ic}</div>
+      <div>
+        <div class="dn">${d.n}</div>
+        <div class="ds">${d.t}</div>
+        <span class="dst" style="${SS[d.s]||''}">${d.sl}</span>
+      </div>
+    </div>
+    <div class="dvd"></div>
+    <div><div class="sl">Role &amp; Purpose</div><div class="dt">${d.role}</div></div>`;
+  if (d.tools?.length) h += `<div><div class="sl">Tools &amp; APIs</div><div class="tw">${d.tools.map(t=>`<span class="tt">🔧 ${t}</span>`).join('')}</div></div>`;
+  if (d.host) h += `<div><div class="sl">Hosting</div><span class="ht">🗄️ ${d.host}</span></div>`;
+  if (d.file) h += `<div><div class="sl">Source File</div><span class="ft">📄 ${d.file}</span></div>`;
+  if (d.flow?.length) h += `<div><div class="sl">Data Flow</div><div style="display:flex;flex-direction:column;gap:4px">${d.flow.map(f=>`<div class="fr"><span class="fd">${f.d}</span><span class="fa">→</span><span class="fv">${f.v}</span></div>`).join('')}</div></div>`;
+  if (d.prompt) h += `<div><div class="sl">Prompt / Model Focus</div><div class="pb">${d.prompt}</div></div>`;
+  el.innerHTML = h;
+}
+</script>
+</body>
+</html>

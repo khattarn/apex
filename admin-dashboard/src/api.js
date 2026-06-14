@@ -82,6 +82,12 @@ export const getLeadActivities = (id) => request(`/api/leads/${id}/activities`)
 
 export const fetchTwilioToken = () => request('/api/twilio/token')
 
+export const startBridgeCall = (to) =>
+  request('/api/bridge/call', { method: 'POST', body: JSON.stringify({ to }) })
+
+export const getBridgeStatus = (bridgeId) =>
+  request(`/api/bridge/status/${bridgeId}`)
+
 export const getTemplateStatuses = () => request('/api/templates')
 
 export const submitTemplates = (name = 'all') =>

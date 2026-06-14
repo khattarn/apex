@@ -1218,6 +1218,25 @@ async def twilio_voice(To: str = "", _From: str = ""):
     return Response(content=str(resp), media_type="application/xml")
 
 
+# ── India bridge call (Vobiz SIP REFER) ──────────────────────────────────────
+
+@app.post("/api/bridge/call")
+async def bridge_call(request: Request, _=Depends(verify_token)):
+    body = await request.json()
+    destination = (body.get("to") or "").strip()
+    if not destination:
+        raise HTTPException(status_code=400, detail="Missing 'to'")
+    from agents.sip_bridge import start_bridge
+    bridge_id = start_bridge(destination)
+    return {"bridge_id": bridge_id}
+
+
+@app.get("/api/bridge/status/{bridge_id}")
+async def bridge_status(bridge_id: str, _=Depends(verify_token)):
+    from agents.sip_bridge import get_bridge_status
+    return get_bridge_status(bridge_id)
+
+
 # ── Unsubscribe (public — no auth) ───────────────────────────────────────────
 
 _UNSUB_PAGE = """<!DOCTYPE html>
@@ -1689,6 +1708,48 @@ async def health():
     checks["whatsapp"] = bool(os.getenv("OUTREACH_WA_PHONE_NUMBER_ID") and os.getenv("WHATSAPP_ACCESS_TOKEN"))
 
     return checks
+
+
+# ── Anthropic spend (current month) ──────────────────────────────────────────
+
+@app.get("/api/anthropic/spend")
+async def anthropic_spend(_=Depends(verify_token)):
+    """Return estimated Anthropic spend for the current calendar month via the usage API."""
+    import asyncio
+    import requests as req
+    from datetime import date
+
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY not set", "total_usd": None}
+
+    today = date.today()
+    start = today.replace(day=1).isoformat()
+
+    def _fetch():
+        return req.get(
+            "https://api.anthropic.com/v1/usage",
+            params={"start_date": start, "end_date": today.isoformat()},
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+            },
+            timeout=8,
+        )
+
+    try:
+        r = await asyncio.to_thread(_fetch)
+        if r.status_code == 200:
+            data = r.json()
+            total = sum(
+                item.get("input_tokens", 0) * item.get("input_cost_per_token", 0)
+                + item.get("output_tokens", 0) * item.get("output_cost_per_token", 0)
+                for item in (data.get("data") or [])
+            )
+            return {"total_usd": round(total, 4), "source": "anthropic_usage_api"}
+        return {"error": f"Usage API returned {r.status_code}", "total_usd": None}
+    except Exception as exc:
+        return {"error": str(exc), "total_usd": None}
 
 
 # ── Danger zone ───────────────────────────────────────────────────────────────

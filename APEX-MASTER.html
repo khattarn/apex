@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Platform v2.0 — Architecture Plan</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2230;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --green: #3fb950;
+    --blue: #58a6ff;
+    --purple: #bc8cff;
+    --orange: #ffa657;
+    --yellow: #e3b341;
+    --red: #f85149;
+    --cyan: #39d353;
+    --ceo: #58a6ff;
+    --brain: #bc8cff;
+    --agent: #3fb950;
+    --db: #ffa657;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 40px 20px 80px;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    padding: 50px 20px 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 50px;
+  }
+  .header .badge {
+    display: inline-block;
+    background: rgba(88,166,255,.15);
+    border: 1px solid rgba(88,166,255,.3);
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .header p { color: var(--muted); font-size: 16px; }
+
+  /* ── Section ── */
+  section { margin-bottom: 56px; }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  h3 { font-size: 17px; font-weight: 600; color: var(--text); margin: 24px 0 10px; }
+  h3 .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    font-weight: 500;
+    vertical-align: middle;
+  }
+  p { color: var(--muted); margin-bottom: 12px; }
+  strong { color: var(--text); }
+  ul { padding-left: 22px; color: var(--muted); }
+  ul li { margin-bottom: 6px; }
+  ul li strong { color: var(--text); }
+
+  /* ── Prompt restate ── */
+  .prompt-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+  }
+  .prompt-box p { color: var(--text); font-size: 15px; line-height: 1.8; }
+
+  /* ── Two agent cards ── */
+  .agent-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 24px;
+  }
+  @media(max-width: 700px) { .agent-cards { grid-template-columns: 1fr; } }
+  .agent-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 24px;
+    border-top: 3px solid;
+  }
+  .agent-card.ceo { border-color: var(--ceo); }
+  .agent-card.brain { border-color: var(--brain); }
+  .agent-card h3 { margin-top: 0; }
+  .agent-card h3 span {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .agent-card.ceo h3 span { background: rgba(88,166,255,.15); color: var(--blue); }
+  .agent-card.brain h3 span { background: rgba(188,140,255,.15); color: var(--purple); }
+  .agent-card ul li { font-size: 14px; }
+
+  /* ── ASCII diagram ── */
+  .diagram-wrap {
+    background: #0a0e13;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    overflow-x: auto;
+  }
+  .diagram-wrap pre {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #58a6ff;
+    white-space: pre;
+  }
+
+  /* ── Info grid ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .info-card .icon { font-size: 22px; margin-bottom: 10px; }
+  .info-card h4 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .info-card p { font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* ── Agent layer grid ── */
+  .agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .agent-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .agent-pill .num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(63,185,80,.15);
+    color: var(--green);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .agent-pill .name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .agent-pill .desc { font-size: 11px; color: var(--muted); }
+  .agent-pill.new-agent .num {
+    background: rgba(227,179,65,.15);
+    color: var(--yellow);
+  }
+  .agent-pill.new-agent { border-color: rgba(227,179,65,.3); }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 14px;
+  }
+  th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color: var(--text); font-family: monospace; font-size: 13px; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: #0a0e13;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin-top: 12px;
+  }
+  .code-block pre {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e6edf3;
+    white-space: pre;
+  }
+
+  /* ── SQL blocks ── */
+  .sql-block {
+    background: #0a0e13;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin-top: 12px;
+  }
+  .sql-block pre {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #e6edf3;
+  }
+
+  /* ── Phase cards ── */
+  .phases { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+  .phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    display: flex;
+    gap: 20px;
+  }
+  .phase-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .phase:nth-child(1) .phase-num { background: rgba(88,166,255,.15); color: var(--blue); }
+  .phase:nth-child(2) .phase-num { background: rgba(188,140,255,.15); color: var(--purple); }
+  .phase:nth-child(3) .phase-num { background: rgba(63,185,80,.15); color: var(--green); }
+  .phase-content h4 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .phase-content ul { padding-left: 18px; }
+  .phase-content ul li { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+
+  /* ── Verify checklist ── */
+  .checklist { list-style: none; padding: 0; margin-top: 16px; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .checklist li::before {
+    content: '○';
+    color: var(--blue);
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: -1px;
+  }
+
+  /* ── Files grid ── */
+  .files-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 16px;
+  }
+  .files-grid .cell {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .files-grid .cell:nth-child(odd) {
+    font-family: monospace;
+    color: var(--orange);
+    background: rgba(255,166,87,.05);
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .files-grid .cell:nth-child(even) { color: var(--muted); }
+  .files-grid .cell:nth-last-child(-n+2) { border-bottom: none; }
+
+  /* ── Endpoints ── */
+  .endpoints { margin-top: 16px; }
+  .endpoint {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    margin-bottom: 6px;
+  }
+  .method {
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    min-width: 44px;
+    text-align: center;
+  }
+  .method.get { background: rgba(63,185,80,.15); color: var(--green); }
+  .method.post { background: rgba(88,166,255,.15); color: var(--blue); }
+  .endpoint .path { font-family: monospace; font-size: 13px; color: var(--text); }
+  .endpoint .ep-desc { font-size: 12px; color: var(--muted); margin-left: auto; text-align: right; }
+
+  /* ── Silo alert ── */
+  .silo-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  @media(max-width: 600px) { .silo-cards { grid-template-columns: 1fr; } }
+  .silo-card {
+    background: rgba(248,81,73,.05);
+    border: 1px solid rgba(248,81,73,.2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .silo-card strong { color: #f85149; display: block; margin-bottom: 4px; font-size: 13px; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    background: rgba(255,255,255,.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--orange);
+  }
+
+  .tag-new {
+    display: inline-block;
+    background: rgba(227,179,65,.15);
+    color: var(--yellow);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <div class="badge">Architecture Blueprint</div>
+  <h1>Apex Platform v2.0</h1>
+  <p>CEO Agent + Brain Agent &mdash; Complete Architecture Design</p>
+  <p style="margin-top:6px;font-size:13px;">Prepared for Neeraj Khattar &middot; June 2026</p>
+</div>
+
+<!-- ── YOUR BRIEF ── -->
+<section>
+  <h2><span class="num" style="background:rgba(88,166,255,.15);color:var(--blue)">1</span>Your Brief &mdash; Restated</h2>
+  <div class="prompt-box">
+    <p>You asked for two new top-level agents that sit above the existing 11-agent system and give you complete supervisory control and organisational intelligence:</p>
+  </div>
+  <div class="agent-cards" style="margin-top:20px;">
+    <div class="agent-card ceo">
+      <h3 style="color:var(--ceo)">CEO Agent <span>Orchestrator</span></h3>
+      <ul>
+        <li>Knows the real-time status of every agent at all times</li>
+        <li>Eliminates information silos &mdash; agents share context through the CEO</li>
+        <li>Issues directives: pause, adjust, or trigger any agent</li>
+        <li>Retains memory of the full system &mdash; architecture, decisions, upgrades</li>
+        <li>Single point of contact between you and the system via WhatsApp</li>
+        <li>Designs and deploys new agents when a gap is identified</li>
+        <li><strong>Supervises &mdash; does not merely observe</strong></li>
+      </ul>
+    </div>
+    <div class="agent-card brain">
+      <h3 style="color:var(--brain)">Brain Agent <span>Intelligence</span></h3>
+      <ul>
+        <li>Accumulates everything: every WA, reply, call transcript, email click, conversion</li>
+        <li>Learns from client feedback &mdash; what makes prospects convert</li>
+        <li>Learns from failures &mdash; what templates fail, what calls get hung up</li>
+        <li>Builds a living knowledge base the whole system can reference</li>
+        <li>Advises on any proposed change with data-backed recommendations</li>
+        <li><strong>Can eventually design a new multi-agent system from its experience</strong></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ── VISUAL DIAGRAM ── -->
+<section>
+  <h2><span class="num" style="background:rgba(63,185,80,.15);color:var(--green)">2</span>Architecture Diagram</h2>
+  <div class="diagram-wrap">
+<pre>
+&#x2554;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2557;
+&#x2551;                           APEX  PLATFORM  v2.0                                  &#x2551;
+&#x255a;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x255d;
+
+                        &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+                        &#x2502;      NEERAJ  (Founder)       &#x2502;
+                        &#x2502;   WhatsApp +91 98109 82019   &#x2502;
+                        &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x252c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+                        WA queries &amp;    &#x2502;    WA answers, alerts
+                        directives      &#x2502;    &amp; daily brief
+                                        &#x2502;
+           &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x253c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+           &#x25bc;                            &#x25bc;                             &#x25bc;
+  &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;      &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+  &#x2502;            CEO  AGENT  &#x2605; NEW             &#x2502;&#x25c4;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25ba;&#x2502;    BRAIN  AGENT  &#x2605; NEW      &#x2502;
+  &#x2502;          Claude Sonnet 4.6               &#x2502;      &#x2502;      Claude Opus 4.8        &#x2502;
+  &#x2502;                                          &#x2502;      &#x2502;                             &#x2502;
+  &#x2502;  &#x25cf; Hourly system heartbeat               &#x2502;      &#x2502;  &#x25cf; Daily data accumulation  &#x2502;
+  &#x2502;  &#x25cf; Health monitor + instant WA alerts    &#x2502;      &#x2502;  &#x25cf; Weekly deep learning     &#x2502;
+  &#x2502;  &#x25cf; Lead context enrichment (fixes silos) &#x2502;&#x25c4;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2502;  &#x25cf; Pattern extraction       &#x2502;
+  &#x2502;  &#x25cf; Directive queue (pause/adjust agents) &#x2502;      &#x2502;  &#x25cf; Living knowledge base    &#x2502;
+  &#x2502;  &#x25cf; System journal (persistent memory)   &#x2502;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25ba;&#x2502;  &#x25cf; Client feedback analysis &#x2502;
+  &#x2502;  &#x25cf; WA Q&amp;A interface for Neeraj           &#x2502;      &#x2502;  &#x25cf; Architecture advisor     &#x2502;
+  &#x2502;  &#x25cf; Agent factory (spawn new agents)      &#x2502;      &#x2502;  &#x25cf; Can design new systems   &#x2502;
+  &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x252c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;      &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+                         &#x2502;
+            monitors &middot; directives &middot; context
+                         &#x2502;
+  &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25bc;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+  &#x2502;                          A G E N T   L A Y E R                              &#x2502;
+  &#x2502;                                                                              &#x2502;
+  &#x2502;   OUTREACH LOOP                    REPLY &amp; BOOKING LOOP                     &#x2502;
+  &#x2502;   &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;                    &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;                    &#x2502;
+  &#x2502;   1  Prospector (Google Maps)      4  Reply Handler (intent classify)        &#x2502;
+  &#x2502;   2  Email Scraper (website)       5  Demo Booking (Cal.com link)            &#x2502;
+  &#x2502;   3  Personalizer (WA + Email)     WA Inbound Webhook                        &#x2502;
+  &#x2502;      + 6-step Email Sequence                                                 &#x2502;
+  &#x2502;                                                                              &#x2502;
+  &#x2502;   FOLLOW-UP LOOP                   VOICE &amp; CALLING LOOP                     &#x2502;
+  &#x2502;   &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;                  &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;                   &#x2502;
+  &#x2502;   6  WA Follow-up (3 days)         Aria Basic Outbound Call                 &#x2502;
+  &#x2502;   7  Voice Follow-up (5 days)      Aria Click Caller (7-phase)              &#x2502;
+  &#x2502;                                    Cal.com Auto-Booking                     &#x2502;
+  &#x2502;                                                                              &#x2502;
+  &#x2502;   OBSERVATORY (upgrading)                                                    &#x2502;
+  &#x2502;   &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;                                                    &#x2502;
+  &#x2502;   Daily digest &middot; 2-hour watchdog &middot; Anomaly alerts                           &#x2502;
+  &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+                                         &#x2502;  reads + writes
+  &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25bc;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+  &#x2502;                              S U P A B A S E                                &#x2502;
+  &#x2502;                                                                              &#x2502;
+  &#x2502;  EXISTING TABLES:                          NEW TABLES (5):                  &#x2502;
+  &#x2502;  leads &middot; lead_activities                   agent_registry  (health status)  &#x2502;
+  &#x2502;  campaign_runs &middot; email_sends                agent_directives  (CEO commands) &#x2502;
+  &#x2502;  settings                                  system_journal  (CEO memory)     &#x2502;
+  &#x2502;                                            learnings  (Brain insights)      &#x2502;
+  &#x2502;                                            knowledge_base  (Brain KB docs)  &#x2502;
+  &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+                                         &#x2502;
+  &#x250c;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25bc;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+  &#x2502;                         EXTERNAL  SERVICES                                  &#x2502;
+  &#x2502;  Meta WhatsApp API  &middot;  Vapi AI  &middot;  Cal.com  &middot;  Twilio  &middot;  Resend           &#x2502;
+  &#x2502;  Anthropic Claude API  &middot;  Google Maps  &middot;  Supabase                         &#x2502;
+  &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+</pre>
+  </div>
+</section>
+
+<!-- ── CURRENT PROBLEM ── -->
+<section>
+  <h2><span class="num" style="background:rgba(248,81,73,.15);color:var(--red)">3</span>What's Missing Today &mdash; The Problem</h2>
+  <p>The current system has <strong>11 agents that work in complete isolation.</strong> No agent knows what another has done with the same lead. Here are the active information silos:</p>
+  <div class="silo-cards">
+    <div class="silo-card"><strong>Aria calls leads who already replied via WA</strong>No agent checks if a lead replied to WhatsApp before placing a voice call. Aria is blind to WA history.</div>
+    <div class="silo-card"><strong>Email sends ignore active WA conversations</strong>The 6-step email sequence fires even when a prospect is mid-conversation via WhatsApp.</div>
+    <div class="silo-card"><strong>Silent failures &mdash; zero alerts</strong>Every cron job has <code>except: pass</code>. If the WA token expires, agents send 0 messages and no one is notified.</div>
+    <div class="silo-card"><strong>No system memory</strong>There is no persistent record of architecture decisions, upgrade history, or what was tried and failed.</div>
+    <div class="silo-card"><strong>No learning loop</strong>The system has been running for months. No agent has extracted a single pattern from the data &mdash; which messages work, which cities convert, which scripts close.</div>
+    <div class="silo-card"><strong>No command channel</strong>To pause outreach to dentists in Toronto, you'd need to edit code and redeploy. There is no runtime directive system.</div>
+  </div>
+</section>
+
+<!-- ── CEO AGENT ── -->
+<section>
+  <h2><span class="num" style="background:rgba(88,166,255,.15);color:var(--ceo)">4</span>CEO Agent &mdash; What It Does</h2>
+
+  <h3>A. System Heartbeat <span class="tag" style="background:rgba(88,166,255,.1);color:var(--blue)">every hour</span></h3>
+  <p>Reads <code>agent_registry</code>, recent <code>lead_activities</code>, active Vapi calls, and email queue depth. Writes a health snapshot to <code>system_journal</code>. Sends a WA alert only when something is broken &mdash; not noise, only signal.</p>
+
+  <h3>B. Lead Context Enrichment <span class="tag" style="background:rgba(63,185,80,.1);color:var(--green)">fixes information silos</span></h3>
+  <p>A new shared function <code>get_lead_context(lead_id)</code> that every agent calls before acting. Instead of agents running blind, every agent gets a full picture:</p>
+  <div class="code-block"><pre><code style="color:#e6edf3;font-size:13px;background:none;padding:0">Lead: Bright Smiles Dental, Melbourne
+Contact history:
+  - WA outreach sent 5 days ago (no reply)
+  - Email 1 sent 3 days ago (opened, not clicked)
+  - Email 2 sent today
+  - WA follow-up sent yesterday
+
+Touchpoints: 4  |  Engagement: LOW
+Last contact: 18h ago
+Recommended next action: Voice call appropriate</code></pre></div>
+  <p>This context is injected into Aria's system prompt, the personalizer template, and every follow-up generator. Every agent becomes dramatically smarter.</p>
+
+  <h3>C. Directive Queue <span class="tag" style="background:rgba(255,166,87,.1);color:var(--orange)">runtime control</span></h3>
+  <p>New <code>agent_directives</code> table. CEO writes directives; each agent checks the queue before running:</p>
+  <table>
+    <thead><tr><th>Directive</th><th>Effect</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td>PAUSE</td><td>Stop all sends to a business type or city</td><td>Pause dentist outreach in Toronto</td></tr>
+      <tr><td>ADJUST_INTERVAL</td><td>Change follow-up timing on the fly</td><td>Reduce WA follow-up to 2 days for AU leads</td></tr>
+      <tr><td>CHANGE_TEMPLATE</td><td>Switch to a different WA/email template</td><td>Use template B for physiotherapists this week</td></tr>
+      <tr><td>TARGET</td><td>Focus pipeline on a specific city + type</td><td>Run dentist prospecting in Sydney only</td></tr>
+      <tr><td>ABORT_LEAD</td><td>Immediately stop all contact with a lead</td><td>Remove Dr. Smith &mdash; called to complain</td></tr>
+    </tbody>
+  </table>
+
+  <h3>D. WhatsApp Interface with You</h3>
+  <p>The existing WA webhook is modified to detect when the sender is your number (<code>+919810982019</code>). Those messages bypass the Reply Handler and go directly to the CEO's context (Claude Sonnet). You can text the system in plain English:</p>
+  <div class="info-grid" style="margin-top:16px;">
+    <div class="info-card"><div class="icon">&#x1F4AC;</div><h4>"How is the system doing?"</h4><p>CEO returns a live summary: agents healthy, leads in queue, last run stats</p></div>
+    <div class="info-card"><div class="icon">&#x1F4CA;</div><h4>"Why are reply rates down?"</h4><p>CEO cross-references Brain's learnings and returns a data-backed answer</p></div>
+    <div class="info-card"><div class="icon">&#x23F8;&#xFE0F;</div><h4>"Pause dentist outreach in Toronto"</h4><p>CEO writes a PAUSE directive to the queue &mdash; takes effect on next job run</p></div>
+    <div class="info-card"><div class="icon">&#x1F916;</div><h4>"Create an Instagram DM agent"</h4><p>CEO drafts spec, Brain validates, Claude writes code, you approve via WA</p></div>
+  </div>
+
+  <h3>E. Agent Factory</h3>
+  <p>When a new agent is needed, CEO and Brain work together to build it:</p>
+  <div class="phases" style="margin-top:12px;">
+    <div class="phase" style="padding:14px 18px;">
+      <div class="phase-num" style="background:rgba(88,166,255,.1);color:var(--blue);width:32px;height:32px;font-size:13px;">1</div>
+      <div class="phase-content"><h4 style="font-size:14px;">CEO drafts specification</h4><ul><li>Purpose, inputs, outputs, external APIs needed, schedule</li></ul></div>
+    </div>
+    <div class="phase" style="padding:14px 18px;">
+      <div class="phase-num" style="background:rgba(188,140,255,.1);color:var(--purple);width:32px;height:32px;font-size:13px;">2</div>
+      <div class="phase-content"><h4 style="font-size:14px;">Brain validates architecture fit</h4><ul><li>Checks for conflicts with existing agents, suggests reuse of existing code</li></ul></div>
+    </div>
+    <div class="phase" style="padding:14px 18px;">
+      <div class="phase-num" style="background:rgba(63,185,80,.1);color:var(--green);width:32px;height:32px;font-size:13px;">3</div>
+      <div class="phase-content"><h4 style="font-size:14px;">Claude writes the agent code</h4><ul><li>Full Python agent file + server.py endpoint generated</li></ul></div>
+    </div>
+    <div class="phase" style="padding:14px 18px;">
+      <div class="phase-num" style="background:rgba(227,179,65,.1);color:var(--yellow);width:32px;height:32px;font-size:13px;">4</div>
+      <div class="phase-content"><h4 style="font-size:14px;">You approve via WhatsApp</h4><ul><li>Reply "yes go ahead" &mdash; CEO writes file to disk, adds to agent_registry, deploys</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── BRAIN AGENT ── -->
+<section>
+  <h2><span class="num" style="background:rgba(188,140,255,.15);color:var(--brain)">5</span>Brain Agent &mdash; What It Does</h2>
+
+  <h3>A. Daily Data Accumulation <span class="tag" style="background:rgba(188,140,255,.1);color:var(--brain)">2am UTC</span></h3>
+  <p>Reads new <code>lead_activities</code> since last run. Extracts raw signals: reply rates by message template, email engagement by subject line and business type, call outcomes by script, time-of-day response patterns.</p>
+
+  <h3>B. Weekly Deep Learning <span class="tag" style="background:rgba(188,140,255,.1);color:var(--brain)">Sunday midnight</span></h3>
+  <p>Full analysis of the past 7 days using Claude Opus:</p>
+  <ul>
+    <li><strong>What's working:</strong> Top 3 messages, business types, cities, time windows</li>
+    <li><strong>What's failing:</strong> Low-reply templates, dropout points in the funnel</li>
+    <li><strong>Client voice:</strong> Themes extracted from WA replies and call transcripts &mdash; what objections come up, what language resonates</li>
+    <li><strong>Funnel analysis:</strong> Where are prospects falling off? Outreach &rarr; Email &rarr; Call &rarr; Reply &rarr; Demo</li>
+  </ul>
+  <p>Results are stored in <code>learnings</code> and <code>knowledge_base</code> tables.</p>
+
+  <h3>C. Advice Engine <span class="tag" style="background:rgba(63,185,80,.1);color:var(--green)">queryable anytime</span></h3>
+  <p>You or the CEO can query the Brain at any time via <code>/api/brain/query</code>:</p>
+  <table>
+    <thead><tr><th>Query</th><th>Example Answer</th></tr></thead>
+    <tbody>
+      <tr><td>Which business type to focus on?</td><td>Physiotherapists: 34% reply rate vs 18% average. Push Melbourne + Sydney.</td></tr>
+      <tr><td>Should we reduce WA follow-up to 2 days?</td><td>Based on 847 leads, 40% of replies arrive after day 3. Do not reduce interval.</td></tr>
+      <tr><td>What objections do prospects raise?</td><td>Price (38%) &middot; Existing system (24%) &middot; Too busy (19%) &middot; Not interested (11%)</td></tr>
+      <tr><td>Best time to call dentists in Melbourne?</td><td>Tuesday&ndash;Thursday, 10&ndash;11 AM AEST. 2.4&times; higher answer rate.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>D. Architecture Audit <span class="tag" style="background:rgba(227,179,65,.1);color:var(--yellow)">monthly + on-demand</span></h3>
+  <p>Beyond learning from data, Brain periodically <strong>audits the agent architecture itself</strong> &mdash; asking whether the right agents exist, whether they are doing the right things, whether any are redundant or missing, and whether the system is cost-efficient. This is the self-improvement loop that prevents architectural drift.</p>
+
+  <p>For each agent in <code>agent_registry</code>, Brain evaluates:</p>
+  <ul>
+    <li><strong>Contribution:</strong> Does this agent's output demonstrably move leads toward conversion?</li>
+    <li><strong>Overlap:</strong> Is another agent doing the same job, creating duplicate sends or wasted API calls?</li>
+    <li><strong>Gap coverage:</strong> Is there a channel, timing window, or lead state that no agent handles?</li>
+    <li><strong>Cost efficiency:</strong> Is this agent using the right model (Haiku vs Sonnet vs Opus) for its task? Is it running too frequently?</li>
+    <li><strong>Complexity vs value:</strong> Is this agent complex to maintain but producing marginal results?</li>
+  </ul>
+
+  <p>Each audit produces a structured report with one verdict per agent:</p>
+  <div class="code-block"><pre><span style="color:#8b949e">Architecture Audit Report &mdash; June 2026
+Generated by: Brain Agent | Based on: 847 leads, 3 months of activity</span>
+
+<span style="color:#3fb950">KEEP  </span>  Agent 3  Personalizer      High impact &mdash; 23% reply rate vs 9% generic WA
+<span style="color:#3fb950">KEEP  </span>  Agent 7  Voice Follow-up   2.1&times; conversion vs WA-only leads in AU
+<span style="color:#ffa657">MODIFY</span>  Agent 6  WA Follow-up      Reduce interval 3&rarr;2 days; 68% of day-3 sends are to already-dead leads
+<span style="color:#ffa657">MODIFY</span>  Agent 10 Observatory       Add 2h watchdog; current silent-failure rate is unacceptable
+<span style="color:#bc8cff">MERGE </span>  Agent 4+5 Reply+Booking   Already co-located in reply_handler.py; formalise as one "Engagement" agent
+<span style="color:#58a6ff">ADD   </span>  SMS Agent                 AU regulations permit; 34% of AU leads have no email on record
+<span style="color:#f85149">REVIEW</span>  Agent 8  Content           Planned but unbuilt; defer &mdash; pipeline not yet stable enough to warrant
+<span style="color:#f85149">COST  </span>  Agent 2  Email Scraper     Using Sonnet for HTML parsing &mdash; Haiku sufficient; est. $12/mo saving</pre></div>
+
+  <p>The audit report is stored in the new <code>architecture_reviews</code> table with status <code>proposed</code>. It is then passed to the CEO, who packages it as a clear WA brief to Neeraj. <strong>Nothing changes until Neeraj approves.</strong></p>
+
+  <h3>E. Architecture Evolution</h3>
+  <p>Once Brain has accumulated sufficient cross-vertical data, it can go further &mdash; drafting a complete new multi-agent system spec for a new vertical or product (e.g., real estate, restaurants, LegalAidAI cross-sell) as a structured JSON document the CEO and Neeraj can review before any code is written.</p>
+</section>
+
+<!-- ── AGENT INVENTORY ── -->
+<section>
+  <h2><span class="num" style="background:rgba(63,185,80,.15);color:var(--green)">6</span>Full Agent Inventory After Build</h2>
+  <div class="agent-grid">
+    <div class="agent-pill"><div class="num">1</div><div><div class="name">Prospector</div><div class="desc">Google Maps discovery</div></div></div>
+    <div class="agent-pill"><div class="num">2</div><div><div class="name">Email Scraper</div><div class="desc">Website email extraction</div></div></div>
+    <div class="agent-pill"><div class="num">3</div><div><div class="name">Personalizer</div><div class="desc">WA + email message gen</div></div></div>
+    <div class="agent-pill"><div class="num">4</div><div><div class="name">Reply Handler</div><div class="desc">WA intent classify</div></div></div>
+    <div class="agent-pill"><div class="num">5</div><div><div class="name">Demo Booking</div><div class="desc">Cal.com link on interest</div></div></div>
+    <div class="agent-pill"><div class="num">6</div><div><div class="name">WA Follow-up</div><div class="desc">3-day silence follow-up</div></div></div>
+    <div class="agent-pill"><div class="num">7</div><div><div class="name">Voice Follow-up</div><div class="desc">5-day Aria outbound</div></div></div>
+    <div class="agent-pill"><div class="num">8</div><div><div class="name">Aria Click Caller</div><div class="desc">7-phase sales call</div></div></div>
+    <div class="agent-pill"><div class="num">9</div><div><div class="name">Cal.com Booking</div><div class="desc">Auto-books demos</div></div></div>
+    <div class="agent-pill"><div class="num">10</div><div><div class="name">Observatory</div><div class="desc">Daily digest + watchdog</div></div></div>
+    <div class="agent-pill"><div class="num">11</div><div><div class="name">Email Sequence</div><div class="desc">6-step email drip</div></div></div>
+    <div class="agent-pill new-agent"><div class="num">&#x2605;</div><div><div class="name">CEO Agent <span class="tag-new">New</span></div><div class="desc">Orchestrator + memory</div></div></div>
+    <div class="agent-pill new-agent"><div class="num">&#x2605;</div><div><div class="name">Brain Agent <span class="tag-new">New</span></div><div class="desc">Learning + advisor</div></div></div>
+  </div>
+</section>
+
+<!-- ── NEW SUPABASE TABLES ── -->
+<section>
+  <h2><span class="num" style="background:rgba(255,166,87,.15);color:var(--db)">7</span>New Supabase Tables</h2>
+  <div class="sql-block"><pre><span style="color:#ff7b72">CREATE TABLE</span> agent_registry (
+  id              UUID <span style="color:#ff7b72">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  name            TEXT <span style="color:#ff7b72">UNIQUE NOT NULL</span>,     <span style="color:#8b949e">-- 'wa_followup', 'voice_outreach', etc.</span>
+  description     TEXT,
+  status          TEXT <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'active'</span>,    <span style="color:#8b949e">-- active | paused | error</span>
+  last_run_at     TIMESTAMPTZ,
+  last_run_result JSONB,                   <span style="color:#8b949e">-- {processed, sent, failed, error}</span>
+  config          JSONB <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'{}'</span>,        <span style="color:#8b949e">-- adjustable params per agent</span>
+  created_at      TIMESTAMPTZ <span style="color:#ff7b72">DEFAULT</span> now()
+);
+
+<span style="color:#ff7b72">CREATE TABLE</span> agent_directives (
+  id          UUID <span style="color:#ff7b72">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  agent       TEXT <span style="color:#ff7b72">NOT NULL</span>,
+  directive   TEXT <span style="color:#ff7b72">NOT NULL</span>,              <span style="color:#8b949e">-- PAUSE | ADJUST | TARGET | ABORT_LEAD</span>
+  params      JSONB <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'{}'</span>,
+  status      TEXT <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'pending'</span>,     <span style="color:#8b949e">-- pending | applied | expired</span>
+  issued_by   TEXT <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'ceo'</span>,
+  created_at  TIMESTAMPTZ <span style="color:#ff7b72">DEFAULT</span> now(),
+  applied_at  TIMESTAMPTZ
+);
+
+<span style="color:#ff7b72">CREATE TABLE</span> system_journal (
+  id          UUID <span style="color:#ff7b72">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  entry_type  TEXT <span style="color:#ff7b72">NOT NULL</span>,              <span style="color:#8b949e">-- health_check | alert | decision | directive_issued</span>
+  summary     TEXT,
+  detail      JSONB <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'{}'</span>,
+  created_at  TIMESTAMPTZ <span style="color:#ff7b72">DEFAULT</span> now()
+);
+
+<span style="color:#ff7b72">CREATE TABLE</span> learnings (
+  id           UUID <span style="color:#ff7b72">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  category     TEXT <span style="color:#ff7b72">NOT NULL</span>,             <span style="color:#8b949e">-- message_effectiveness | timing | client_voice</span>
+  insight      TEXT <span style="color:#ff7b72">NOT NULL</span>,
+  confidence   FLOAT <span style="color:#ff7b72">DEFAULT</span> 0.5,          <span style="color:#8b949e">-- 0&ndash;1, based on sample size</span>
+  data_points  INT <span style="color:#ff7b72">DEFAULT</span> 0,
+  period_start TIMESTAMPTZ,
+  period_end   TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ <span style="color:#ff7b72">DEFAULT</span> now()
+);
+
+<span style="color:#ff7b72">CREATE TABLE</span> knowledge_base (
+  id         UUID <span style="color:#ff7b72">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  topic      TEXT <span style="color:#ff7b72">UNIQUE NOT NULL</span>,        <span style="color:#8b949e">-- 'top_performing_messages', 'objection_map'</span>
+  content    TEXT,                          <span style="color:#8b949e">-- markdown or structured JSON summary</span>
+  updated_at TIMESTAMPTZ <span style="color:#ff7b72">DEFAULT</span> now()
+);
+
+<span style="color:#ff7b72">CREATE TABLE</span> architecture_reviews (
+  id              UUID <span style="color:#ff7b72">PRIMARY KEY DEFAULT</span> gen_random_uuid(),
+  triggered_by    TEXT <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'scheduled'</span>,   <span style="color:#8b949e">-- scheduled | neeraj_request | ceo_request</span>
+  summary         TEXT,                          <span style="color:#8b949e">-- plain-English brief sent to Neeraj via WA</span>
+  recommendations JSONB,                         <span style="color:#8b949e">-- [{agent, verdict, rationale, cost_impact}]</span>
+  status          TEXT <span style="color:#ff7b72">DEFAULT</span> <span style="color:#a5d6ff">'proposed'</span>,      <span style="color:#8b949e">-- proposed | awaiting_neeraj | approved | rejected | partial</span>
+  neeraj_response TEXT,                          <span style="color:#8b949e">-- verbatim WA reply from Neeraj</span>
+  approved_items  JSONB,                         <span style="color:#8b949e">-- subset of recommendations Neeraj approved</span>
+  implemented_at  TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ <span style="color:#ff7b72">DEFAULT</span> now()
+);</pre></div>
+</section>
+
+<!-- ── NEW FILES ── -->
+<section>
+  <h2><span class="num" style="background:rgba(255,166,87,.15);color:var(--orange)">8</span>New Files &amp; Endpoints</h2>
+  <div class="files-grid">
+    <div class="cell">agents/ceo.py</div>
+    <div class="cell">CEO agent &mdash; system state, directives, WA interface, agent factory, journal</div>
+    <div class="cell">agents/brain.py</div>
+    <div class="cell">Brain agent &mdash; learning cycles, pattern extraction, knowledge base, advice engine</div>
+    <div class="cell">utils/lead_context.py</div>
+    <div class="cell"><code>get_lead_context(lead_id)</code> &mdash; shared context builder injected into all agent prompts</div>
+    <div class="cell">server.py (modified)</div>
+    <div class="cell">New endpoints, APScheduler jobs, WA webhook routing for founder messages</div>
+    <div class="cell">database/client.py (modified)</div>
+    <div class="cell">CRUD for all 5 new tables</div>
+  </div>
+
+  <h3 style="margin-top:28px;">New API Endpoints</h3>
+  <div class="endpoints">
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/ceo/status</span><span class="ep-desc">Full system snapshot</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/ceo/query</span><span class="ep-desc">Ask CEO a question</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/ceo/directive</span><span class="ep-desc">Issue a directive</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/ceo/journal</span><span class="ep-desc">System decision log</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/brain/report</span><span class="ep-desc">Latest learnings summary</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/brain/query</span><span class="ep-desc">Ask Brain for advice</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/brain/learn</span><span class="ep-desc">Trigger learning cycle manually</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/api/brain/audit</span><span class="ep-desc">Trigger architecture audit &mdash; returns structured recommendations for CEO &rarr; Neeraj review</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/api/brain/audit/history</span><span class="ep-desc">Past audit reports with approval status</span></div>
+  </div>
+
+  <h3 style="margin-top:24px;">Scheduler Additions</h3>
+  <div class="code-block"><pre>scheduler.add_job(_job_ceo_heartbeat, <span style="color:#a5d6ff">"interval"</span>, hours=1)       <span style="color:#8b949e"># CEO hourly check</span>
+scheduler.add_job(_job_brain_daily,   <span style="color:#a5d6ff">"cron"</span>, hour=2, minute=0)  <span style="color:#8b949e"># Brain daily update (2am UTC)</span>
+scheduler.add_job(_job_brain_weekly,  <span style="color:#a5d6ff">"cron"</span>, day_of_week=<span style="color:#a5d6ff">"sun"</span>, hour=0)  <span style="color:#8b949e"># Deep learning</span></pre></div>
+</section>
+
+<!-- ── GOVERNANCE ── -->
+<section>
+  <h2><span class="num" style="background:rgba(227,179,65,.15);color:var(--yellow)">9</span>Governance &amp; Approval Chain</h2>
+  <p>Every structural recommendation &mdash; adding, removing, merging, or modifying an agent &mdash; flows through a mandatory approval chain. <strong>The system proposes. Neeraj decides. Nothing is self-authorised.</strong></p>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 24px;margin-top:20px;">
+    <div style="display:flex;align-items:flex-start;gap:0;flex-direction:column;">
+
+      <!-- Step 1 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;width:100%;">
+        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(188,140,255,.15);color:var(--brain);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:1px solid rgba(188,140,255,.3);">B</div>
+          <div style="width:2px;height:40px;background:var(--border);margin:4px 0;"></div>
+        </div>
+        <div style="padding-top:6px;">
+          <div style="font-size:14px;font-weight:600;color:var(--brain);margin-bottom:4px;">Brain Agent &mdash; Generates Audit Report</div>
+          <div style="font-size:13px;color:var(--muted);">Analyses all agents against data. Produces verdicts: ADD / REMOVE / MERGE / MODIFY / KEEP / COST. Stores in <code>architecture_reviews</code> with status <code>proposed</code>.</div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;width:100%;">
+        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(88,166,255,.15);color:var(--ceo);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:1px solid rgba(88,166,255,.3);">C</div>
+          <div style="width:2px;height:40px;background:var(--border);margin:4px 0;"></div>
+        </div>
+        <div style="padding-top:6px;">
+          <div style="font-size:14px;font-weight:600;color:var(--ceo);margin-bottom:4px;">CEO Agent &mdash; Packages &amp; Delivers Brief</div>
+          <div style="font-size:13px;color:var(--muted);">Reads the audit report. Compresses into a clear, plain-English WhatsApp message. Sends to Neeraj's number. Updates review status to <code>awaiting_neeraj</code>. Does <strong>not</strong> act on any recommendation yet.</div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;width:100%;">
+        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(63,185,80,.15);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:1px solid rgba(63,185,80,.3);">N</div>
+          <div style="width:2px;height:40px;background:var(--border);margin:4px 0;"></div>
+        </div>
+        <div style="padding-top:6px;">
+          <div style="font-size:14px;font-weight:600;color:var(--green);margin-bottom:4px;">Neeraj &mdash; Reviews &amp; Decides (via WhatsApp)</div>
+          <div style="font-size:13px;color:var(--muted);">Replies in plain English. Can approve all, approve some, reject all, ask follow-up questions, or request a deeper analysis. Example responses:</div>
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="background:rgba(63,185,80,.05);border:1px solid rgba(63,185,80,.2);border-radius:6px;padding:10px;font-size:12px;color:var(--muted);">
+              <span style="color:var(--green);font-weight:600;display:block;margin-bottom:3px;">"Approve all"</span>
+              CEO implements every recommended change
+            </div>
+            <div style="background:rgba(88,166,255,.05);border:1px solid rgba(88,166,255,.2);border-radius:6px;padding:10px;font-size:12px;color:var(--muted);">
+              <span style="color:var(--blue);font-weight:600;display:block;margin-bottom:3px;">"Approve 1 and 3, skip 2"</span>
+              CEO implements items 1 &amp; 3 only, logs 2 as rejected
+            </div>
+            <div style="background:rgba(255,166,87,.05);border:1px solid rgba(255,166,87,.2);border-radius:6px;padding:10px;font-size:12px;color:var(--muted);">
+              <span style="color:var(--orange);font-weight:600;display:block;margin-bottom:3px;">"Not now, revisit in 30 days"</span>
+              Review deferred, Brain re-evaluates next cycle
+            </div>
+            <div style="background:rgba(248,81,73,.05);border:1px solid rgba(248,81,73,.2);border-radius:6px;padding:10px;font-size:12px;color:var(--muted);">
+              <span style="color:var(--red);font-weight:600;display:block;margin-bottom:3px;">"Reject all"</span>
+              All recommendations logged as rejected, no action taken
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div style="display:flex;gap:16px;align-items:flex-start;width:100%;">
+        <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(88,166,255,.15);color:var(--ceo);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:1px solid rgba(88,166,255,.3);">C</div>
+        </div>
+        <div style="padding-top:6px;">
+          <div style="font-size:14px;font-weight:600;color:var(--ceo);margin-bottom:4px;">CEO Agent &mdash; Executes Approved Changes Only</div>
+          <div style="font-size:13px;color:var(--muted);">Implements exactly what Neeraj approved &mdash; no more. Logs each action to <code>system_journal</code>. Updates <code>architecture_reviews.implemented_at</code>. Sends Neeraj a confirmation: <em>"Done &mdash; Agent 6 follow-up interval updated to 2 days. Agent 4+5 merged. Everything else unchanged."</em></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Absolute rule -->
+  <div style="margin-top:20px;background:rgba(248,81,73,.06);border:1px solid rgba(248,81,73,.25);border-radius:10px;padding:18px 20px;">
+    <div style="font-size:13px;font-weight:700;color:#f85149;margin-bottom:8px;letter-spacing:.03em;text-transform:uppercase;">Master Mandate</div>
+    <ul style="padding-left:18px;color:var(--muted);font-size:14px;">
+      <li style="margin-bottom:6px;">No agent is added, removed, merged, or structurally modified without <strong style="color:var(--text)">Neeraj's explicit approval</strong> via WhatsApp</li>
+      <li style="margin-bottom:6px;">The Brain and CEO can propose, analyse, cost-model, and draft code &mdash; but <strong style="color:var(--text)">none of it deploys</strong> until Neeraj signs off</li>
+      <li style="margin-bottom:6px;">Neeraj can approve partially: "do 1 and 3 but not 2" is a valid and fully supported response</li>
+      <li style="margin-bottom:6px;">All decisions &mdash; approvals AND rejections &mdash; are logged to <code>system_journal</code> and <code>architecture_reviews</code> permanently</li>
+      <li>Operational changes (pause a campaign, change a template, adjust timing) still go through the CEO but do <strong style="color:var(--text)">not</strong> require an architecture review &mdash; Neeraj can approve those in real time via a simple WA reply</li>
+    </ul>
+  </div>
+
+  <!-- WA brief example -->
+  <h3 style="margin-top:28px;">Example WA Brief from CEO to Neeraj</h3>
+  <div style="background:#0a0e13;border:1px solid var(--border);border-radius:10px;padding:22px 24px;margin-top:12px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;font-family:monospace;">WhatsApp &bull; CEO Agent &bull; +1 385-363-3720</div>
+    <div style="font-size:14px;color:var(--text);line-height:1.8;font-family:-apple-system,sans-serif;">
+      <strong>Apex Architecture Review &mdash; June 2026</strong><br><br>
+      Brain has completed its monthly audit. Here's what it found:<br><br>
+      1. <span style="color:var(--orange)">MODIFY</span> &mdash; WA Follow-up (Agent 6): Data shows 68% of day-3 follow-ups go to leads who are already dead. Recommend reducing interval to 2 days. Est. saving: 200 unnecessary sends/month.<br><br>
+      2. <span style="color:var(--purple)">MERGE</span> &mdash; Reply Handler + Demo Booking (Agents 4+5): Already in the same file. Formal merge cleans up agent_registry and reduces maintenance overhead. No behaviour change.<br><br>
+      3. <span style="color:var(--blue)">ADD</span> &mdash; SMS Agent: 34% of AU leads have no email address. SMS is permitted in AU. Estimated 18% additional touchpoint reach.<br><br>
+      4. <span style="color:var(--green)">COST</span> &mdash; Email Scraper (Agent 2): Currently uses Sonnet for HTML parsing. Haiku is sufficient. Est. $12/mo saving.<br><br>
+      Reply with which numbers to action, e.g. "approve 1 and 4" or "approve all" or "reject all".
+    </div>
+  </div>
+</section>
+
+<!-- ── BUILD PLAN ── -->
+<section>
+  <h2><span class="num" style="background:rgba(63,185,80,.15);color:var(--green)">10</span>Build Plan &mdash; 3 Phases</h2>
+  <div class="phases">
+    <div class="phase">
+      <div class="phase-num">1</div>
+      <div class="phase-content">
+        <h4>Phase 1 &mdash; Foundation <span style="font-size:12px;color:var(--muted);font-weight:400">(next session)</span></h4>
+        <ul>
+          <li>Run SQL migration for 5 new Supabase tables</li>
+          <li>Create <code>utils/lead_context.py</code> &mdash; shared context builder</li>
+          <li>Create <code>agents/ceo.py</code> &mdash; system state + journal + WA interface</li>
+          <li>Create <code>agents/brain.py</code> &mdash; data accumulation + knowledge base</li>
+          <li>Add CEO/Brain endpoints + APScheduler jobs to <code>server.py</code></li>
+          <li>Modify WA webhook to route founder messages to CEO</li>
+          <li>Seed <code>agent_registry</code> with all 11 existing agents</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">2</div>
+      <div class="phase-content">
+        <h4>Phase 2 &mdash; Intelligence <span style="font-size:12px;color:var(--muted);font-weight:400">(follow-on session)</span></h4>
+        <ul>
+          <li>Brain's advice engine live &mdash; queryable with RAG over knowledge_base</li>
+          <li>CEO's directive queue &mdash; all agents check directives before running</li>
+          <li>Lead context enrichment injected into Aria, Personalizer, Followup prompts</li>
+          <li>Dashboard panels for CEO status and Brain learnings</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-num">3</div>
+      <div class="phase-content">
+        <h4>Phase 3 &mdash; Evolution <span style="font-size:12px;color:var(--muted);font-weight:400">(future)</span></h4>
+        <ul>
+          <li>CEO's agent factory &mdash; generates and deploys new agent code on approval</li>
+          <li>Brain's architecture designer &mdash; proposes new multi-agent system designs</li>
+          <li>Cross-portfolio intelligence &mdash; Brain learns from LegalAidAI data too</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── VERIFICATION ── -->
+<section>
+  <h2><span class="num" style="background:rgba(227,179,65,.15);color:var(--yellow)">10</span>Verification Checklist</h2>
+  <ul class="checklist">
+    <li>Text CEO from +919810982019: <em>"How is the system doing?"</em> &mdash; should receive a structured WA reply within 10 seconds</li>
+    <li>Check Supabase <code>system_journal</code> &mdash; CEO heartbeat entries appearing hourly</li>
+    <li>Check Supabase <code>agent_registry</code> &mdash; all 11 existing agents listed with status + last_run metadata</li>
+    <li>Manually trigger <code>POST /api/brain/learn</code> &mdash; check <code>learnings</code> table is populated</li>
+    <li>Query Brain: <code>POST /api/brain/query {"question": "which business type converts best?"}</code> &mdash; receives data-backed answer</li>
+    <li>Deploy: <code>cd outreach-agent &amp;&amp; railway up --service apex --detach</code></li>
+  </ul>
+</section>
+
+<hr class="divider">
+
+<!-- ── FOOTER ── -->
+<div class="footer">
+  <p><strong>Apex Platform v2.0</strong> &mdash; CEO Agent + Brain Agent Architecture</p>
+  <p style="margin-top:4px;">Prepared by Claude Code &middot; June 2026 &middot; For Neeraj Khattar</p>
+</div>
+
+</div>
+</body>
+</html>
