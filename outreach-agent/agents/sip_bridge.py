@@ -288,9 +288,13 @@ class _SIPClient:
 
     def refer(self, to_number: str, destination: str,
               call_id: str, from_tag: str, to_tag: str) -> tuple[bool, str]:
-        to_uri = f"sip:{to_number}@{self._host}"
-        from_uri = f"sip:{self._user}@{self._host}"
-        dest_uri = f"sip:{destination}@{self._host}"
+        # Strip + so Vobiz routes correctly (same fix as INVITE)
+        to_digits = to_number.lstrip("+")
+        dest_digits = destination.lstrip("+")
+        caller_digits = CALLER_NUMBER.lstrip("+")
+        to_uri = f"sip:{to_digits}@{self._host}"
+        from_uri = f"sip:{caller_digits}@{self._host}"
+        dest_uri = f"sip:{dest_digits}@{self._host}"
         self._cseq += 1
         msg = "\r\n".join([
             f"REFER {to_uri} SIP/2.0",
@@ -310,7 +314,41 @@ class _SIPClient:
         resp = self._recv(10)
         code = self._status(resp)
         log.info("REFER → %s", code)
-        return code in (200, 202), resp
+        if code not in (200, 202):
+            return False, resp
+
+        # Stay alive and ACK any NOTIFYs Vobiz sends about transfer progress.
+        # If we close TCP immediately, Vobiz cancels the bridge.
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            chunk = self._recv(5)
+            if not chunk:
+                break
+            if "NOTIFY" in chunk:
+                # Reply 200 OK to NOTIFY so Vobiz knows we received it
+                notify_cseq = re.search(r"CSeq:\s*(\d+)\s+NOTIFY", chunk, re.IGNORECASE)
+                notify_callid = re.search(r"Call-ID:\s*(\S+)", chunk, re.IGNORECASE)
+                if notify_cseq and notify_callid:
+                    ok = "\r\n".join([
+                        "SIP/2.0 200 OK",
+                        f"Via: {self._via()}",
+                        f"From: <{from_uri}>;tag={from_tag}",
+                        f"To: <{to_uri}>;tag={to_tag}",
+                        f"Call-ID: {notify_callid.group(1)}",
+                        f"CSeq: {notify_cseq.group(1)} NOTIFY",
+                        "Content-Length: 0",
+                        "", "",
+                    ])
+                    self._send(ok)
+                # Check if transfer completed (sipfrag 200 = success)
+                if re.search(r"SIP/2\.0 200", chunk):
+                    log.info("REFER NOTIFY: transfer confirmed")
+                    break
+                if re.search(r"SIP/2\.0 [456]", chunk):
+                    log.warning("REFER NOTIFY: transfer failed — %s", chunk[:100])
+                    return False, chunk
+
+        return True, resp
 
 
 # ── Public probe (for /api/bridge/test) ───────────────────────────────────────
