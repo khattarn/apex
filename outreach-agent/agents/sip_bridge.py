@@ -146,17 +146,17 @@ class _SIPClient:
         return m.group(1) if m else ""
 
     def _sdp(self) -> str:
-        # Port 0 + a=inactive = signaling-only call leg (no RTP on server)
+        # Real port required — Vobiz rejects port 0 (488). No RTP will actually flow.
         return "\r\n".join([
             "v=0",
             f"o={self._user} {int(time.time())} 1 IN IP4 {self._local_ip}",
             "s=Bridge",
             f"c=IN IP4 {self._local_ip}",
             "t=0 0",
-            "m=audio 0 RTP/AVP 0 8",
+            "m=audio 10000 RTP/AVP 0 8",
             "a=rtpmap:0 PCMU/8000",
             "a=rtpmap:8 PCMA/8000",
-            "a=inactive",
+            "a=sendrecv",
             "",
         ])
 
