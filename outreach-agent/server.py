@@ -1221,7 +1221,7 @@ async def twilio_voice(To: str = "", _From: str = ""):
 # ── India bridge call (Vobiz SIP REFER) ──────────────────────────────────────
 
 @app.get("/api/bridge/test")
-async def bridge_test(_=Depends(verify_token)):
+async def bridge_test():
     """Probe Vobiz SIP without placing a real call. Returns raw SIP exchange for debugging."""
     from agents.sip_bridge import probe_vobiz
     return await asyncio.to_thread(probe_vobiz)
