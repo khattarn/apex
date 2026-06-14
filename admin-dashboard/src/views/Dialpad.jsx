@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { Phone, PhoneOff, Delete } from 'lucide-react'
+import { Phone, PhoneOff, Delete, Mic, MicOff } from 'lucide-react'
+import Vapi from '@vapi-ai/web'
 import { Device } from '@twilio/voice-sdk'
-import { fetchTwilioToken, startBridgeCall, getBridgeStatus } from '../api'
+import { fetchTwilioToken } from '../api'
+
+const VAPI_KEY = '1908bdb6-968b-4f6a-ab9e-75ab32137cb2'
+const VAPI_INDIA_PHONE_ID = '55328e0f-b12b-4108-a3b2-ee282aa7bed9'
 
 const KEYS = [
   ['1', ''], ['2', 'ABC'], ['3', 'DEF'],
@@ -10,101 +14,107 @@ const KEYS = [
   ['*', ''], ['0', '+'], ['#', ''],
 ]
 
-// ── India Bridge Dialpad ───────────────────────────────────────────────────────
+// ── India Direct Dialpad (Vapi Web SDK) ───────────────────────────────────────
 
-const BRIDGE_STATES = {
-  idle:             { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Ready · +91 9262171423' },
-  connecting:       { ring: 'bg-slate-400 animate-pulse',  bar: 'bg-slate-700/40 text-slate-400',    label: 'Connecting to Vobiz…' },
-  calling_founder:  { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Calling your mobile…' },
-  ringing:          { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Ringing your mobile…' },
-  answered:         { ring: 'bg-blue-400 animate-pulse',   bar: 'bg-blue-900/30 text-blue-300',      label: 'Connected to your mobile…' },
-  transferring:     { ring: 'bg-indigo-400 animate-pulse', bar: 'bg-indigo-900/30 text-indigo-300',  label: 'Transferring to lead…' },
-  connected:        { ring: 'bg-green-400 animate-pulse',  bar: 'bg-green-900/30 text-green-400',    label: 'Bridge live — you\'re connected!' },
-  no_answer:        { ring: 'bg-orange-400',               bar: 'bg-orange-900/30 text-orange-400',  label: 'Your mobile didn\'t answer' },
-  transfer_failed:  { ring: 'bg-red-400',                  bar: 'bg-red-900/30 text-red-400',        label: 'Transfer failed' },
-  error:            { ring: 'bg-red-400',                  bar: 'bg-red-900/30 text-red-400',        label: 'Error' },
-  not_found:        { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Ready · +91 9262171423' },
+const CALL_STATES = {
+  idle:        { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Ready · speak through browser' },
+  requesting:  { ring: 'bg-slate-400 animate-pulse',  bar: 'bg-slate-700/40 text-slate-400',    label: 'Requesting microphone…' },
+  connecting:  { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Connecting…' },
+  ringing:     { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Ringing lead…' },
+  'on-call':   { ring: 'bg-green-400 animate-pulse',  bar: 'bg-green-900/30 text-green-400',    label: 'On call · speak now' },
+  ended:       { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Call ended' },
+  error:       { ring: 'bg-red-400',                  bar: 'bg-red-900/30 text-red-400',        label: 'Error' },
 }
 
 function IndiaBridge() {
   const [number, setNumber] = useState('')
-  const [bridgeState, setBridgeState] = useState('idle')
+  const [callState, setCallState] = useState('idle')
   const [errorMsg, setErrorMsg] = useState('')
-  const [bridgeId, setBridgeId] = useState(null)
-  const pollRef = useRef(null)
+  const [muted, setMuted] = useState(false)
+  const vapiRef = useRef(null)
 
-  const isBusy = ['connecting', 'registering', 'calling_founder', 'ringing',
-                   'answered', 'transferring', 'connected'].includes(bridgeState)
+  const isBusy = ['requesting', 'connecting', 'ringing', 'on-call'].includes(callState)
+  const isOnCall = callState === 'on-call'
 
-  function stopPoll() {
-    if (pollRef.current) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
-    }
-  }
+  useEffect(() => () => { vapiRef.current?.stop() }, [])
 
-  useEffect(() => () => stopPoll(), [])
+  function press(digit) { if (!isBusy) setNumber(n => n + digit) }
+  function backspace() { if (!isBusy) setNumber(n => n.slice(0, -1)) }
 
-  function press(digit) {
-    if (!isBusy) setNumber(n => n + digit)
-  }
-
-  function backspace() {
-    if (!isBusy) setNumber(n => n.slice(0, -1))
-  }
-
-  async function callBridge() {
+  async function startCall() {
     if (!number || isBusy) return
     setErrorMsg('')
-    setBridgeState('connecting')
+    setCallState('requesting')
+
+    const dest = number.startsWith('+') ? number : `+${number}`
+    const vapi = new Vapi(VAPI_KEY)
+    vapiRef.current = vapi
+
+    vapi.on('call-start',  () => setCallState('ringing'))
+    vapi.on('speech-start', () => setCallState('on-call'))
+    vapi.on('call-end',    () => { setCallState('ended'); vapiRef.current = null })
+    vapi.on('error',       (e) => {
+      setCallState('error')
+      setErrorMsg(e?.message || String(e))
+      vapiRef.current = null
+    })
+
     try {
-      const { bridge_id } = await startBridgeCall(number)
-      setBridgeId(bridge_id)
-      pollRef.current = setInterval(async () => {
-        try {
-          const status = await getBridgeStatus(bridge_id)
-          const s = status.state || 'idle'
-          setBridgeState(s)
-          if (status.error) setErrorMsg(status.error)
-          if (['connected', 'no_answer', 'transfer_failed', 'error', 'timeout'].includes(s)) {
-            stopPoll()
-          }
-        } catch {
-          // keep polling
-        }
-      }, 1500)
+      setCallState('connecting')
+      await vapi.start({
+        phoneNumberId: VAPI_INDIA_PHONE_ID,
+        customer: { number: dest },
+        assistant: {
+          firstMessage: '',
+          silenceTimeoutSeconds: 120,
+          model: {
+            provider: 'anthropic',
+            model: 'claude-haiku-4-5-20251001',
+            messages: [{ role: 'system', content: 'You are a transparent audio bridge. Stay completely silent. Do not speak, do not respond, do not end the call. Just pass audio through.' }],
+          },
+          voice: { provider: 'azure', voiceId: 'en-IN-NeerjaNeural' },
+          endCallFunctionEnabled: false,
+          backgroundSound: 'off',
+        },
+      })
     } catch (err) {
-      setBridgeState('error')
-      setErrorMsg(err.message || 'Failed to start bridge')
+      setCallState('error')
+      setErrorMsg(err.message || 'Failed to start call')
+      vapiRef.current = null
     }
   }
 
-  function reset() {
-    stopPoll()
-    setBridgeState('idle')
-    setBridgeId(null)
-    setErrorMsg('')
+  function hangUp() {
+    vapiRef.current?.stop()
+    vapiRef.current = null
+    setCallState('idle')
+    setMuted(false)
   }
 
-  const stateInfo = BRIDGE_STATES[bridgeState] || BRIDGE_STATES.idle
-  const isDone = ['connected', 'no_answer', 'transfer_failed', 'error', 'timeout'].includes(bridgeState)
+  function toggleMute() {
+    if (!vapiRef.current) return
+    const next = !muted
+    vapiRef.current.setMuted(next)
+    setMuted(next)
+  }
+
+  function reset() { setCallState('idle'); setErrorMsg(''); setMuted(false) }
+
+  const stateInfo = CALL_STATES[callState] || CALL_STATES.idle
+  const isDone = callState === 'ended' || callState === 'error'
 
   return (
     <div>
-      {/* Status bar */}
       <div className={`mb-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${stateInfo.bar}`}>
         <span className={`w-2 h-2 rounded-full shrink-0 ${stateInfo.ring}`} />
         <span className="truncate">
-          {errorMsg && ['error', 'no_answer', 'transfer_failed'].includes(bridgeState)
-            ? errorMsg
-            : stateInfo.label}
+          {callState === 'error' ? `Error: ${errorMsg}` : stateInfo.label}
         </span>
       </div>
 
-      {/* Number display */}
       <div className="flex items-center bg-[#1e293b] border border-slate-700/50 rounded-lg px-4 py-3 mb-4 min-h-[56px]">
         <span className="flex-1 text-xl font-mono tracking-widest text-white">
-          {number || <span className="text-slate-600 text-base font-sans">Enter lead number</span>}
+          {number || <span className="text-slate-600 text-base font-sans">Enter lead number with 91</span>}
         </span>
         {number && !isBusy && (
           <button onClick={backspace} className="text-slate-500 hover:text-slate-200 ml-2 transition-colors">
@@ -113,7 +123,6 @@ function IndiaBridge() {
         )}
       </div>
 
-      {/* Keypad */}
       <div className="grid grid-cols-3 gap-2 mb-5">
         {KEYS.map(([digit, sub]) => (
           <button
@@ -128,39 +137,40 @@ function IndiaBridge() {
         ))}
       </div>
 
-      {/* Call / Reset */}
       <div className="flex justify-center gap-4">
         {!isBusy && !isDone && (
-          <button
-            onClick={callBridge}
-            disabled={!number}
+          <button onClick={startCall} disabled={!number}
             className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg"
-            title="Bridge call via +91 9262171423"
-          >
+            title="Call via browser · +91 9262171423">
             <Phone size={26} fill="white" stroke="white" />
           </button>
         )}
         {isBusy && (
-          <button
-            onClick={reset}
-            className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-lg"
-            title="Cancel"
-          >
-            <PhoneOff size={26} stroke="white" />
-          </button>
+          <>
+            {isOnCall && (
+              <button onClick={toggleMute}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${muted ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-700 hover:bg-slate-600'}`}
+                title={muted ? 'Unmute' : 'Mute'}>
+                {muted ? <MicOff size={20} stroke="white" /> : <Mic size={20} stroke="white" />}
+              </button>
+            )}
+            <button onClick={hangUp}
+              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-lg"
+              title="Hang up">
+              <PhoneOff size={26} stroke="white" />
+            </button>
+          </>
         )}
         {isDone && (
-          <button
-            onClick={reset}
-            className="px-6 h-12 rounded-full bg-slate-700 hover:bg-slate-600 text-sm text-white transition-colors"
-          >
+          <button onClick={reset}
+            className="px-6 h-12 rounded-full bg-slate-700 hover:bg-slate-600 text-sm text-white transition-colors">
             New call
           </button>
         )}
       </div>
 
       <p className="mt-4 text-center text-[11px] text-slate-600">
-        Your mobile rings first · then connected to lead · caller ID: +91 9262171423
+        Calls through browser mic · caller ID: +91 9262171423 · allow mic when prompted
       </p>
     </div>
   )
