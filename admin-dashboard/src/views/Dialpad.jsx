@@ -95,7 +95,9 @@ function IndiaBridge() {
       <div className={`mb-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${stateInfo.bar}`}>
         <span className={`w-2 h-2 rounded-full shrink-0 ${stateInfo.ring}`} />
         <span className="truncate">
-          {bridgeState === 'error' ? `Error: ${errorMsg}` : stateInfo.label}
+          {errorMsg && ['error', 'no_answer', 'transfer_failed'].includes(bridgeState)
+            ? errorMsg
+            : stateInfo.label}
         </span>
       </div>
 

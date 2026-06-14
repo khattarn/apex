@@ -380,8 +380,15 @@ def start_bridge(destination: str) -> str:
 
             if not answered:
                 code = _SIPClient._status(raw)
-                status["state"] = "no_answer"
-                status["error"] = f"Call not answered (SIP {code}) — see Railway logs for detail"
+                if code in (401, 407):
+                    status["state"] = "error"
+                    status["error"] = f"SIP {code} auth failed — check Vobiz IP ACL or credentials"
+                elif code in (486, 600, 603) or raw == "timeout":
+                    status["state"] = "no_answer"
+                    status["error"] = f"SIP {code} — lead number busy or not answered"
+                else:
+                    status["state"] = "error"
+                    status["error"] = f"SIP {code} — {raw[:120].strip()}"
                 return
 
             status["state"] = "transferring"
