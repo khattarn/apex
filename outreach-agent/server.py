@@ -1220,6 +1220,13 @@ async def twilio_voice(To: str = "", _From: str = ""):
 
 # ── India bridge call (Vobiz SIP REFER) ──────────────────────────────────────
 
+@app.get("/api/bridge/test")
+async def bridge_test(_=Depends(verify_token)):
+    """Probe Vobiz SIP without placing a real call. Returns raw SIP exchange for debugging."""
+    from agents.sip_bridge import probe_vobiz
+    return await asyncio.to_thread(probe_vobiz)
+
+
 @app.post("/api/bridge/call")
 async def bridge_call(request: Request, _=Depends(verify_token)):
     body = await request.json()
@@ -1677,6 +1684,18 @@ async def signal_report_generate():
 @app.get("/health")
 async def health_simple():
     return {"status": "ok"}
+
+
+@app.get("/my-ip")
+async def my_ip(request: Request):
+    """Returns the server's outbound public IP (for Vobiz IP ACL setup)."""
+    import httpx
+    try:
+        async with httpx.AsyncClient() as c:
+            r = await c.get("https://api.ipify.org?format=json", timeout=5)
+            return r.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ── API health ────────────────────────────────────────────────────────────────

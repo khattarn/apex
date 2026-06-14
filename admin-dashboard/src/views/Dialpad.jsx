@@ -15,7 +15,6 @@ const KEYS = [
 const BRIDGE_STATES = {
   idle:             { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Ready · +91 9262171423' },
   connecting:       { ring: 'bg-slate-400 animate-pulse',  bar: 'bg-slate-700/40 text-slate-400',    label: 'Connecting to Vobiz…' },
-  registering:      { ring: 'bg-slate-400 animate-pulse',  bar: 'bg-slate-700/40 text-slate-400',    label: 'Registering SIP…' },
   calling_founder:  { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Calling your mobile…' },
   ringing:          { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Ringing your mobile…' },
   answered:         { ring: 'bg-blue-400 animate-pulse',   bar: 'bg-blue-900/30 text-blue-300',      label: 'Connected to your mobile…' },
