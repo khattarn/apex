@@ -81,7 +81,8 @@ const LAI_MODULES = [
     wa:    '🔨 Needs commissioning — bar association framing, peer-to-peer, no cold pitch',
     waHi:  '🔨 Needs commissioning — natural Hinglish, legal terms in English ok',
     email: '🔨 Needs commissioning — hallucination risk angle (ChatGPT danger for court submissions)',
-    voice: '✅ Live — opener: "Are you still paying SCC Online rates for case law?"',
+    voice: '✅ Live (inbound) — opener: "Are you still paying SCC Online rates for case law?"',
+    coldCall: '🔨 Needs setup — outbound cold calling to advocates. Target: individual advocates & small law firms in IN. Script angle: SCC Online cost + hallucination risk. Priya (IN voice agent via Vobiz) to place calls. NOT Aria.',
     affiliate: 'Agent 11 planned — ₹500/₹500 · target Instagram advocates 10K–100K followers',
     markets: 'IN',
     tone: 'Peer-to-peer professional. NOT "ChatGPT for lawyers." NOT "democratisation" language.',
@@ -94,6 +95,7 @@ const LAI_MODULES = [
     wa:    '❌ Not this module — B2B decision-makers don\'t respond to WA cold outreach',
     email: '🔨 Needs commissioning — formal English, ROI + risk framing, target GC/CLO/CFO',
     voice: '🔨 Needs commissioning — formal opener, scoped pilot offer, not a demo',
+    coldCall: '🔨 Needs setup — outbound cold calling to corporate legal heads (GC/CLO/Head of Legal). Target: mid-size Indian companies with in-house counsel. Script angle: reduce retainer cost for routine queries, scoped pilot. Human close — founder joins after call qualifies interest.',
     markets: 'IN',
     tone: 'Formal English, ROI-driven, risk-aware. Lead with compliance cost and risk reduction.',
     close: 'Human close — founder joins a call. NOT self-serve.',
@@ -202,6 +204,9 @@ function VerticalCard({ v, isModule = false }) {
         )}
         {v.social && (
           <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block">Social</span>{v.social}</p>
+        )}
+        {v.coldCall && (
+          <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block shrink-0">Cold calling</span>{v.coldCall}</p>
         )}
         {v.affiliate && (
           <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block">Affiliate</span>{v.affiliate}</p>
