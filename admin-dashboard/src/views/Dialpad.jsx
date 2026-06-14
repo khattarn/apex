@@ -64,16 +64,19 @@ function IndiaBridge() {
 
     try {
       setCallState('connecting')
-      await vapi.start({
-        firstMessage: 'Connecting you to your lead now.',
-        model: {
-          provider: 'anthropic',
-          model: 'claude-haiku-4-5-20251001',
-          messages: [{ role: 'system', content: `Your only job: immediately call the transferCall function to transfer this call to ${dest}. Do not say anything else.` }],
-          tools: [{ type: 'transferCall', destinations: [{ type: 'number', number: dest }] }],
+      await vapi.start(
+        {
+          firstMessage: '',
+          model: {
+            provider: 'anthropic',
+            model: 'claude-haiku-4-5-20251001',
+            messages: [{ role: 'system', content: `Immediately call the transferCall function to transfer this call to ${dest}. Do not speak at all.` }],
+            tools: [{ type: 'transferCall', destinations: [{ type: 'number', number: dest }] }],
+          },
+          voice: { provider: 'azure', voiceId: 'en-IN-NeerjaNeural' },
         },
-        voice: { provider: 'azure', voiceId: 'en-IN-NeerjaNeural' },
-      })
+        { phoneNumberId: VAPI_INDIA_PHONE_ID }
+      )
     } catch (err) {
       console.error('Vapi start error:', err)
       setCallState('error')
