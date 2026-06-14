@@ -163,8 +163,12 @@ class _SIPClient:
     def _invite_msg(self, to_number: str, call_id: str, from_tag: str,
                     cseq: int = 1, auth: str = "") -> tuple[str, str]:
         """Returns (sip_message, via_branch) so caller can reuse branch for ACK."""
-        to_uri = f"sip:{to_number}@{self._host}"
-        from_uri = f"sip:{self._user}@{self._host}"
+        # Strip leading + for Vobiz — some trunks reject E.164 with + in To/From
+        to_digits = to_number.lstrip("+")
+        caller_digits = CALLER_NUMBER.lstrip("+")
+        to_uri = f"sip:{to_digits}@{self._host}"
+        # Use the actual DID number as From (not SIP username) so Vobiz presents correct caller ID
+        from_uri = f"sip:{caller_digits}@{self._host}"
         sdp = self._sdp()
         branch = "z9hG4bK" + uuid.uuid4().hex[:12]
         via = f"SIP/2.0/TCP {self._local_ip}:{self._local_port};branch={branch}"
@@ -325,7 +329,7 @@ def probe_vobiz() -> dict:
 
         call_id = uuid.uuid4().hex
         from_tag = uuid.uuid4().hex[:8]
-        to_number = "+910000000000"
+        to_number = "910000000000"
         to_uri = f"sip:{to_number}@{client._host}"
 
         # Step 1: initial INVITE (no auth)
