@@ -1688,12 +1688,22 @@ async def health_simple():
 
 @app.get("/my-ip")
 async def my_ip(request: Request):
-    """Returns the server's outbound public IP (for Vobiz IP ACL setup)."""
-    import httpx
+    """Returns Railway's outbound public IP by probing Vobiz SIP (for IP ACL setup)."""
+    import re
+    from agents.sip_bridge import _SIPClient
+    import uuid
+
     try:
-        async with httpx.AsyncClient() as c:
-            r = await c.get("https://api.ipify.org?format=json", timeout=5)
-            return r.json()
+        client = _SIPClient()
+        client.connect()
+        msg, _ = client._invite_msg("+910000000001", uuid.uuid4().hex, uuid.uuid4().hex[:8])
+        client._send(msg)
+        resp = client._recv(8)
+        client.close()
+        # Vobiz echoes our public IP in "received=" on the Via header
+        m = re.search(r"received=([^\s;>\r\n]+)", resp)
+        ip = m.group(1) if m else "not found in SIP response"
+        return {"railway_outbound_ip": ip, "add_this_to_vobiz_acl": True}
     except Exception as e:
         return {"error": str(e)}
 
