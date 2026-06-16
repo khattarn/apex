@@ -15,23 +15,15 @@ from typing import Generator
 
 log = logging.getLogger(__name__)
 
-# Single-keyword searches — TopSearchResults matches on username/display name
-# Short terms work best; Instagram shows profiles whose name/handle contains the word
-SEARCH_QUERIES = [
-    "advocate",
-    "lawyer",
-    "vakil",
-    "legaladvice",
-    "highcourtadvocate",
-    "advocatelife",
-    "lawyersofindia",
-    "indianlawyer",
-    "legalindia",
-    "advocatedelhi",
-    "advocatemumbai",
-    "supremecourtadvocate",
-    "barcouncil",
-    "legalaid",
+# Seed accounts — major Indian legal Instagram accounts that follow hundreds of
+# practising advocates. We scrape their followee lists and filter for influencers.
+SEED_ACCOUNTS = [
+    "livelaw.in",        # biggest Indian legal news site
+    "barandbench",       # major Indian legal news
+    "scobserver_india",  # Supreme Court observer
+    "the.legal.brief",   # Indian legal content
+    "lawctopus",         # Indian law school / legal career
+    "latestlaws.com",    # Indian legislation news
 ]
 
 # Bio keywords that confirm the account is a legal professional
@@ -123,21 +115,21 @@ def _login():
 
 
 def scrape(
-    queries: list[str] | None = None,
+    seed_accounts: list[str] | None = None,
     max_per_query: int = 30,
     min_followers: int = MIN_FOLLOWERS,
     max_followers: int = MAX_FOLLOWERS,
 ) -> Generator[str, None, None]:
     """
-    Scrape Instagram for legal influencer prospects via profile search.
-    Yields log lines for SSE streaming.
+    Scrape Instagram for legal influencer prospects by iterating the followee
+    lists of major Indian legal news accounts. Yields log lines for SSE streaming.
     Saves new prospects to the affiliates table.
     """
     import instaloader
 
     from database.affiliate_client import save_affiliate, get_existing_handles
 
-    search_queries = queries or SEARCH_QUERIES
+    seeds = seed_accounts or SEED_ACCOUNTS
 
     yield f"Logging in to Instagram as @{os.getenv('INSTA_USERNAME', '?')}..."
     try:
@@ -146,7 +138,7 @@ def scrape(
         yield f"Login failed: {exc}"
         return
 
-    yield f"Logged in. Searching {len(search_queries)} query/queries, up to {max_per_query} profiles each."
+    yield f"Logged in. Scanning followee lists of {len(seeds)} seed account(s), up to {max_per_query} prospects each."
     yield ""
 
     existing_handles = get_existing_handles()
@@ -155,74 +147,86 @@ def scrape(
     total_new = 0
     total_skipped = 0
 
-    for query in search_queries:
-        yield f"# \"{query}\""
-        new_in_query = 0
+    for seed_handle in seeds:
+        yield f"# @{seed_handle}"
+        new_from_seed = 0
 
         try:
-            results = instaloader.TopSearchResults(L.context, query)
-            profiles = list(results.get_profiles())
+            seed_profile = instaloader.Profile.from_username(L.context, seed_handle)
         except Exception as exc:
-            yield f"  Search failed for \"{query}\": {exc}"
+            yield f"  Could not load @{seed_handle}: {exc}"
             continue
 
+        yield f"  Loaded @{seed_handle} ({seed_profile.followees:,} following)"
         count = 0
-        for profile in profiles:
-            if count >= max_per_query:
-                break
 
-            try:
+        try:
+            for profile in seed_profile.get_followees():
+                if count >= max_per_query:
+                    break
+
                 handle = profile.username
 
                 if handle in seen_handles:
                     total_skipped += 1
+                    time.sleep(0.3)
                     continue
 
                 seen_handles.add(handle)
 
-                if profile.is_private:
-                    continue
+                try:
+                    if profile.is_private:
+                        time.sleep(0.3)
+                        continue
 
-                followers = profile.followers
-                if not (min_followers <= followers <= max_followers):
-                    continue
+                    followers = profile.followers
+                    if not (min_followers <= followers <= max_followers):
+                        time.sleep(0.3)
+                        continue
 
-                bio = profile.biography or ""
-                if not _is_legal_profile(handle, bio):
-                    continue
+                    bio = profile.biography or ""
+                    if not _is_legal_profile(handle, bio):
+                        time.sleep(0.3)
+                        continue
 
-                phone = _extract_phone(bio)
-                email = _extract_email(bio)
-                name = profile.full_name or handle
+                    phone = _extract_phone(bio)
+                    email = _extract_email(bio)
+                    name = profile.full_name or handle
 
-                save_affiliate({
-                    "instagram_handle": handle,
-                    "name": name,
-                    "follower_count": followers,
-                    "bio": bio[:500],
-                    "phone": phone,
-                    "email": email,
-                    "status": "prospect",
-                    "source": f"instagram_search:{query}",
-                })
+                    save_affiliate({
+                        "instagram_handle": handle,
+                        "name": name,
+                        "follower_count": followers,
+                        "bio": bio[:500],
+                        "phone": phone,
+                        "email": email,
+                        "status": "prospect",
+                        "source": f"followee_of:@{seed_handle}",
+                    })
 
-                total_new += 1
-                new_in_query += 1
-                count += 1
+                    total_new += 1
+                    new_from_seed += 1
+                    count += 1
 
-                contact = phone or email or "no contact in bio"
-                yield f"  + @{handle} ({followers:,} followers) · {contact}"
+                    contact = phone or email or "no contact in bio"
+                    yield f"  + @{handle} ({followers:,} followers) · {contact}"
 
-            except instaloader.exceptions.TooManyRequestsException:
-                yield "  Rate limited — pausing 60s..."
-                time.sleep(60)
-            except Exception as exc:
-                log.warning("Profile error for %s: %s", handle if 'handle' in dir() else '?', exc)
+                except instaloader.exceptions.TooManyRequestsException:
+                    yield "  Rate limited — pausing 90s..."
+                    time.sleep(90)
+                except Exception as exc:
+                    log.warning("Profile error for @%s: %s", handle, exc)
 
-            time.sleep(1.5)
+                time.sleep(1.5)
 
-        yield f"  → {new_in_query} new prospect(s) for \"{query}\""
+        except instaloader.exceptions.TooManyRequestsException:
+            yield f"  Rate limited while scanning @{seed_handle} — moving on."
+            time.sleep(30)
+        except Exception as exc:
+            yield f"  Error scanning @{seed_handle}: {exc}"
+
+        yield f"  → {new_from_seed} new prospect(s) from @{seed_handle}"
         yield ""
-        time.sleep(4)
+        time.sleep(5)
 
     yield f"Done. {total_new} new prospects saved. {total_skipped} already in DB."
