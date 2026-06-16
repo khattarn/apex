@@ -15,22 +15,22 @@ from typing import Generator
 
 log = logging.getLogger(__name__)
 
-# Hashtags to search — posts under these tags are usually posted by advocates
-HASHTAGS = [
-    "indianlawyer",
-    "advocatelife",
-    "indianadvocate",
-    "lawyersofindia",
-    "legalindia",
-    "highcourtadvocate",
-    "supremecourtofindia",
-    "legaladviceindia",
-    "lawyerlife",
-    "indianlegalprofessional",
-    "courtroom",
-    "lawstudentindia",
+# Search terms — used with Instagram's profile/top search
+SEARCH_QUERIES = [
+    "indian advocate",
+    "advocate india",
+    "lawyer india",
+    "high court advocate",
+    "supreme court advocate",
     "vakil",
-    "barcouncil",
+    "legal india",
+    "advocate delhi",
+    "advocate mumbai",
+    "advocate bangalore",
+    "advocate chennai",
+    "advocate kolkata",
+    "bar council india",
+    "legal advice india",
 ]
 
 # Bio keywords that confirm the account is a legal professional
@@ -121,13 +121,13 @@ def _login():
 
 
 def scrape(
-    hashtags: list[str] | None = None,
-    max_per_hashtag: int = 30,
+    queries: list[str] | None = None,
+    max_per_query: int = 30,
     min_followers: int = MIN_FOLLOWERS,
     max_followers: int = MAX_FOLLOWERS,
 ) -> Generator[str, None, None]:
     """
-    Scrape Instagram for legal influencer prospects.
+    Scrape Instagram for legal influencer prospects via profile search.
     Yields log lines for SSE streaming.
     Saves new prospects to the affiliates table.
     """
@@ -135,7 +135,7 @@ def scrape(
 
     from database.affiliate_client import save_affiliate, get_existing_handles
 
-    tags = hashtags or HASHTAGS
+    search_queries = queries or SEARCH_QUERIES
 
     yield f"Logging in to Instagram as @{os.getenv('INSTA_USERNAME', '?')}..."
     try:
@@ -144,7 +144,7 @@ def scrape(
         yield f"Login failed: {exc}"
         return
 
-    yield f"Logged in. Searching {len(tags)} hashtag(s), up to {max_per_hashtag} posts each."
+    yield f"Logged in. Searching {len(search_queries)} query/queries, up to {max_per_query} profiles each."
     yield ""
 
     existing_handles = get_existing_handles()
@@ -153,87 +153,74 @@ def scrape(
     total_new = 0
     total_skipped = 0
 
-    for tag in tags:
-        yield f"# #{tag}"
-        new_in_tag = 0
+    for query in search_queries:
+        yield f"# \"{query}\""
+        new_in_query = 0
 
         try:
-            hashtag = instaloader.Hashtag.from_name(L.context, tag)
+            results = instaloader.TopSearchResults(L.context, query)
+            profiles = list(results.get_profiles())
         except Exception as exc:
-            yield f"  Could not load #{tag}: {exc}"
+            yield f"  Search failed for \"{query}\": {exc}"
             continue
 
         count = 0
-        try:
-            for post in hashtag.get_posts():
-                if count >= max_per_hashtag:
-                    break
+        for profile in profiles:
+            if count >= max_per_query:
+                break
+
+            try:
+                handle = profile.username
+
+                if handle in seen_handles:
+                    total_skipped += 1
+                    continue
+
+                seen_handles.add(handle)
+
+                if profile.is_private:
+                    continue
+
+                followers = profile.followers
+                if not (min_followers <= followers <= max_followers):
+                    continue
+
+                bio = profile.biography or ""
+                if not _is_legal_bio(bio):
+                    continue
+
+                phone = _extract_phone(bio)
+                email = _extract_email(bio)
+                name = profile.full_name or handle
+
+                save_affiliate({
+                    "instagram_handle": handle,
+                    "name": name,
+                    "follower_count": followers,
+                    "bio": bio[:500],
+                    "phone": phone,
+                    "email": email,
+                    "status": "prospect",
+                    "source": f"instagram_search:{query}",
+                })
+
+                total_new += 1
+                new_in_query += 1
                 count += 1
 
-                try:
-                    profile = post.owner_profile
-                    handle = profile.username
+                contact = phone or email or "no contact in bio"
+                yield f"  + @{handle} ({followers:,} followers) · {contact}"
 
-                    if handle in seen_handles:
-                        total_skipped += 1
-                        time.sleep(0.5)
-                        continue
+            except instaloader.exceptions.TooManyRequestsException:
+                yield "  Rate limited — pausing 60s..."
+                time.sleep(60)
+            except Exception as exc:
+                log.warning("Profile error for %s: %s", handle if 'handle' in dir() else '?', exc)
 
-                    if profile.is_private:
-                        seen_handles.add(handle)
-                        time.sleep(0.5)
-                        continue
+            time.sleep(1.5)
 
-                    followers = profile.followers
-                    if not (min_followers <= followers <= max_followers):
-                        seen_handles.add(handle)
-                        time.sleep(0.5)
-                        continue
-
-                    bio = profile.biography or ""
-                    if not _is_legal_bio(bio):
-                        seen_handles.add(handle)
-                        time.sleep(0.5)
-                        continue
-
-                    phone = _extract_phone(bio)
-                    email = _extract_email(bio)
-                    name = profile.full_name or handle
-
-                    save_affiliate({
-                        "instagram_handle": handle,
-                        "name": name,
-                        "follower_count": followers,
-                        "bio": bio[:500],
-                        "phone": phone,
-                        "email": email,
-                        "status": "prospect",
-                        "source": f"instagram_scrape:#{tag}",
-                    })
-
-                    seen_handles.add(handle)
-                    total_new += 1
-                    new_in_tag += 1
-
-                    contact = phone or email or "no contact in bio"
-                    yield f"  + @{handle} ({followers:,} followers) · {contact}"
-
-                except instaloader.exceptions.QueryReturnedBadRequestException:
-                    yield "  Rate limited — pausing 60s..."
-                    time.sleep(60)
-                except Exception as exc:
-                    log.warning("Profile error: %s", exc)
-
-                time.sleep(2)
-
-        except instaloader.exceptions.TooManyRequestsException:
-            yield f"  Instagram rate limit hit — stopping #{tag} early."
-            time.sleep(30)
-        except Exception as exc:
-            yield f"  Error scraping #{tag}: {exc}"
-
-        yield f"  → {new_in_tag} new prospect(s) from #{tag}"
+        yield f"  → {new_in_query} new prospect(s) for \"{query}\""
         yield ""
-        time.sleep(5)  # pause between hashtags
+        time.sleep(4)
 
     yield f"Done. {total_new} new prospects saved. {total_skipped} already in DB."

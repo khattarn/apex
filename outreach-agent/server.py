@@ -1821,7 +1821,7 @@ async def affiliate_scrape(
         def _run():
             try:
                 for line in scrape(
-                    max_per_hashtag=max_per_hashtag,
+                    max_per_query=max_per_hashtag,
                     min_followers=min_followers,
                     max_followers=max_followers,
                 ):
