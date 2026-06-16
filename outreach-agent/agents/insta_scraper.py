@@ -70,25 +70,17 @@ def _is_legal_bio(bio: str) -> bool:
     return any(kw in bio_lower for kw in LEGAL_KEYWORDS)
 
 
-_SESSION_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", ".insta_session")
-
-
 def _login():
     """
-    Login to Instagram and return an Instaloader instance.
+    Authenticate instaloader via browser session cookie (most reliable).
 
-    Priority order:
-      1. INSTA_SESSION_B64 env var — base64-encoded session file (use on Railway)
-      2. Local session file at .insta_session — created by /api/affiliates/export-session
-      3. Username + password login — only works from trusted IPs (not Railway datacenters)
+    Priority:
+      1. INSTA_SESSION_ID env var — sessionid cookie from instagram.com (works everywhere)
+      2. Username + password — blocked by Instagram checkpoints on datacenter IPs
     """
     import instaloader
-    import base64
-    import tempfile
 
-    username = os.getenv("INSTA_USERNAME", "")
-    if not username:
-        raise RuntimeError("INSTA_USERNAME must be set in .env")
+    username = os.getenv("INSTA_USERNAME", "leaglebeagle")
 
     L = instaloader.Instaloader(
         quiet=True,
@@ -101,56 +93,31 @@ def _login():
         compress_json=False,
     )
 
-    # Option 1: session from env var (Railway)
-    session_b64 = os.getenv("INSTA_SESSION_B64", "")
-    if session_b64:
+    session_id = os.getenv("INSTA_SESSION_ID", "")
+    if session_id:
+        # Inject browser cookie — bypasses all checkpoint/IP restrictions
+        L.context._session.cookies.set("sessionid", session_id, domain=".instagram.com")
+        L.context.username = username
+        # Verify it works
         try:
-            data = base64.b64decode(session_b64)
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".session")
-            tmp.write(data)
-            tmp.flush()
-            tmp.close()
-            L.load_session_from_file(username, tmp.name)
-            os.unlink(tmp.name)
-            log.info("Loaded Instagram session from INSTA_SESSION_B64 env var")
+            import instaloader
+            instaloader.Profile.from_username(L.context, username)
+            log.info("Authenticated via INSTA_SESSION_ID cookie")
             return L
         except Exception as exc:
-            raise RuntimeError(f"INSTA_SESSION_B64 is set but could not be loaded: {exc}")
+            raise RuntimeError(f"INSTA_SESSION_ID cookie is invalid or expired: {exc}")
 
-    # Option 2: local session file (saved after running export-session locally)
-    session_file = _SESSION_FILE_PATH
-    if os.path.exists(session_file):
-        try:
-            L.load_session_from_file(username, session_file)
-            log.info("Loaded Instagram session from local file")
-            return L
-        except Exception:
-            log.info("Local session file invalid, falling back to password login")
-
-    # Option 3: password login (only works from home IP, not Railway)
+    # Fallback: password (will fail on Railway due to checkpoint)
     password = os.getenv("INSTA_PASSWORD", "")
     if not password:
         raise RuntimeError(
-            "No Instagram session available. "
-            "Either set INSTA_SESSION_B64 (Railway) or run /api/affiliates/export-session locally first."
+            "INSTA_SESSION_ID not set. "
+            "Go to instagram.com in your browser as @leaglebeagle → F12 → "
+            "Application → Cookies → find 'sessionid' → copy its value → "
+            "set INSTA_SESSION_ID=<value> in Railway environment variables."
         )
     L.login(username, password)
-    L.save_session_to_file(session_file)
-    log.info("Logged in to Instagram as %s and saved session", username)
     return L
-
-
-def export_session_b64() -> str:
-    """
-    Login locally (where it works), save session, return base64 string.
-    Paste the result into Railway as INSTA_SESSION_B64.
-    """
-    import base64
-    L = _login()
-    session_file = _SESSION_FILE_PATH
-    L.save_session_to_file(session_file)
-    with open(session_file, "rb") as f:
-        return base64.b64encode(f.read()).decode()
 
 
 def scrape(
