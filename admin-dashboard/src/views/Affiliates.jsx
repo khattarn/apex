@@ -129,9 +129,10 @@ function ScrapePanel({ onDone }) {
     // Instead we use the fetch-based SSE approach
     es.close()
 
-    // Use fetch SSE
+    // Use fetch SSE (POST — endpoint requires auth header)
     const ctrl = new AbortController()
     fetch(`${BASE}/api/affiliates/scrape?max_per_hashtag=${maxPer}`, {
+      method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       signal: ctrl.signal,
     }).then(async res => {

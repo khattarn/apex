@@ -1809,22 +1809,43 @@ async def affiliate_scrape(
     min_followers:   int = Query(2000, ge=100),
     max_followers:   int = Query(500000, ge=1000),
 ):
-    """SSE: scrape Instagram for legal influencer prospects."""
+    """SSE: scrape Instagram for legal influencer prospects. Streams lines in real time."""
     async def generate():
+        import threading
         from agents.insta_scraper import scrape
+
+        loop = asyncio.get_event_loop()
+        q: asyncio.Queue = asyncio.Queue()
         _running["affiliate_scrape"] = {"started": _time.time()}
+
+        def _run():
+            try:
+                for line in scrape(
+                    max_per_hashtag=max_per_hashtag,
+                    min_followers=min_followers,
+                    max_followers=max_followers,
+                ):
+                    loop.call_soon_threadsafe(q.put_nowait, ("log", line))
+            except Exception as exc:
+                loop.call_soon_threadsafe(q.put_nowait, ("error", str(exc)))
+            finally:
+                loop.call_soon_threadsafe(q.put_nowait, ("done", None))
+
+        threading.Thread(target=_run, daemon=True).start()
+
         try:
-            for line in await asyncio.to_thread(
-                lambda: list(scrape(max_per_hashtag=max_per_hashtag,
-                                    min_followers=min_followers,
-                                    max_followers=max_followers))
-            ):
-                yield {"data": json.dumps({"type": "log", "line": line})}
-                await asyncio.sleep(0)
-        except Exception as exc:
-            yield {"data": json.dumps({"type": "error", "message": str(exc)})}
+            while True:
+                kind, payload = await q.get()
+                if kind == "log":
+                    yield {"data": json.dumps({"type": "log", "line": payload})}
+                elif kind == "error":
+                    yield {"data": json.dumps({"type": "error", "message": payload})}
+                    break
+                elif kind == "done":
+                    break
         finally:
             _running.pop("affiliate_scrape", None)
+
         yield {"data": json.dumps({"type": "done"})}
 
     return EventSourceResponse(generate(), headers={"X-Accel-Buffering": "no"}, ping=20)
