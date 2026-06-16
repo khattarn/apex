@@ -64,17 +64,35 @@ def _is_legal_profile(handle: str, bio: str) -> bool:
     return any(kw in text for kw in LEGAL_KEYWORDS)
 
 
-def _login():
-    """
-    Authenticate instaloader via browser session cookie (most reliable).
+_COOKIE_INSTRUCTIONS = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ INSTA_SESSION_ID not set (or expired)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Instagram no longer allows password login from scripts.
+ You must use a browser session cookie instead.
 
-    Priority:
-      1. INSTA_SESSION_ID env var — sessionid cookie from instagram.com (works everywhere)
-      2. Username + password — blocked by Instagram checkpoints on datacenter IPs
-    """
+ Steps:
+   1. Open Chrome and log in to instagram.com as @leaglebeagle
+   2. Press F12 → Application tab → Cookies (left sidebar)
+      → click https://www.instagram.com
+   3. Find the row named  sessionid  — copy its entire Value
+      (it looks like: 24176945060%3AVR7Sz...long string...)
+   4. Open  outreach-agent/.env  and add this line:
+        INSTA_SESSION_ID=<paste the value here>
+   5. Run the scraper again:  python scrape_local.py
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+
+def _login():
+    """Authenticate instaloader via browser session cookie (required — password login is blocked)."""
     import instaloader
 
     username = os.getenv("INSTA_USERNAME", "leaglebeagle")
+    session_id = os.getenv("INSTA_SESSION_ID", "").strip()
+
+    if not session_id:
+        raise RuntimeError(_COOKIE_INSTRUCTIONS)
 
     L = instaloader.Instaloader(
         quiet=True,
@@ -87,31 +105,21 @@ def _login():
         compress_json=False,
     )
 
-    session_id = os.getenv("INSTA_SESSION_ID", "")
-    if session_id:
-        # Inject browser cookie — bypasses all checkpoint/IP restrictions
-        L.context._session.cookies.set("sessionid", session_id, domain=".instagram.com")
-        L.context.username = username
-        # Verify it works
-        try:
-            import instaloader
-            instaloader.Profile.from_username(L.context, username)
-            log.info("Authenticated via INSTA_SESSION_ID cookie")
-            return L
-        except Exception as exc:
-            raise RuntimeError(f"INSTA_SESSION_ID cookie is invalid or expired: {exc}")
+    # Inject browser cookie — this is the only method that works reliably
+    L.context._session.cookies.set("sessionid", session_id, domain=".instagram.com")
+    L.context.username = username
 
-    # Fallback: password (will fail on Railway due to checkpoint)
-    password = os.getenv("INSTA_PASSWORD", "")
-    if not password:
+    # Verify with a known public account (instagram.com itself)
+    try:
+        instaloader.Profile.from_username(L.context, "instagram")
+        log.info("Authenticated via INSTA_SESSION_ID cookie")
+        return L
+    except Exception as exc:
         raise RuntimeError(
-            "INSTA_SESSION_ID not set. "
-            "Go to instagram.com in your browser as @leaglebeagle → F12 → "
-            "Application → Cookies → find 'sessionid' → copy its value → "
-            "set INSTA_SESSION_ID=<value> in Railway environment variables."
+            f"Session cookie is invalid or expired. Re-copy sessionid from your browser.\n"
+            f"Error: {exc}\n"
+            f"{_COOKIE_INSTRUCTIONS}"
         )
-    L.login(username, password)
-    return L
 
 
 def scrape(

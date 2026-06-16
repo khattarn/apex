@@ -56,6 +56,9 @@ def main():
         ):
             print(line)
             sys.stdout.flush()
+    except RuntimeError as exc:
+        print(f"\nERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\nStopped by user.")
 
