@@ -18,6 +18,7 @@ import Inbox from './views/Inbox'
 import Content from './views/Content'
 import VPMarketing from './views/VPMarketing'
 import Assets from './views/Assets'
+import Affiliates from './views/Affiliates'
 import { getActiveCalls, getWaInbox } from './api'
 
 function LiveCallBanner({ calls }) {
@@ -69,6 +70,7 @@ function RouteContent({ activeCalls, onMenuClick, onLogout, sidebarOpen, setSide
             <Route path="/content" element={<Content />} />
             <Route path="/vp-marketing" element={<VPMarketing />} />
             <Route path="/assets" element={<Assets />} />
+            <Route path="/affiliates" element={<Affiliates />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

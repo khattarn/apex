@@ -304,3 +304,40 @@ export const generateContent = (payload) =>
   request('/api/content/generate', { method: 'POST', body: JSON.stringify(payload) })
 
 export const getContentModules = () => request('/api/content/modules')
+
+// ── Agent 11: Affiliates ──────────────────────────────────────────────────────
+
+export const getAffiliates = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  return request(`/api/affiliates${qs ? `?${qs}` : ''}`)
+}
+
+export const getAffiliateStats = () => request('/api/affiliates/stats')
+
+export const inviteAffiliate = (id) =>
+  request(`/api/affiliates/${id}/invite`, { method: 'POST' })
+
+export const onboardAffiliate = (id, upi_id, bar_enrollment = '') =>
+  request(`/api/affiliates/${id}/onboard`, {
+    method: 'POST',
+    body: JSON.stringify({ upi_id, bar_enrollment }),
+  })
+
+export const patchAffiliate = (id, data) =>
+  request(`/api/affiliates/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const getCommissions = (status) => {
+  const qs = status ? `?status=${status}` : ''
+  return request(`/api/affiliates/commissions${qs}`)
+}
+
+export const payCommission = (id, notes = '') =>
+  request(`/api/affiliates/commissions/${id}/pay`, {
+    method: 'POST',
+    body: JSON.stringify({ notes }),
+  })
+
+export const scrapeAffiliates = (maxPerHashtag = 30) =>
+  request(`/api/affiliates/scrape?max_per_hashtag=${maxPerHashtag}`, { method: 'POST' })

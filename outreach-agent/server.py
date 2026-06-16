@@ -1218,31 +1218,6 @@ async def twilio_voice(To: str = "", _From: str = ""):
     return Response(content=str(resp), media_type="application/xml")
 
 
-# ── India bridge call (Vobiz SIP REFER) ──────────────────────────────────────
-
-@app.get("/api/bridge/test")
-async def bridge_test():
-    """Probe Vobiz SIP without placing a real call. Returns raw SIP exchange for debugging."""
-    from agents.sip_bridge import probe_vobiz
-    return await asyncio.to_thread(probe_vobiz)
-
-
-@app.post("/api/bridge/call")
-async def bridge_call(request: Request, _=Depends(verify_token)):
-    body = await request.json()
-    destination = (body.get("to") or "").strip()
-    if not destination:
-        raise HTTPException(status_code=400, detail="Missing 'to'")
-    from agents.vapi_bridge import start_bridge
-    bridge_id = start_bridge(destination)
-    return {"bridge_id": bridge_id}
-
-
-@app.get("/api/bridge/status/{bridge_id}")
-async def bridge_status(bridge_id: str, _=Depends(verify_token)):
-    from agents.vapi_bridge import get_bridge_status
-    return get_bridge_status(bridge_id)
-
 
 # ── Unsubscribe (public — no auth) ───────────────────────────────────────────
 
@@ -1811,6 +1786,187 @@ async def backfill_contacted(_=Depends(verify_token)):
     )
     updated = len(result.data) if result.data else 0
     return {"ok": True, "updated": updated}
+
+
+# ── Agent 11: Affiliate Tracker ───────────────────────────────────────────────
+
+_AFFILIATE_INVITE_MSG = (
+    "Hi {name}! I came across your Instagram (@{handle}) — great content for the legal community.\n\n"
+    "We've built *Nyaya Saathi* — AI-powered legal research for Indian advocates. "
+    "Fast, accurate case law search at ₹2,500/month (vs ₹25,000+ for SCC Online).\n\n"
+    "We have an affiliate programme:\n"
+    "• Share your referral link with fellow advocates\n"
+    "• Earn *₹500 for every subscriber* you refer\n"
+    "• Paid directly to your UPI every month, no cap\n\n"
+    "Interested? Reply here and I'll set you up with a personalised referral link.\n\n"
+    "— Neeraj, LegalAidAI"
+)
+
+
+@app.post("/api/affiliates/scrape", dependencies=[Depends(verify_token)])
+async def affiliate_scrape(
+    max_per_hashtag: int = Query(30, ge=5, le=100),
+    min_followers:   int = Query(2000, ge=100),
+    max_followers:   int = Query(500000, ge=1000),
+):
+    """SSE: scrape Instagram for legal influencer prospects."""
+    async def generate():
+        from agents.insta_scraper import scrape
+        _running["affiliate_scrape"] = {"started": _time.time()}
+        try:
+            for line in await asyncio.to_thread(
+                lambda: list(scrape(max_per_hashtag=max_per_hashtag,
+                                    min_followers=min_followers,
+                                    max_followers=max_followers))
+            ):
+                yield {"data": json.dumps({"type": "log", "line": line})}
+                await asyncio.sleep(0)
+        except Exception as exc:
+            yield {"data": json.dumps({"type": "error", "message": str(exc)})}
+        finally:
+            _running.pop("affiliate_scrape", None)
+        yield {"data": json.dumps({"type": "done"})}
+
+    return EventSourceResponse(generate(), headers={"X-Accel-Buffering": "no"}, ping=20)
+
+
+class AffiliateCreate(BaseModel):
+    instagram_handle: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    follower_count: Optional[int] = None
+    bio: Optional[str] = None
+    upi_id: Optional[str] = None
+    bar_enrollment: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class AffiliateUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    upi_id: Optional[str] = None
+    bar_enrollment: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class OnboardRequest(BaseModel):
+    upi_id: str
+    bar_enrollment: Optional[str] = ""
+
+
+class CommissionPaidRequest(BaseModel):
+    notes: Optional[str] = ""
+
+
+@app.get("/api/affiliates", dependencies=[Depends(verify_token)])
+async def list_affiliates(
+    status: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    from database.affiliate_client import get_affiliates
+    return get_affiliates(status=status, limit=limit, offset=offset)
+
+
+@app.post("/api/affiliates", dependencies=[Depends(verify_token)])
+async def create_affiliate(body: AffiliateCreate):
+    from database.affiliate_client import save_affiliate
+    data = body.model_dump(exclude_none=True)
+    data["source"] = "manual"
+    result = save_affiliate(data)
+    if not result:
+        raise HTTPException(status_code=409, detail="Handle already exists")
+    return result
+
+
+@app.patch("/api/affiliates/{affiliate_id}", dependencies=[Depends(verify_token)])
+async def patch_affiliate(affiliate_id: str, body: AffiliateUpdate):
+    from database.affiliate_client import update_affiliate
+    changes = body.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    result = update_affiliate(affiliate_id, changes)
+    if not result:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    return result
+
+
+@app.post("/api/affiliates/{affiliate_id}/invite", dependencies=[Depends(verify_token)])
+async def invite_affiliate(affiliate_id: str):
+    """Send a WA invite to a prospect. Marks status as 'invited'."""
+    from database.affiliate_client import get_affiliate_by_id, update_affiliate
+    from agents.outreach import send_whatsapp_message
+
+    aff = get_affiliate_by_id(affiliate_id)
+    if not aff:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    phone = aff.get("phone", "")
+    if not phone:
+        raise HTTPException(status_code=400, detail="No phone number — cannot send WA")
+
+    msg = _AFFILIATE_INVITE_MSG.format(
+        name=aff.get("name") or aff.get("instagram_handle", ""),
+        handle=aff.get("instagram_handle", ""),
+    )
+
+    # Send via India WA number (outreach to IN numbers)
+    india_phone_id = os.getenv("INDIA_WA_PHONE_NUMBER_ID", os.getenv("OUTREACH_WA_PHONE_NUMBER_ID", ""))
+    import requests as _req
+    wa_token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+    resp = _req.post(
+        f"https://graph.facebook.com/v19.0/{india_phone_id}/messages",
+        json={
+            "messaging_product": "whatsapp",
+            "to": phone,
+            "type": "text",
+            "text": {"body": msg},
+        },
+        headers={"Authorization": f"Bearer {wa_token}"},
+        timeout=10,
+    )
+    if not resp.ok:
+        raise HTTPException(status_code=502, detail=f"WA send failed: {resp.text}")
+
+    from datetime import datetime, timezone
+    update_affiliate(affiliate_id, {
+        "status": "invited",
+        "invited_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True, "message": msg}
+
+
+@app.post("/api/affiliates/{affiliate_id}/onboard", dependencies=[Depends(verify_token)])
+async def onboard_affiliate_endpoint(affiliate_id: str, body: OnboardRequest):
+    """Promote prospect → active affiliate. Generates referral code."""
+    from database.affiliate_client import onboard_affiliate
+    result = onboard_affiliate(affiliate_id, body.upi_id, body.bar_enrollment or "")
+    if not result:
+        raise HTTPException(status_code=404, detail="Affiliate not found")
+    return result
+
+
+@app.get("/api/affiliates/stats", dependencies=[Depends(verify_token)])
+async def affiliate_stats():
+    from database.affiliate_client import get_affiliate_stats
+    return get_affiliate_stats()
+
+
+@app.get("/api/affiliates/commissions", dependencies=[Depends(verify_token)])
+async def list_commissions(status: Optional[str] = None):
+    from database.affiliate_client import get_commissions
+    return {"data": get_commissions(status=status)}
+
+
+@app.post("/api/affiliates/commissions/{commission_id}/pay", dependencies=[Depends(verify_token)])
+async def pay_commission(commission_id: str, body: CommissionPaidRequest):
+    from database.affiliate_client import mark_commission_paid
+    result = mark_commission_paid(commission_id, body.notes or "")
+    if not result:
+        raise HTTPException(status_code=404, detail="Commission not found")
+    return result
 
 
 # ── Scheduled jobs (APScheduler — runs inside the server process) ─────────────
