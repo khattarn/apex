@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Instagram, Send, UserCheck, DollarSign, RefreshCw,
-  ChevronDown, Copy, Check, AlertCircle, Play
+  ChevronDown, Copy, Check, AlertCircle, Play, Sparkles
 } from 'lucide-react'
 import {
   getAffiliates, getAffiliateStats, getCommissions,
-  scrapeAffiliates, inviteAffiliate, onboardAffiliate, payCommission
+  scrapeAffiliates, inviteAffiliate, onboardAffiliate, payCommission,
+  generateContent,
 } from '../api'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -215,6 +216,132 @@ function ScrapePanel({ onDone }) {
   )
 }
 
+// ── DM Templates panel ───────────────────────────────────────────────────────
+
+function parseDmVariations(text) {
+  // Try --- dividers first
+  let parts = text.split(/\n-{3,}\n/)
+  if (parts.length >= 3) return parts.map(p => p.trim()).filter(Boolean)
+  // Try **A / **B / **C headers
+  parts = text.split(/(?=\n\*\*[A-C][\s—\-])/)
+  if (parts.length >= 3) return parts.map(p => p.trim()).filter(Boolean)
+  // Try bare A: / B: / C: at line start
+  parts = text.split(/\n(?=[A-C]\s*[:\-—])/)
+  if (parts.length >= 3) return parts.map(p => p.trim()).filter(Boolean)
+  return null
+}
+
+function DmTemplatesPanel() {
+  const [brief, setBrief]     = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult]   = useState('')
+  const [error, setError]     = useState('')
+  const [copied, setCopied]   = useState(null)
+
+  async function generate() {
+    setLoading(true); setError(''); setResult('')
+    try {
+      const res = await generateContent({
+        product: 'legalaidai',
+        module: 'advocate',
+        content_type: 'affiliate_dm',
+        tone: 'conversational',
+        market: 'IN',
+        language: 'en',
+        brief: brief.trim() ||
+          'Instagram DM outreach to Indian advocate influencers (10K–100K followers). Goal: recruit them as Nyaya Saathi affiliates. Draw on specific product features — real Indian Kanoon citations, 44 document templates, WhatsApp access, BNSS mapping — to make the pitch credible and concrete.',
+      })
+      setResult(res.content)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function copy(text, key) {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const variations = result ? parseDmVariations(result) : null
+
+  const LABELS = ['Variation A', 'Variation B', 'Variation C']
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles size={15} className="text-indigo-400" />
+          <span className="text-sm font-medium">Generate DM Templates</span>
+          <span className="text-xs text-slate-500">Content Agent · legalaidai:advocate · affiliate_dm</span>
+        </div>
+        <div>
+          <label className="text-xs text-slate-400 block mb-1">Additional brief (optional)</label>
+          <textarea
+            className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none placeholder-slate-600"
+            rows={2}
+            placeholder="e.g. Focus on the 2-minute bail draft angle. Emphasise BNSS migration pain for criminal lawyers."
+            value={brief}
+            onChange={e => setBrief(e.target.value)}
+          />
+        </div>
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm px-4 py-2 rounded transition-colors"
+        >
+          <Sparkles size={13} />
+          {loading ? 'Generating...' : 'Generate 3 DM Variations'}
+        </button>
+        {error && <p className="text-xs text-red-400">{error}</p>}
+      </div>
+
+      {result && (
+        <div className="space-y-3">
+          {variations ? variations.map((v, i) => (
+            <div key={i} className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wide">
+                  {LABELS[i] || `Variation ${i + 1}`}
+                </span>
+                <button
+                  onClick={() => copy(v.replace(/^\*\*[A-C][^\n]*\n?/, '').trim(), i)}
+                  className="text-xs flex items-center gap-1 text-slate-400 hover:text-white transition-colors shrink-0"
+                >
+                  {copied === i ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+                  {copied === i ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <pre className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed font-sans">
+                {v.replace(/^\*\*[A-C][^\n]*\n?/, '').trim()}
+              </pre>
+            </div>
+          )) : (
+            <div className="bg-[#1e293b] border border-slate-700 rounded-lg p-4">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <span className="text-xs font-semibold text-indigo-400">Generated DM Templates</span>
+                <button
+                  onClick={() => copy(result, 'all')}
+                  className="text-xs flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+                >
+                  {copied === 'all' ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+                  {copied === 'all' ? 'Copied' : 'Copy all'}
+                </button>
+              </div>
+              <pre className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed font-sans">{result}</pre>
+            </div>
+          )}
+          <p className="text-xs text-slate-500 px-1">
+            Replace [Name] and [specific detail] before sending. Personalise the opening line per account.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Referral link copy ────────────────────────────────────────────────────────
 
 function ReferralLink({ code }) {
@@ -291,9 +418,10 @@ export default function Affiliates() {
   }
 
   const TABS = [
-    { key: 'prospects',   label: 'Prospects', count: prospects.length + invited.length },
-    { key: 'active',      label: 'Active Affiliates', count: active.length },
-    { key: 'commissions', label: 'Commissions', count: pendingComms.length },
+    { key: 'prospects',    label: 'Prospects',       count: prospects.length + invited.length },
+    { key: 'active',       label: 'Active Affiliates', count: active.length },
+    { key: 'commissions',  label: 'Commissions',     count: pendingComms.length },
+    { key: 'dm_templates', label: 'DM Templates',    count: 0 },
   ]
 
   return (
@@ -531,6 +659,9 @@ export default function Affiliates() {
           )}
         </div>
       )}
+
+      {/* DM Templates tab */}
+      {tab === 'dm_templates' && <DmTemplatesPanel />}
 
       {/* Onboard modal */}
       {onboarding && (

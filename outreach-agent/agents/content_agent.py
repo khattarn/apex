@@ -80,6 +80,14 @@ HTML body uses inline styles only (no <style> blocks).
 pain_question (1 sentence), objection_handlers (3–5 common objections with responses).
 - social_post: Return the post text ready to copy-paste. For LinkedIn include a hook line. \
 For Instagram include suggested hashtags.
+- affiliate_dm: Return exactly 3 Instagram DM variations labelled A, B, C. Each is 60–80 words max. \
+Tone guide — A: curiosity hook (no product name in opening line, ends with a question); \
+B: peer-to-peer honest (acknowledge it's a programme outreach, keep it direct and respectful); \
+C: audience-led (open with the value of their audience, why the programme suits an influencer). \
+Include legalaidai.in/affiliates in each DM. Commission: ₹500 on subscription + ₹500 on renewal. \
+Mark personalisation slots as [Name] and [specific detail from their account]. \
+Never use: "revolutionary", "game-changing", emojis, corporate buzzwords. \
+Use specific product features from the knowledge base — do not be generic.
 
 HINDI CONTENT
 - Use natural Hinglish for WhatsApp (mix of Hindi Devanagari + English terms is correct and preferred).

@@ -2597,7 +2597,7 @@ async def content_modules():
     from agents.content_agent import PRODUCT_MODULES
     return {
         "products": PRODUCT_MODULES,
-        "content_types": ["wa_template", "email", "voice_guidance", "social_post"],
+        "content_types": ["wa_template", "email", "voice_guidance", "social_post", "affiliate_dm"],
         "tones": ["structured", "pain_first", "outcome_first", "conversational"],
         "markets": ["AU", "US", "CA", "IN"],
         "languages": ["en", "hi"],
