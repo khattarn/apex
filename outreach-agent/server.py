@@ -1969,6 +1969,24 @@ async def onboard_affiliate_endpoint(affiliate_id: str, body: OnboardRequest):
     return result
 
 
+@app.get("/api/affiliates/export-session", dependencies=[Depends(verify_token)])
+async def export_instagram_session():
+    """
+    Login to Instagram locally and return base64-encoded session.
+    Run this locally (home IP), then paste the result into Railway as INSTA_SESSION_B64.
+    """
+    try:
+        from agents.insta_scraper import export_session_b64
+        b64 = await asyncio.to_thread(export_session_b64)
+        return {
+            "ok": True,
+            "session_b64": b64,
+            "instruction": "Set this as INSTA_SESSION_B64 in your Railway environment variables.",
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/affiliates/stats", dependencies=[Depends(verify_token)])
 async def affiliate_stats():
     from database.affiliate_client import get_affiliate_stats
