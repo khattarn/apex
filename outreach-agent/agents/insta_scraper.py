@@ -15,22 +15,23 @@ from typing import Generator
 
 log = logging.getLogger(__name__)
 
-# Search terms — used with Instagram's profile/top search
+# Single-keyword searches — TopSearchResults matches on username/display name
+# Short terms work best; Instagram shows profiles whose name/handle contains the word
 SEARCH_QUERIES = [
-    "indian advocate",
-    "advocate india",
-    "lawyer india",
-    "high court advocate",
-    "supreme court advocate",
+    "advocate",
+    "lawyer",
     "vakil",
-    "legal india",
-    "advocate delhi",
-    "advocate mumbai",
-    "advocate bangalore",
-    "advocate chennai",
-    "advocate kolkata",
-    "bar council india",
-    "legal advice india",
+    "legaladvice",
+    "highcourtadvocate",
+    "advocatelife",
+    "lawyersofindia",
+    "indianlawyer",
+    "legalindia",
+    "advocatedelhi",
+    "advocatemumbai",
+    "supremecourtadvocate",
+    "barcouncil",
+    "legalaid",
 ]
 
 # Bio keywords that confirm the account is a legal professional
@@ -65,9 +66,10 @@ def _extract_email(text: str) -> str:
     return m.group().lower() if m else ""
 
 
-def _is_legal_bio(bio: str) -> bool:
-    bio_lower = bio.lower()
-    return any(kw in bio_lower for kw in LEGAL_KEYWORDS)
+def _is_legal_profile(handle: str, bio: str) -> bool:
+    """Accept if username OR bio contains a legal keyword."""
+    text = (handle + " " + bio).lower()
+    return any(kw in text for kw in LEGAL_KEYWORDS)
 
 
 def _login():
@@ -186,7 +188,7 @@ def scrape(
                     continue
 
                 bio = profile.biography or ""
-                if not _is_legal_bio(bio):
+                if not _is_legal_profile(handle, bio):
                     continue
 
                 phone = _extract_phone(bio)
