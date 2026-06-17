@@ -25,13 +25,16 @@ export default function Dashboard() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([getStats(), getLeads({ limit: 10 }), getObservatoryLatest()])
-      .then(([s, l, o]) => {
+    Promise.all([getStats(), getLeads({ limit: 10 })])
+      .then(([s, l]) => {
         setStats(s)
         setRecent(l.data || [])
-        setObservatory(o)
       })
       .catch((e) => setError(e.message))
+
+    getObservatoryLatest()
+      .then(setObservatory)
+      .catch(() => {})
   }, [])
 
   if (error) return <p className="p-8 text-red-400">{error}</p>

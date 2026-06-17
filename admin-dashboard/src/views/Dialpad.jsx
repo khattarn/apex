@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Phone, PhoneOff, Delete, Mic, MicOff } from 'lucide-react'
-import Vapi from '@vapi-ai/web'
+import { Phone, PhoneOff, Delete } from 'lucide-react'
 import { Device } from '@twilio/voice-sdk'
 import { fetchTwilioToken } from '../api'
-
-const VAPI_KEY = 'c6c3d332-0a2d-42a8-89c8-477bcdc5449a' // public key — safe for browser
-const VAPI_INDIA_PHONE_ID = '55328e0f-b12b-4108-a3b2-ee282aa7bed9'
 
 const KEYS = [
   ['1', ''], ['2', 'ABC'], ['3', 'DEF'],
@@ -14,165 +10,52 @@ const KEYS = [
   ['*', ''], ['0', '+'], ['#', ''],
 ]
 
-// ── India Direct Dialpad (Vapi Web SDK) ───────────────────────────────────────
-
-const CALL_STATES = {
-  idle:        { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Ready · speak through browser' },
-  requesting:  { ring: 'bg-slate-400 animate-pulse',  bar: 'bg-slate-700/40 text-slate-400',    label: 'Requesting microphone…' },
-  connecting:  { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Connecting…' },
-  ringing:     { ring: 'bg-amber-400 animate-pulse',  bar: 'bg-amber-900/30 text-amber-400',    label: 'Ringing lead…' },
-  'on-call':   { ring: 'bg-green-400 animate-pulse',  bar: 'bg-green-900/30 text-green-400',    label: 'On call · speak now' },
-  ended:       { ring: 'bg-slate-500',                bar: 'bg-slate-700/40 text-slate-400',    label: 'Call ended' },
-  error:       { ring: 'bg-red-400',                  bar: 'bg-red-900/30 text-red-400',        label: 'Error' },
-}
+// ── India — Zoiper instructions ───────────────────────────────────────────────
 
 function IndiaBridge() {
-  const [number, setNumber] = useState('')
-  const [callState, setCallState] = useState('idle')
-  const [errorMsg, setErrorMsg] = useState('')
-  const [muted, setMuted] = useState(false)
-  const vapiRef = useRef(null)
+  const fields = [
+    { label: 'Domain',    value: 'edcf4901.sip.vobiz.ai' },
+    { label: 'Username',  value: 'practicedesk-priya' },
+    { label: 'Password',  value: 'Ap#CSPgPc3mf9Jq$' },
+    { label: 'Transport', value: 'TCP' },
+    { label: 'Caller ID', value: '+91 9262171423' },
+  ]
+  const [copied, setCopied] = useState('')
 
-  const isBusy = ['requesting', 'connecting', 'ringing', 'on-call'].includes(callState)
-  const isOnCall = callState === 'on-call'
-
-  useEffect(() => () => { vapiRef.current?.stop() }, [])
-
-  function press(digit) { if (!isBusy) setNumber(n => n + digit) }
-  function backspace() { if (!isBusy) setNumber(n => n.slice(0, -1)) }
-
-  async function startCall() {
-    if (!number || isBusy) return
-    setErrorMsg('')
-    setCallState('requesting')
-
-    const dest = number.startsWith('+') ? number : `+${number}`
-    const vapi = new Vapi(VAPI_KEY)
-    vapiRef.current = vapi
-
-    vapi.on('call-start',  () => setCallState('ringing'))
-    vapi.on('speech-start', () => setCallState('on-call'))
-    vapi.on('call-end',    () => { setCallState('ended'); vapiRef.current = null })
-    vapi.on('error', (e) => {
-      console.error('Vapi error:', e)
-      const msg = e?.error?.message || e?.message ||
-        (typeof e === 'object' ? JSON.stringify(e) : String(e))
-      setCallState('error')
-      setErrorMsg(msg || 'Unknown Vapi error — check browser console (F12)')
-      vapiRef.current = null
-    })
-
-    try {
-      setCallState('connecting')
-      await vapi.start(
-        {
-          firstMessage: '',
-          model: {
-            provider: 'anthropic',
-            model: 'claude-haiku-4-5-20251001',
-            messages: [{ role: 'system', content: `Immediately call the transferCall function to transfer this call to ${dest}. Do not speak at all.` }],
-            tools: [{ type: 'transferCall', destinations: [{ type: 'number', number: dest }] }],
-          },
-          voice: { provider: 'azure', voiceId: 'en-IN-NeerjaNeural' },
-        },
-        { phoneNumberId: VAPI_INDIA_PHONE_ID }
-      )
-    } catch (err) {
-      console.error('Vapi start error:', err)
-      setCallState('error')
-      setErrorMsg(err?.message || JSON.stringify(err) || 'Start failed — check browser console (F12)')
-      vapiRef.current = null
-    }
+  function copy(value, label) {
+    navigator.clipboard.writeText(value).catch(() => {})
+    setCopied(label)
+    setTimeout(() => setCopied(''), 1500)
   }
-
-  function hangUp() {
-    vapiRef.current?.stop()
-    vapiRef.current = null
-    setCallState('idle')
-    setMuted(false)
-  }
-
-  function toggleMute() {
-    if (!vapiRef.current) return
-    const next = !muted
-    vapiRef.current.setMuted(next)
-    setMuted(next)
-  }
-
-  function reset() { setCallState('idle'); setErrorMsg(''); setMuted(false) }
-
-  const stateInfo = CALL_STATES[callState] || CALL_STATES.idle
-  const isDone = callState === 'ended' || callState === 'error'
 
   return (
     <div>
-      <div className={`mb-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${stateInfo.bar}`}>
-        <span className={`w-2 h-2 rounded-full shrink-0 ${stateInfo.ring}`} />
-        <span className="truncate">
-          {callState === 'error' ? `Error: ${errorMsg}` : stateInfo.label}
-        </span>
-      </div>
+      <p className="text-xs text-slate-400 mb-4">
+        Use <span className="text-white font-medium">Zoiper</span> (free desktop app) to call Indian leads directly from your computer.
+      </p>
 
-      <div className="flex items-center bg-[#1e293b] border border-slate-700/50 rounded-lg px-4 py-3 mb-4 min-h-[56px]">
-        <span className="flex-1 text-xl font-mono tracking-widest text-white">
-          {number || <span className="text-slate-600 text-base font-sans">Enter lead number with 91</span>}
-        </span>
-        {number && !isBusy && (
-          <button onClick={backspace} className="text-slate-500 hover:text-slate-200 ml-2 transition-colors">
-            <Delete size={18} />
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 mb-5">
-        {KEYS.map(([digit, sub]) => (
-          <button
-            key={digit}
-            onClick={() => press(digit)}
-            disabled={isBusy}
-            className="flex flex-col items-center justify-center bg-[#1e293b] hover:bg-slate-700/60 border border-slate-700/40 rounded-lg py-3 transition-colors disabled:opacity-40 select-none"
-          >
-            <span className="text-lg font-semibold text-white leading-none">{digit}</span>
-            {sub && <span className="text-[9px] text-slate-500 mt-0.5 tracking-widest">{sub}</span>}
-          </button>
+      <div className="space-y-2 mb-5">
+        {fields.map(({ label, value }) => (
+          <div key={label} className="flex items-center justify-between bg-[#1e293b] border border-slate-700/50 rounded-lg px-3 py-2">
+            <div>
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide">{label}</p>
+              <p className="text-sm font-mono text-white">{value}</p>
+            </div>
+            <button
+              onClick={() => copy(value, label)}
+              className="text-xs text-slate-500 hover:text-indigo-400 transition-colors px-2 py-1 rounded"
+            >
+              {copied === label ? '✓' : 'Copy'}
+            </button>
+          </div>
         ))}
       </div>
 
-      <div className="flex justify-center gap-4">
-        {!isBusy && !isDone && (
-          <button onClick={startCall} disabled={!number}
-            className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg"
-            title="Call via browser · +91 9262171423">
-            <Phone size={26} fill="white" stroke="white" />
-          </button>
-        )}
-        {isBusy && (
-          <>
-            {isOnCall && (
-              <button onClick={toggleMute}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${muted ? 'bg-amber-600 hover:bg-amber-500' : 'bg-slate-700 hover:bg-slate-600'}`}
-                title={muted ? 'Unmute' : 'Mute'}>
-                {muted ? <MicOff size={20} stroke="white" /> : <Mic size={20} stroke="white" />}
-              </button>
-            )}
-            <button onClick={hangUp}
-              className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-lg"
-              title="Hang up">
-              <PhoneOff size={26} stroke="white" />
-            </button>
-          </>
-        )}
-        {isDone && (
-          <button onClick={reset}
-            className="px-6 h-12 rounded-full bg-slate-700 hover:bg-slate-600 text-sm text-white transition-colors">
-            New call
-          </button>
-        )}
+      <div className="text-[11px] text-slate-500 space-y-1">
+        <p>1. Download Zoiper5 (free) → zoiper.com</p>
+        <p>2. Add SIP account with the credentials above</p>
+        <p>3. Dial any +91 number — caller ID shows +91 9262171423</p>
       </div>
-
-      <p className="mt-4 text-center text-[11px] text-slate-600">
-        Calls through browser mic · caller ID: +91 9262171423 · allow mic when prompted
-      </p>
     </div>
   )
 }
@@ -344,24 +227,19 @@ export default function Dialpad() {
     <div className="p-6 max-w-xs mx-auto">
       <h2 className="text-base font-semibold mb-4">Dialpad</h2>
 
-      {/* Tab switcher */}
       <div className="flex gap-1 bg-slate-800/60 rounded-lg p-1 mb-6">
         <button
           onClick={() => setTab('india')}
           className={`flex-1 text-xs py-1.5 rounded-md transition-colors font-medium ${
-            tab === 'india'
-              ? 'bg-slate-700 text-white'
-              : 'text-slate-500 hover:text-slate-300'
+            tab === 'india' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'
           }`}
         >
-          🇮🇳 India Bridge
+          🇮🇳 India (Zoiper)
         </button>
         <button
           onClick={() => setTab('intl')}
           className={`flex-1 text-xs py-1.5 rounded-md transition-colors font-medium ${
-            tab === 'intl'
-              ? 'bg-slate-700 text-white'
-              : 'text-slate-500 hover:text-slate-300'
+            tab === 'intl' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'
           }`}
         >
           🌐 International

@@ -277,7 +277,7 @@ class LeadUpdate(BaseModel):
 async def get_called_ids(_=Depends(verify_token)):
     """Returns set of lead IDs that have received an outbound Aria call."""
     from database.client import get_client
-    rows = get_client().table("lead_activities").select("lead_id").eq("type", "outbound_call").execute().data or []
+    rows = get_client().table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or []
     return {"ids": list({str(r["lead_id"]) for r in rows})}
 
 
@@ -1024,6 +1024,12 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     run_id = result.get("workflow_run_id", "")
     _track_active_call(run_id, lead_id, lead.get("name", ""), lead.get("phone", ""), "outbound")
     update_lead(lead_id, {"notes": f"Voice call placed — Dograh run ID: {run_id or 'unknown'}"})
+    from database.client import log_activity
+    log_activity(lead_id, "outbound_call", {
+        "dograh_run_id": run_id,
+        "trigger": "manual",
+        "phone": lead.get("phone", ""),
+    })
     return {"ok": True, "workflow_run_id": run_id}
 
 

@@ -34,7 +34,7 @@ def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
     # Resolve voice_called filter via lead_activities lookup
     called_ids = None
     if voice_called is not None:
-        rows = db.table("lead_activities").select("lead_id").eq("type", "outbound_call").execute().data or []
+        rows = db.table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or []
         called_ids = list({str(r["lead_id"]) for r in rows})
 
     query = db.table("leads").select("*", count="exact")
@@ -255,8 +255,8 @@ def get_stats():
         if step > 0 and not paused:  in_sequence += 1
         if paused and step >= len(EMAIL_SEQUENCE): sequence_complete += 1
 
-    # Count leads Aria has called (outbound_call activities)
-    aria_called_rows = db.table("lead_activities").select("lead_id").eq("type", "outbound_call").execute().data or []
+    # Count leads Aria has called (any placement activity)
+    aria_called_rows = db.table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or []
     aria_called = len({str(r["lead_id"]) for r in aria_called_rows})
 
     return {
@@ -439,7 +439,7 @@ def get_clicked_uncalled_leads() -> list[dict]:
     already_called_rows = (
         db.table("lead_activities")
         .select("lead_id")
-        .eq("type", "outbound_call")
+        .in_("type", ["outbound_call", "voice_followup_placed"])
         .in_("lead_id", clicked_ids)
         .execute()
         .data
