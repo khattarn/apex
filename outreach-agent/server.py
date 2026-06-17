@@ -907,6 +907,71 @@ async def get_lead_activities(lead_id: str, _=Depends(verify_token)):
     return {"data": result.data or []}
 
 
+@app.get("/api/call-sessions")
+async def get_call_sessions(
+    limit: int = 100,
+    offset: int = 0,
+    _=Depends(verify_token),
+):
+    """Return all call events joined with lead details, newest first."""
+    from database.client import get_client
+    db = get_client()
+
+    call_types = ["voice_followup_placed", "outbound_call", "inbound_call", "voice_followup_outcome"]
+
+    acts = (
+        db.table("lead_activities")
+        .select("id, lead_id, type, detail, created_at")
+        .in_("type", call_types)
+        .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+        .data or []
+    )
+
+    if not acts:
+        return {"data": [], "total": 0}
+
+    lead_ids = list({str(a["lead_id"]) for a in acts})
+    leads_rows = (
+        db.table("leads")
+        .select("id, name, phone, city, business_type, status")
+        .in_("id", lead_ids)
+        .execute()
+        .data or []
+    )
+    lead_map = {str(r["id"]): r for r in leads_rows}
+
+    rows = []
+    for a in acts:
+        lead = lead_map.get(str(a["lead_id"]), {})
+        detail = a.get("detail") or {}
+        rows.append({
+            "activity_id":   a["id"],
+            "lead_id":       str(a["lead_id"]),
+            "lead_name":     lead.get("name", "Unknown"),
+            "phone":         lead.get("phone", detail.get("phone", "")),
+            "city":          lead.get("city", ""),
+            "business_type": lead.get("business_type", ""),
+            "lead_status":   lead.get("status", ""),
+            "call_type":     a["type"],
+            "outcome":       detail.get("call_outcome") or detail.get("outcome") or "",
+            "summary":       detail.get("summary", ""),
+            "recording_url": detail.get("recording_url", ""),
+            "dograh_run_id": detail.get("dograh_run_id", ""),
+            "called_at":     a["created_at"],
+        })
+
+    total = (
+        db.table("lead_activities")
+        .select("id", count="exact")
+        .in_("type", call_types)
+        .execute()
+        .count or 0
+    )
+    return {"data": rows, "total": total}
+
+
 # ── Stats ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/stats")

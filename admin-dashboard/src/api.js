@@ -250,6 +250,10 @@ export const markWaRead = (id) =>
 
 export const getActiveCalls = () => request('/api/active-calls')
 export const getCalledIds = () => request('/api/leads/called-ids')
+export const getCallSessions = (params = {}) => {
+  const q = new URLSearchParams(params).toString()
+  return request(`/api/call-sessions${q ? '?' + q : ''}`)
+}
 
 export const getLiveActivity = () => request('/api/activity/live')
 

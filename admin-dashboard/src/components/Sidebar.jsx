@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone, X, Radio, Inbox, Wand2, TrendingUp, Archive, Instagram, Map } from 'lucide-react'
+import { LayoutDashboard, Play, Users, Megaphone, Settings, LogOut, Bot, Package, Phone, X, Radio, Inbox, Wand2, TrendingUp, Archive, Instagram, Map, PhoneCall } from 'lucide-react'
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -7,6 +7,7 @@ const NAV = [
   { to: '/pipeline', icon: Play, label: 'Run Pipeline' },
   { to: '/leads', icon: Users, label: 'Leads' },
   { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+  { to: '/call-sessions', icon: PhoneCall, label: 'Call Sessions' },
   { to: '/inbox', icon: Inbox, label: 'WA Inbox' },
   { to: '/vp-marketing', icon: TrendingUp, label: 'VP Marketing' },
   { to: '/content', icon: Wand2, label: 'Content' },
