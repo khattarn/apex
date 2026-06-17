@@ -31,6 +31,7 @@ def _track_active_call(
     direction: str,
 ) -> None:
     """Register a just-triggered Dograh call in the live-call dashboard tracker."""
+    run_id = str(run_id)
     if not run_id:
         return
     from datetime import datetime, timezone
@@ -283,6 +284,12 @@ async def get_called_ids(_=Depends(verify_token)):
 @app.get("/api/active-calls")
 async def get_active_calls(_=Depends(verify_token)):
     """Returns calls currently in progress (tracked in memory via Vapi call-started webhook)."""
+    from datetime import datetime, timezone
+    cutoff = datetime.now(timezone.utc).timestamp() - 900  # 15 min TTL
+    stale = [k for k, v in _active_calls.items()
+             if datetime.fromisoformat(v["started_at"]).timestamp() < cutoff]
+    for k in stale:
+        _active_calls.pop(k, None)
     return {"calls": list(_active_calls.values()), "count": len(_active_calls)}
 
 
@@ -588,7 +595,7 @@ def _find_lead_by_phone(phone: str) -> dict | None:
 @app.post("/api/webhooks/dograh")
 async def dograh_webhook(request: Request):
     payload         = await request.json()
-    workflow_run_id = payload.get("workflow_run_id", "")
+    workflow_run_id = str(payload.get("workflow_run_id", ""))
     initial_ctx     = payload.get("initial_context", {})
     gathered_ctx    = payload.get("gathered_context", {})
     recording_url   = payload.get("recording_url", "")
