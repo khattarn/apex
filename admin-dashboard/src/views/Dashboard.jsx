@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Users, Mail, Eye, CornerDownRight, TrendingUp, MousePointerClick, Phone } from 'lucide-react'
-import { getStats, getLeads } from '../api'
+import { Users, Mail, Eye, CornerDownRight, TrendingUp, MousePointerClick, Phone, Telescope } from 'lucide-react'
+import { getStats, getLeads, getObservatoryLatest } from '../api'
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
 
@@ -21,13 +21,15 @@ function fmt(ts) {
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState([])
+  const [observatory, setObservatory] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([getStats(), getLeads({ limit: 10 })])
-      .then(([s, l]) => {
+    Promise.all([getStats(), getLeads({ limit: 10 }), getObservatoryLatest()])
+      .then(([s, l, o]) => {
         setStats(s)
         setRecent(l.data || [])
+        setObservatory(o)
       })
       .catch((e) => setError(e.message))
   }, [])
@@ -81,6 +83,32 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Observatory digest */}
+      {observatory && (
+        <div className="bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-700/40 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Telescope size={14} className="text-amber-400" />
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Apex Daily — Last Report</p>
+            </div>
+            {observatory.updated_at && (
+              <span className="text-[10px] text-slate-500">
+                {new Date(observatory.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+          {observatory.digest ? (
+            <pre className="px-4 py-3 text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
+              {observatory.digest}
+            </pre>
+          ) : (
+            <p className="px-4 py-4 text-xs text-slate-500 italic">
+              No digest yet — Observatory runs daily at 7am IST. Check back tomorrow.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Recent activity */}
       <div className="bg-[#1e293b] rounded-lg border border-slate-700/40 overflow-hidden">

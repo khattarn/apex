@@ -1,8 +1,11 @@
+import logging
 import os
 from datetime import datetime, timezone, timedelta
 
 from database.client import get_stats, get_client
 from agents.outreach import send_whatsapp_message
+
+log = logging.getLogger(__name__)
 
 
 def _yesterday_range():
@@ -53,15 +56,14 @@ def _get_yesterday_wa_replies() -> int:
     return result.count or 0
 
 
-def _get_dograh_calls_yesterday() -> tuple[int, float]:
-    """Return (call_count, total_cost_usd) from outbound_call_completed activities yesterday."""
+def _get_yesterday_calls() -> tuple[int, float]:
     db = get_client()
     start, end = _yesterday_range()
     try:
         result = (
             db.table("lead_activities")
             .select("detail")
-            .eq("type", "outbound_call_completed")
+            .in_("type", ["outbound_call_completed", "voice_followup_placed"])
             .gte("created_at", start)
             .lte("created_at", end)
             .execute()
@@ -99,7 +101,7 @@ def build_digest() -> str:
     new_leads          = _get_yesterday_leads_added()
     wa_sent            = _get_yesterday_wa_sent()
     wa_replies         = _get_yesterday_wa_replies()
-    call_count, cost   = _get_dograh_calls_yesterday()
+    call_count, cost   = _get_yesterday_calls()
     last_run           = _get_last_pipeline_run()
 
     today = datetime.now(timezone.utc).strftime("%d %b %Y")
@@ -110,20 +112,73 @@ def build_digest() -> str:
         f"Total leads: {stats['total_leads']}  |  Replied: {stats['replied']}  |  Converted: {stats['converted']}",
         f"Yesterday: {new_leads} new leads  |  {wa_sent} WA sent  |  {wa_replies} replies",
         f"Voice calls (yesterday): {call_count}  |  Est. cost: ${cost:.4f}",
-        f"Email sequence active: {stats['in_sequence']}  |  Complete: {stats['sequence_complete']}",
+        f"Email sequence active: {stats.get('in_sequence', 0)}  |  Complete: {stats.get('sequence_complete', 0)}",
         "",
         f"Last pipeline run: {last_run}",
     ]
     return "\n".join(lines)
 
 
+def _store_digest(digest: str) -> None:
+    """Persist digest to settings table so it's readable from the dashboard."""
+    try:
+        db = get_client()
+        db.table("settings").upsert({
+            "key":        "last_observatory_digest",
+            "value":      digest,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as exc:
+        log.warning("Observatory: could not store digest in settings: %s", exc)
+
+
+def _send_email_digest(digest: str) -> bool:
+    """Send digest via Resend as a reliable fallback to WhatsApp."""
+    resend_key = os.getenv("RESEND_API_KEY")
+    founder_email = os.getenv("FOUNDER_EMAIL", "khattarn3@yahoo.com")
+    if not resend_key:
+        return False
+    try:
+        import requests as _req
+        resp = _req.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+            json={
+                "from":    "Apex Observatory <observatory@practicedesk.live>",
+                "to":      [founder_email],
+                "subject": f"Apex Daily — {datetime.now(timezone.utc).strftime('%d %b %Y')}",
+                "text":    digest,
+            },
+            timeout=15,
+        )
+        return resp.status_code in (200, 201)
+    except Exception as exc:
+        log.warning("Observatory: email fallback failed: %s", exc)
+        return False
+
+
 def send_observatory_digest() -> str:
+    digest = build_digest()
+
+    # 1. Always persist to DB — readable from dashboard regardless of WA/email status
+    _store_digest(digest)
+
     recipient = (
         os.getenv("OBSERVATORY_WA_RECIPIENT")
         or os.getenv("FOUNDER_WHATSAPP_NUMBER")
     )
-    if not recipient:
-        raise RuntimeError("OBSERVATORY_WA_RECIPIENT and FOUNDER_WHATSAPP_NUMBER are both unset")
-    digest = build_digest()
-    send_whatsapp_message(recipient, digest)
+
+    wa_ok = False
+    if recipient:
+        try:
+            wa_ok = send_whatsapp_message(recipient, digest)
+        except Exception as exc:
+            log.warning("Observatory: WA send failed (%s) — falling back to email", exc)
+
+    # 2. Email fallback if WA failed or no recipient configured
+    if not wa_ok:
+        email_ok = _send_email_digest(digest)
+        if not email_ok:
+            log.error("Observatory: both WA and email delivery failed")
+
     return digest

@@ -2118,11 +2118,8 @@ async def _job_voice_followup():
 
 async def _job_observatory():
     from agents.observatory import send_observatory_digest
-    from database.client import log_activity
     try:
-        digest = send_observatory_digest()  # returns the digest text; builds it internally once
-        if digest:
-            log_activity(None, "observatory_sent", {"preview": digest[:200]})
+        send_observatory_digest()  # stores to settings table + sends WA/email internally
     except Exception as exc:
         log.error("Observatory job failed: %s", exc)
         from utils.alerter import alert_founder
@@ -2610,11 +2607,25 @@ async def cron_observatory(request: Request):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     from agents.observatory import send_observatory_digest
-    from database.client import log_activity
-
-    digest = send_observatory_digest()  # builds once internally
-    log_activity(None, "observatory_sent", {"preview": digest[:200]})
+    digest = send_observatory_digest()
     return {"ok": True, "digest": digest}
+
+
+@app.get("/api/observatory/latest")
+async def observatory_latest(_=Depends(verify_token)):
+    """Return the most recently stored Observatory digest."""
+    from database.client import get_client
+    result = (
+        get_client()
+        .table("settings")
+        .select("value, updated_at")
+        .eq("key", "last_observatory_digest")
+        .execute()
+    )
+    if not result.data:
+        return {"digest": None, "updated_at": None}
+    row = result.data[0]
+    return {"digest": row["value"], "updated_at": row["updated_at"]}
 
 
 # ── Content Agent (Agent 8) ────────────────────────────────────────────────────
