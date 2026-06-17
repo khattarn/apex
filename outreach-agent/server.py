@@ -2611,6 +2611,14 @@ async def cron_observatory(request: Request):
     return {"ok": True, "digest": digest}
 
 
+@app.post("/api/observatory/run")
+async def observatory_run(_=Depends(verify_token)):
+    """Manually trigger the Observatory digest (admin auth)."""
+    from agents.observatory import send_observatory_digest
+    digest = send_observatory_digest()
+    return {"ok": True, "digest": digest}
+
+
 @app.get("/api/observatory/latest")
 async def observatory_latest(_=Depends(verify_token)):
     """Return the most recently stored Observatory digest."""
