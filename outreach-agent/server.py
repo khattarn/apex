@@ -595,6 +595,19 @@ def _find_lead_by_phone(phone: str) -> dict | None:
 @app.post("/api/webhooks/dograh")
 async def dograh_webhook(request: Request):
     payload         = await request.json()
+
+    # Debug: persist raw payload so we can inspect what Dograh actually sends
+    try:
+        from database.client import get_client as _gc
+        from datetime import datetime, timezone as _tz
+        _gc().table("settings").upsert({
+            "key": "dograh_last_webhook_payload",
+            "value": json.dumps(payload),
+            "updated_at": datetime.now(_tz.utc).isoformat(),
+        }).execute()
+    except Exception:
+        pass
+
     workflow_run_id = str(payload.get("workflow_run_id", ""))
     initial_ctx     = payload.get("initial_context", {})
     gathered_ctx    = payload.get("gathered_context", {})
@@ -2615,6 +2628,17 @@ async def cron_observatory(request: Request):
     from agents.observatory import send_observatory_digest
     digest = send_observatory_digest()
     return {"ok": True, "digest": digest}
+
+
+@app.get("/api/webhooks/dograh/debug")
+async def dograh_webhook_debug(_=Depends(verify_token)):
+    """Return the last raw payload received from Dograh (for debugging)."""
+    from database.client import get_client
+    result = get_client().table("settings").select("value, updated_at").eq("key", "dograh_last_webhook_payload").execute()
+    if not result.data:
+        return {"payload": None, "updated_at": None, "note": "No Dograh webhook received yet"}
+    row = result.data[0]
+    return {"payload": json.loads(row["value"]), "updated_at": row["updated_at"]}
 
 
 @app.post("/api/observatory/run")
