@@ -96,7 +96,7 @@ const AGENTS = [
     num: 'Agent 10', name: 'Observatory', owner: 'Reports to CEO directly',
     status: 'live',
     bullets: [
-      'Daily 7am IST cron → posts digest to founder's personal WA',
+      "Daily 7am IST cron → posts digest to founder's personal WA",
       'Reports: Anthropic spend · leads added · conversions · voice minutes',
       'Tracks pipeline last run time and campaign health',
     ],
