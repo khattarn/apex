@@ -7,6 +7,7 @@ log = logging.getLogger(__name__)
 
 DOGRAH_BASE = "https://app.dograh.com/api/v1/public"
 _WORKFLOW_SOPHIE_DEFAULT = "3a93c3b2-7b3c-4b1e-9480-7fe5b9191472"
+_WORKFLOW_PRIYA_DEFAULT  = "8d7b2b07-709a-4925-bb1f-3ecad4408476"
 
 
 def _normalize_phone(phone: str, city: str = "") -> str:
@@ -52,8 +53,6 @@ def place_outbound_call(
     if not api_key:
         raise RuntimeError("DOGRAH_API_KEY must be set")
 
-    workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
-
     cleaned = _normalize_phone(phone, city)
     if not cleaned or cleaned in ("+", ""):
         raise RuntimeError(f"Could not normalise phone '{phone}'")
@@ -61,13 +60,16 @@ def place_outbound_call(
     india_telephony_id   = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")   # 477 — Vobiz +91
     default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 478 — Twilio AU/US (blocked pending Twilio review)
 
-    if cleaned.startswith("+91") and india_telephony_id:
-        telephony_id = india_telephony_id
+    if cleaned.startswith("+91"):
+        telephony_id  = india_telephony_id or None
+        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_PRIYA", _WORKFLOW_PRIYA_DEFAULT)
     elif default_telephony_id:
-        telephony_id = default_telephony_id
+        telephony_id  = default_telephony_id
+        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
     else:
-        # Fallback: use India Vobiz for all destinations until Twilio unblocked
-        telephony_id = india_telephony_id or None
+        # Fallback until Twilio unblocked
+        telephony_id  = india_telephony_id or None
+        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
 
     # Build initial_context — Sophie can reference these via {{initial_context.field}}
     initial_context: dict = {

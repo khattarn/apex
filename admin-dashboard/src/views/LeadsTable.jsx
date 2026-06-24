@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X, Phone, Mail, RefreshCw, Activity } from 'lucide-react'
-import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, streamEnrich, emailLead, streamEmailCampaign, getLeadActivities, getCalledIds } from '../api'
+import { ExternalLink, Eye, Send, Edit3, ChevronLeft, ChevronRight, X, Phone, Mail, RefreshCw, Activity, UserPlus } from 'lucide-react'
+import { getLeads, patchLead, deleteLead, previewMessage, sendToLead, callLead, createLead, streamEnrich, emailLead, streamEmailCampaign, getLeadActivities, getCalledIds } from '../api'
 import StatusBadge from '../components/StatusBadge'
 
 const PAGE_SIZE = 25
@@ -43,6 +43,8 @@ export default function LeadsTable() {
   const [editNotes, setEditNotes] = useState(null)
   const [notesVal, setNotesVal] = useState('')
   const [activityModal, setActivityModal] = useState(null) // null | { lead, loading, items }
+  const [addLead, setAddLead] = useState(null) // null | { fields, saving, saved, error, newLead }
+  const ADD_DEFAULTS = { name: '', phone: '', business_type: 'dentist', city: '', email: '', notes: '' }
   const [enrich, setEnrich] = useState(null)   // null | { running, logs, done }
   const enrichAbort = useRef(null)
   const [campaign, setCampaign] = useState(null) // null | { running, logs, done }
@@ -182,6 +184,28 @@ export default function LeadsTable() {
     load()
   }
 
+  async function submitAddLead() {
+    const f = addLead.fields
+    if (!f.name.trim() || !f.phone.trim()) return
+    setAddLead((a) => ({ ...a, saving: true, error: null }))
+    try {
+      const result = await createLead(f)
+      setAddLead((a) => ({ ...a, saving: false, saved: true, newLead: result }))
+      load()
+    } catch (e) {
+      setAddLead((a) => ({ ...a, saving: false, error: e.message || 'Failed to create lead' }))
+    }
+  }
+
+  async function handleCallNew(lead) {
+    try {
+      await callLead(lead.id)
+      setAddLead(null)
+    } catch (e) {
+      alert(`Call failed: ${e.message}`)
+    }
+  }
+
   const totalPages = Math.ceil(count / PAGE_SIZE)
 
   return (
@@ -254,6 +278,13 @@ export default function LeadsTable() {
           >
             <Mail size={12} />
             Email campaign
+          </button>
+          <button
+            onClick={() => setAddLead({ fields: { ...ADD_DEFAULTS }, saving: false, saved: false, error: null, newLead: null })}
+            className="flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded transition-colors"
+          >
+            <UserPlus size={12} />
+            Add lead
           </button>
           <p className="text-xs text-slate-500">{count} leads</p>
         </div>
@@ -648,6 +679,82 @@ export default function LeadsTable() {
               Close
             </button>
           </div>
+        </Modal>
+      )}
+
+      {/* Add lead modal */}
+      {addLead && (
+        <Modal title="Add lead manually" onClose={() => setAddLead(null)}>
+          {addLead.saved && addLead.newLead ? (
+            <div className="space-y-4">
+              <div className="bg-emerald-900/30 border border-emerald-700/40 rounded p-3 text-xs text-emerald-300">
+                Lead <span className="font-semibold">{addLead.newLead.name}</span> added.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleCallNew(addLead.newLead)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded transition-colors"
+                >
+                  <Phone size={12} /> Call now with Priya
+                </button>
+                <button
+                  onClick={() => setAddLead(null)}
+                  className="text-xs text-slate-400 hover:text-slate-200 px-3 py-2 rounded hover:bg-slate-700 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {[
+                { label: 'Name *', key: 'name', type: 'text', placeholder: 'Dr. Sharma Dental Clinic' },
+                { label: 'Phone * (Indian 10-digit or +91…)', key: 'phone', type: 'tel', placeholder: '9876543210' },
+                { label: 'Email', key: 'email', type: 'email', placeholder: 'optional' },
+                { label: 'City', key: 'city', type: 'text', placeholder: 'Mumbai' },
+                { label: 'Notes', key: 'notes', type: 'text', placeholder: 'optional' },
+              ].map(({ label, key, type, placeholder }) => (
+                <div key={key}>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">{label}</label>
+                  <input
+                    type={type}
+                    value={addLead.fields[key]}
+                    onChange={(e) => setAddLead((a) => ({ ...a, fields: { ...a.fields, [key]: e.target.value } }))}
+                    placeholder={placeholder}
+                    className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Business type</label>
+                <select
+                  value={addLead.fields.business_type}
+                  onChange={(e) => setAddLead((a) => ({ ...a, fields: { ...a.fields, business_type: e.target.value } }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                >
+                  {BUSINESS_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
+                </select>
+              </div>
+              {addLead.error && (
+                <p className="text-xs text-red-400">{addLead.error}</p>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => setAddLead(null)}
+                  className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitAddLead}
+                  disabled={addLead.saving || !addLead.fields.name.trim() || !addLead.fields.phone.trim()}
+                  className="text-xs bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded transition-colors"
+                >
+                  {addLead.saving ? 'Saving…' : 'Add lead'}
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
 

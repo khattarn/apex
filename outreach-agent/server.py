@@ -320,6 +320,44 @@ async def list_leads(
     )
 
 
+@app.post("/api/leads")
+async def create_lead(payload: dict, _=Depends(verify_token)):
+    from database.client import save_lead, get_lead_by_place_id
+    import uuid as _uuid
+
+    name = (payload.get("name") or "").strip()
+    phone = (payload.get("phone") or "").strip()
+    if not name or not phone:
+        raise HTTPException(status_code=400, detail="name and phone are required")
+
+    # Normalise phone to E.164 for India if bare 10 digits
+    if phone.isdigit() and len(phone) == 10:
+        phone = f"+91{phone}"
+    elif phone.startswith("0") and len(phone) == 11:
+        phone = f"+91{phone[1:]}"
+
+    place_id = payload.get("place_id") or f"manual-{_uuid.uuid4().hex[:12]}"
+
+    existing = get_lead_by_place_id(place_id)
+    if existing:
+        raise HTTPException(status_code=409, detail="Lead with this place_id already exists")
+
+    row = {
+        "name": name,
+        "phone": phone,
+        "place_id": place_id,
+        "business_type": payload.get("business_type") or "dentist",
+        "city": (payload.get("city") or "").strip(),
+        "status": "new",
+        "address": (payload.get("address") or "").strip() or None,
+        "website": (payload.get("website") or "").strip() or None,
+        "email": (payload.get("email") or "").strip() or None,
+        "notes": (payload.get("notes") or "").strip() or None,
+    }
+    result = save_lead(row)
+    return result
+
+
 @app.post("/api/leads/enrich-emails")
 async def enrich_emails(_=Depends(verify_token)):
     async def generate():
@@ -608,32 +646,33 @@ async def dograh_webhook(request: Request):
     except Exception:
         pass
 
+    # Dograh sends a FLAT payload — initial_context and gathered_context fields
+    # are merged into the top level, not nested.
     workflow_run_id = str(payload.get("workflow_run_id", ""))
-    initial_ctx     = payload.get("initial_context", {})
-    gathered_ctx    = payload.get("gathered_context", {})
     recording_url   = payload.get("recording_url", "")
     transcript_url  = payload.get("transcript_url", "")
-    cost_info       = payload.get("cost_info", {})
 
-    lead_id      = str(initial_ctx.get("lead_id", ""))
-    call_outcome = gathered_ctx.get("call_outcome", "unknown")
+    # Fields we put in initial_context come back at top level
+    lead_id      = str(payload.get("lead_id", ""))
+    caller_phone = str(payload.get("phone_number", "") or payload.get("caller_number", "") or "")
+
+    # Fields from gathered_context also come back at top level
+    call_outcome       = payload.get("call_outcome", "") or "unknown"
+    demo_preferred_time = payload.get("demo_preferred_time", "")
+    attendee_email      = payload.get("attendee_email", "")
+    contact_name        = payload.get("contact_name", "")
+    callback_day        = payload.get("callback_day", "")
+    callback_time_str   = payload.get("callback_time", "")
+    summary             = str(payload.get("summary", ""))[:500]
 
     # Clear from live-call dashboard tracker
     _active_calls.pop(workflow_run_id, None)
 
-    # Determine direction before any lookup — inbound has no lead_id in initial_ctx
-    henry_workflow = os.getenv("DOGRAH_WORKFLOW_UUID_HENRY", "caa24f24-6c10-4ec0-a105-150e5e2c314b")
     is_inbound = not lead_id
 
-    # Henry inbound: look up lead by caller phone
-    # Dograh populates initial_context.caller_number for inbound calls
+    # Henry/Priya inbound: look up lead by caller phone number
     if is_inbound:
-        caller_phone = (
-            str(initial_ctx.get("caller_number", ""))
-            or str(initial_ctx.get("phone_number", ""))
-            or str(payload.get("caller_phone", ""))
-        )
-        lead = _find_lead_by_phone(caller_phone)
+        lead = _find_lead_by_phone(caller_phone) if caller_phone else None
         lead_id = str(lead["id"]) if lead else ""
 
     if not lead_id:
@@ -641,7 +680,7 @@ async def dograh_webhook(request: Request):
 
     from database.client import update_lead, log_activity
 
-    # ── Henry inbound — set replied, log call, done ───────────────────────────
+    # ── Henry/Priya inbound — set replied, log call, done ────────────────────
     if is_inbound:
         update_lead(lead_id, {"status": "replied"})
         log_activity(lead_id, "inbound_call", {
@@ -649,8 +688,7 @@ async def dograh_webhook(request: Request):
             "caller_number":  caller_phone,
             "recording_url":  recording_url,
             "transcript_url": transcript_url,
-            "summary":        (gathered_ctx.get("summary") or "")[:500],
-            "cost_info":      cost_info,
+            "summary":        summary,
         })
         return {"ok": True}
 
@@ -658,9 +696,9 @@ async def dograh_webhook(request: Request):
     if call_outcome == "booked_demo":
         _handle_book_demo(
             lead_id=lead_id,
-            preferred_time=gathered_ctx.get("demo_preferred_time", ""),
-            attendee_email=gathered_ctx.get("attendee_email", ""),
-            attendee_name=initial_ctx.get("contact_name", ""),
+            preferred_time=demo_preferred_time,
+            attendee_email=attendee_email,
+            attendee_name=contact_name,
         )
 
     elif call_outcome == "callback_scheduled":
@@ -672,17 +710,15 @@ async def dograh_webhook(request: Request):
             lead_rec.get("city", "") if lead_rec else "",
             lead_rec.get("market", "") if lead_rec else "",
         )
-        day = gathered_ctx.get("callback_day", "")
-        time = gathered_ctx.get("callback_time", "")
         try:
-            callback_dt = parse_preferred_time(f"{day} {time}", tz)
+            callback_dt = parse_preferred_time(f"{callback_day} {callback_time_str}", tz)
             log_activity(lead_id, "callback_scheduled", {
-                "callback_at": callback_dt.isoformat(),
-                "preferred_day": day,
-                "preferred_time": time,
+                "callback_at":    callback_dt.isoformat(),
+                "preferred_day":  callback_day,
+                "preferred_time": callback_time_str,
             })
         except Exception as exc:
-            log.warning("Could not parse callback time '%s %s': %s", day, time, exc)
+            log.warning("Could not parse callback time '%s %s': %s", callback_day, callback_time_str, exc)
 
     elif call_outcome == "callback_requested":
         update_lead(lead_id, {"callback_requested": True})
@@ -704,7 +740,7 @@ async def dograh_webhook(request: Request):
         "call_outcome":   call_outcome,
         "recording_url":  recording_url,
         "transcript_url": transcript_url,
-        "cost_info":      cost_info,
+        "summary":        summary,
     })
 
     return {"ok": True}
@@ -1046,6 +1082,34 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     return {"ok": True, "workflow_run_id": run_id}
 
 
+@app.post("/api/dial")
+async def dial_direct(payload: dict, _=Depends(verify_token)):
+    """Place an outbound call to any phone number without requiring a Supabase lead.
+    Used by LegalAidAI admin dashboard to call registered users directly.
+    Body: { phone, name, business_type?, city? }
+    """
+    from agents.dograh_caller import place_outbound_call
+
+    phone = (payload.get("phone") or "").strip()
+    name  = (payload.get("name")  or "").strip()
+    if not phone or not name:
+        raise HTTPException(status_code=400, detail="phone and name are required")
+
+    try:
+        result = place_outbound_call(
+            phone=phone,
+            business_type=payload.get("business_type") or "lawyer",
+            business_name=name,
+            city=payload.get("city") or "",
+            trigger="manual",
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    run_id = result.get("workflow_run_id", "")
+    return {"ok": True, "workflow_run_id": run_id, "phone": phone, "name": name}
+
+
 @app.post("/api/leads/{lead_id}/send")
 async def send_to_lead(lead_id: str, _=Depends(verify_token)):
     from database.client import get_lead_by_id, mark_contacted
@@ -1162,7 +1226,7 @@ async def track_open(lead_id: str):
 
 
 @app.get("/track/click/{lead_id}")
-async def track_click(lead_id: str, url: str = "https://practicedesk.netlify.app"):
+async def track_click(lead_id: str, url: str = "https://practicedesk.live"):
     from database.client import update_lead, log_activity, get_client
     from fastapi.responses import RedirectResponse
     from datetime import datetime, timezone

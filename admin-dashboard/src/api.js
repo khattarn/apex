@@ -76,6 +76,8 @@ export const clearAllLeads = () =>
 export const resetOutreach = () =>
   request('/api/admin/reset-outreach', { method: 'POST' })
 
+export const createLead = (data) => request('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+
 export const callLead = (id) => request(`/api/leads/${id}/call`, { method: 'POST' })
 
 export const getLeadActivities = (id) => request(`/api/leads/${id}/activities`)
