@@ -96,17 +96,6 @@ function InternationalDialpad() {
     callSidRef.current = null
   }
 
-  async function getClient() {
-    if (clientRef.current) return clientRef.current
-    const [{ SignalWire, StaticCredentialProvider }, { token }] = await Promise.all([
-      import('@signalwire/js'),
-      request('/api/signalwire/token'),
-    ])
-    const client = new SignalWire(new StaticCredentialProvider({ token }))
-    clientRef.current = client
-    return client
-  }
-
   async function startCall() {
     if (!number || ['init', 'ringing', 'active'].includes(status)) return
     setStatus('init')
@@ -115,7 +104,12 @@ function InternationalDialpad() {
     try {
       const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
 
-      // Step 1: backend pre-creates room + places PSTN call into it via SWML
+      // Step 1: get embed token + space, then pre-create room & place PSTN call in parallel
+      const [{ embed_token, space }, { SignalWire, EmbedTokenCredentialProvider }] = await Promise.all([
+        request('/api/signalwire/token'),
+        import('@signalwire/js'),
+      ])
+
       let bridgeData
       try {
         bridgeData = await request('/api/signalwire/bridge', {
@@ -124,14 +118,11 @@ function InternationalDialpad() {
         })
       } catch (e) { throw new Error(`Bridge: ${e.message}`) }
 
-      const { room_name, call_sid, room_token } = bridgeData
+      const { room_name, call_sid } = bridgeData
       callSidRef.current = call_sid
 
-      // Step 2: browser joins the pre-created Fabric room
-      // Prefer the room-specific token; fall back to subscriber SAT
-      const { SignalWire, StaticCredentialProvider } = await import('@signalwire/js')
-      const useToken = room_token || (await request('/api/signalwire/token')).token
-      const client = new SignalWire(new StaticCredentialProvider({ token: useToken }))
+      // Step 2: browser joins the Fabric room using the Click-to-Call embed token
+      const client = new SignalWire(new EmbedTokenCredentialProvider(space, embed_token))
       clientRef.current = client
 
       let call
