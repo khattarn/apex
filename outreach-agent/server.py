@@ -6,6 +6,8 @@ import sys
 import time as _time
 from typing import Optional
 
+import requests
+
 log = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
