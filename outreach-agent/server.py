@@ -1352,150 +1352,63 @@ async def signalwire_token(_=Depends(verify_token)):
     return {"embed_token": embed_token, "space": space, "caller_id": caller_id}
 
 
-@app.post("/api/signalwire/voice")
-async def signalwire_voice(To: str = "", _From: str = ""):
-    from twilio.twiml.voice_response import VoiceResponse, Dial
-    caller_id = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
-    resp = VoiceResponse()
-    if To:
-        dial = Dial(caller_id=caller_id)
-        dial.number(To)
-        resp.append(dial)
-    else:
-        resp.say("No destination number provided.")
-    return Response(content=str(resp), media_type="application/xml")
+# Module-level store for the pending dialpad call destination (single-user tool)
+import time as _time_mod
+_pending_dialpad: dict = {"to": "", "ts": 0.0}
 
 
-class SignalWireCallRequest(BaseModel):
+class DialpadPrepareRequest(BaseModel):
     to: str
 
-@app.post("/api/signalwire/call")
-async def signalwire_call(req: SignalWireCallRequest, _=Depends(verify_token)):
-    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
-    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
-    space      = os.getenv("SIGNALWIRE_SPACE", "")
-    caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
-
-    if not all([project_id, api_token, space]):
-        raise HTTPException(status_code=500, detail="SignalWire env vars missing")
-
-    url = f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls.json"
-    twiml = f"<Response><Dial callerId='{caller_id}'><Number>{req.to}</Number></Dial></Response>"
-    resp = requests.post(
-        url,
-        auth=(project_id, api_token),
-        data={"To": req.to, "From": caller_id, "Twiml": twiml},
-        timeout=10,
-    )
-    if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"SignalWire error: {resp.text}")
-    return resp.json()
-
-
-@app.get("/api/signalwire/swml/{room_name}")
-async def signalwire_swml(room_name: str):
-    """SWML webhook: SignalWire fetches this when the outbound PSTN leg connects.
-    It instructs the PSTN call to join the named Fabric room so the browser can hear it."""
-    import json as _json
-    swml = {
-        "version": "1.0.0",
-        "sections": {
-            "main": [
-                {
-                    "connect": {
-                        "to": f"/public/{room_name}",
-                        "timeout": 60
-                    }
-                }
-            ]
-        }
-    }
-    return Response(content=_json.dumps(swml), media_type="application/json")
-
-
-class SignalWireBridgeRequest(BaseModel):
-    to: str
-
-@app.post("/api/signalwire/bridge")
-async def signalwire_bridge(req: SignalWireBridgeRequest, _=Depends(verify_token)):
-    """Creates a unique Fabric room, places an outbound PSTN call that joins it via SWML,
-    returns the room name for the browser to join via @signalwire/js."""
-    import uuid as _uuid_mod
-    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
-    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
-    space      = os.getenv("SIGNALWIRE_SPACE", "")
-    caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
-    server_url = os.getenv("SERVER_BASE_URL", "")
-
-    if not all([project_id, api_token, space, server_url]):
-        raise HTTPException(status_code=500, detail="SignalWire env vars missing")
-
+@app.post("/api/signalwire/prepare")
+async def signalwire_prepare(req: DialpadPrepareRequest, _=Depends(verify_token)):
+    """Store the PSTN destination so the /dialpad-swml webhook can retrieve it when
+    SignalWire invokes it after the browser dials /public/practicedesk-dialpad."""
+    global _pending_dialpad
     to_number = req.to if req.to.startswith('+') else f"+{req.to.lstrip('0')}"
-    room_name = f"apex-{_uuid_mod.uuid4().hex[:8]}"
-    swml_url  = f"{server_url}/api/signalwire/swml/{room_name}"
-
-    # Pre-create the room in the fabric so the browser can join before PSTN answers
-    room_create = requests.post(
-        f"https://{space}/api/video/rooms",
-        auth=(project_id, api_token),
-        json={"name": room_name, "display_name": "Dialpad Bridge", "type": "open"},
-        timeout=10,
-    )
-    log.info("Room create: %s %s", room_create.status_code, room_create.text[:120])
-
-    # Generate a room token for the browser to join
-    room_token_resp = requests.post(
-        f"https://{space}/api/video/rooms/{room_name}/tokens",
-        auth=(project_id, api_token),
-        json={"user_name": "apex-agent", "auto_create_room": True},
-        timeout=10,
-    )
-    log.info("Room token: %s %s", room_token_resp.status_code, room_token_resp.text[:120])
-    room_token = room_token_resp.json().get("token", "") if room_token_resp.ok else ""
-
-    # Place PSTN call; when answered, SWML connects it into the fabric room
-    call_url = f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls.json"
-    resp = requests.post(
-        call_url,
-        auth=(project_id, api_token),
-        data={"To": to_number, "From": caller_id, "Url": swml_url, "Method": "GET"},
-        timeout=10,
-    )
-    if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"PSTN call failed: {resp.text}")
-
-    return {
-        "room_name": room_name,
-        "room_token": room_token,
-        "call_sid": resp.json().get("sid", ""),
-    }
+    _pending_dialpad = {"to": to_number, "ts": _time_mod.time()}
+    log.info("Dialpad prepare: dest=%s", to_number)
+    return {"ok": True, "to": to_number}
 
 
-class SignalWireCancelRequest(BaseModel):
-    call_sid: str
+@app.get("/api/signalwire/dialpad-swml")
+@app.post("/api/signalwire/dialpad-swml")
+async def signalwire_dialpad_swml(request: Request):
+    """SWML webhook — SignalWire calls this when the browser dials /public/practicedesk-dialpad.
+    Returns SWML that connects the incoming browser call to the pending PSTN destination."""
+    import json as _json
+    caller_id = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
+    dest = _pending_dialpad.get("to", "")
+    age  = _time_mod.time() - _pending_dialpad.get("ts", 0.0)
+    log.info("dialpad-swml called: dest=%s age=%.1fs", dest, age)
 
-@app.post("/api/signalwire/cancel")
-async def signalwire_cancel(req: SignalWireCancelRequest, _=Depends(verify_token)):
-    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
-    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
-    space      = os.getenv("SIGNALWIRE_SPACE", "")
-    resp = requests.post(
-        f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls/{req.call_sid}.json",
-        auth=(project_id, api_token),
-        data={"Status": "canceled"},
-        timeout=10,
-    )
-    return {"ok": resp.ok}
+    if not dest or age > 120:
+        swml = {
+            "version": "1.0.0",
+            "sections": {"main": [{"play": {"url": "silence:1"}}, {"hangup": {}}]}
+        }
+    else:
+        swml = {
+            "version": "1.0.0",
+            "sections": {
+                "main": [
+                    {
+                        "connect": {
+                            "from": caller_id,
+                            "to":   dest,
+                            "timeout": 60,
+                        }
+                    }
+                ]
+            }
+        }
+    return Response(content=_json.dumps(swml), media_type="application/json")
 
 
 # Keep legacy Twilio endpoints as aliases during transition
 @app.get("/api/twilio/token")
 async def twilio_token(_=Depends(verify_token)):
     return await signalwire_token(_)
-
-@app.post("/api/twilio/voice")
-async def twilio_voice(To: str = "", _From: str = ""):
-    return await signalwire_voice(To=To, _From=_From)
 
 
 

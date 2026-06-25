@@ -81,19 +81,17 @@ function InternationalDialpad() {
   const [errorMsg, setErrMsg] = useState('')
   const [muted, setMuted]     = useState(false)
 
-  const clientRef  = useRef(null)
-  const callRef    = useRef(null)
-  const subRef     = useRef(null)
-  const callSidRef = useRef(null)
+  const clientRef = useRef(null)
+  const callRef   = useRef(null)
+  const subRef    = useRef(null)
 
   function press(digit)  { setNumber(n => n + digit) }
   function backspace()   { setNumber(n => n.slice(0, -1)) }
 
   function cleanupCall() {
     subRef.current?.unsubscribe()
-    subRef.current     = null
-    callRef.current    = null
-    callSidRef.current = null
+    subRef.current = null
+    callRef.current = null
   }
 
   async function startCall() {
@@ -104,42 +102,33 @@ function InternationalDialpad() {
     try {
       const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
 
-      // Step 1: get embed token + space, then pre-create room & place PSTN call in parallel
-      const [{ embed_token, space }, { SignalWire, EmbedTokenCredentialProvider }] = await Promise.all([
+      // Store destination on backend + fetch embed credentials in parallel
+      const [{ embed_token, space }] = await Promise.all([
         request('/api/signalwire/token'),
-        import('@signalwire/js'),
+        request('/api/signalwire/prepare', { method: 'POST', body: JSON.stringify({ to: dest }) }),
       ])
 
-      let bridgeData
-      try {
-        bridgeData = await request('/api/signalwire/bridge', {
-          method: 'POST',
-          body: JSON.stringify({ to: dest }),
-        })
-      } catch (e) { throw new Error(`Bridge: ${e.message}`) }
-
-      const { room_name, call_sid } = bridgeData
-      callSidRef.current = call_sid
-
-      // Step 2: browser joins the Fabric room using the Click-to-Call embed token
+      // Authenticate with the Click-to-Call embed token
+      const { SignalWire, EmbedTokenCredentialProvider } = await import('@signalwire/js')
       const client = new SignalWire(new EmbedTokenCredentialProvider(space, embed_token))
       clientRef.current = client
 
+      // Dial the registered Fabric resource — SignalWire calls our SWML webhook
+      // which bridges the call to the stored PSTN destination
       let call
       try {
-        call = await client.dial(`/public/${room_name}`, { audio: true, video: false })
+        call = await client.dial('/public/practicedesk-dialpad', { audio: true, video: false })
       } catch (e) {
         console.error('[Dialpad] dial() error:', e)
-        throw new Error(`Room join: ${e.message}`)
+        throw new Error(e.message || 'Call creation failed')
       }
       callRef.current = call
       setStatus('ringing')
 
       subRef.current = call.status$.subscribe((s) => {
-        if (s === 'connected') {
-          setStatus('active')
-        } else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
-          if (s === 'failed') { setStatus('error'); setErrMsg('Room join failed') }
+        if (s === 'connected') setStatus('active')
+        else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
+          if (s === 'failed') { setStatus('error'); setErrMsg('Call failed') }
           else setStatus('ended')
           cleanupCall()
         }
@@ -153,13 +142,6 @@ function InternationalDialpad() {
   }
 
   async function endCall() {
-    // cancel the PSTN outbound leg if still ringing
-    if (callSidRef.current) {
-      request('/api/signalwire/cancel', {
-        method: 'POST',
-        body: JSON.stringify({ call_sid: callSidRef.current }),
-      }).catch(() => {})
-    }
     try { await callRef.current?.hangup() } catch {}
     cleanupCall()
     setStatus('idle')
