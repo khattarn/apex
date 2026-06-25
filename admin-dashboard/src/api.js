@@ -8,7 +8,7 @@ function authHeaders() {
   }
 }
 
-async function request(path, options = {}) {
+export async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     headers: authHeaders(),
     ...options,
@@ -82,7 +82,7 @@ export const callLead = (id) => request(`/api/leads/${id}/call`, { method: 'POST
 
 export const getLeadActivities = (id) => request(`/api/leads/${id}/activities`)
 
-export const fetchTwilioToken = () => request('/api/twilio/token')
+export const fetchDialpadToken = () => request('/api/signalwire/token')
 
 export const startBridgeCall = (to) =>
   request('/api/bridge/call', { method: 'POST', body: JSON.stringify({ to }) })
