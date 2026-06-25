@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { Phone, PhoneOff, Delete } from 'lucide-react'
-import { Device } from '@twilio/voice-sdk'
-import { fetchTwilioToken } from '../api'
+import { request } from '../api'
 
 const KEYS = [
   ['1', ''], ['2', 'ABC'], ['3', 'DEF'],
@@ -60,96 +59,47 @@ function IndiaBridge() {
   )
 }
 
-// ── International Dialpad (Twilio) ─────────────────────────────────────────────
+// ── International Dialpad (SignalWire click-to-call) ──────────────────────────
 
 function InternationalDialpad() {
   const [number, setNumber] = useState('')
-  const [status, setStatus] = useState('idle')
+  const [status, setStatus] = useState('idle')  // idle | calling | done | error
   const [errorMsg, setErrorMsg] = useState('')
-  const [duration, setDuration] = useState(0)
-  const [callerID, setCallerID] = useState('')
-  const deviceRef = useRef(null)
-  const callRef = useRef(null)
-  const timerRef = useRef(null)
-
-  useEffect(() => {
-    initDevice()
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (deviceRef.current) deviceRef.current.destroy()
-    }
-  }, [])
-
-  async function initDevice() {
-    setStatus('initializing')
-    setErrorMsg('')
-    try {
-      const { token, caller_id } = await fetchTwilioToken()
-      setCallerID(caller_id)
-      const device = new Device(token, { logLevel: 'warn' })
-      device.on('registered', () => setStatus('ready'))
-      device.on('error', (err) => { setStatus('error'); setErrorMsg(err.message || 'Device error') })
-      await device.register()
-      deviceRef.current = device
-    } catch (err) {
-      setStatus('error')
-      setErrorMsg(err.message || 'Failed to initialise dialer')
-    }
-  }
+  const [callSid, setCallSid] = useState('')
 
   function press(digit) { setNumber(n => n + digit) }
   function backspace() { setNumber(n => n.slice(0, -1)) }
 
   async function startCall() {
-    if (!deviceRef.current || !number || status !== 'ready') return
-    setStatus('connecting')
-    setDuration(0)
+    if (!number || status === 'calling') return
+    setStatus('calling')
+    setErrorMsg('')
+    setCallSid('')
     try {
-      const call = await deviceRef.current.connect({ params: { To: number } })
-      callRef.current = call
-      call.on('accept', () => {
-        setStatus('on-call')
-        timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
+      const data = await request('/api/signalwire/call', {
+        method: 'POST',
+        body: JSON.stringify({ to: number }),
       })
-      call.on('disconnect', endCall)
-      call.on('cancel', endCall)
-      call.on('error', (err) => {
-        setStatus('error')
-        setErrorMsg(err.message || 'Call error')
-        clearInterval(timerRef.current)
-        callRef.current = null
-      })
+      setCallSid(data.sid || '')
+      setStatus('done')
     } catch (err) {
       setStatus('error')
       setErrorMsg(err.message || 'Call failed')
     }
   }
 
-  function endCall() {
-    clearInterval(timerRef.current)
-    setDuration(0)
-    setStatus('ready')
-    callRef.current = null
-  }
+  function reset() { setStatus('idle'); setCallSid(''); setErrorMsg('') }
 
-  function hangUp() {
-    if (callRef.current) callRef.current.disconnect()
-    endCall()
-  }
-
-  function fmt(s) {
-    return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
-  }
-
-  const inCall = status === 'on-call' || status === 'connecting'
+  const QUICK_DIALS = [
+    { label: 'Claire (Bright Smile)', number: '+12084414485', note: 'Dental inbound agent' },
+    { label: 'Test Line 2',           number: '+12086884760', note: 'New inbound test number' },
+  ]
 
   const statusBar = {
-    idle:         { ring: 'bg-slate-500',               bar: 'bg-slate-700/40 text-slate-400',   label: 'Initialising…' },
-    initializing: { ring: 'bg-slate-400 animate-pulse', bar: 'bg-slate-700/40 text-slate-400',   label: 'Connecting to Twilio…' },
-    ready:        { ring: 'bg-green-400',               bar: 'bg-green-900/30 text-green-400',    label: `Ready · ${callerID}` },
-    connecting:   { ring: 'bg-amber-400 animate-pulse', bar: 'bg-amber-900/30 text-amber-400',   label: `Calling ${number}…` },
-    'on-call':    { ring: 'bg-indigo-400 animate-pulse',bar: 'bg-indigo-900/30 text-indigo-300', label: `On call · ${fmt(duration)}` },
-    error:        { ring: 'bg-red-400',                 bar: 'bg-red-900/30 text-red-400',       label: `Error: ${errorMsg}` },
+    idle:   { ring: 'bg-green-400',               bar: 'bg-green-900/30 text-green-400',    label: 'Ready · +1 208-441-4485 (SignalWire)' },
+    calling:{ ring: 'bg-amber-400 animate-pulse', bar: 'bg-amber-900/30 text-amber-400',   label: `Dialling ${number}…` },
+    done:   { ring: 'bg-indigo-400',              bar: 'bg-indigo-900/30 text-indigo-300', label: 'Call placed — check your phone' },
+    error:  { ring: 'bg-red-400',                 bar: 'bg-red-900/30 text-red-400',       label: `Error: ${errorMsg}` },
   }[status]
 
   return (
@@ -159,8 +109,20 @@ function InternationalDialpad() {
         <span className="truncate">{statusBar.label}</span>
       </div>
 
-      <div className="mb-3 px-3 py-2 rounded-md text-xs bg-orange-950/40 text-orange-400 border border-orange-800/30">
-        Twilio compliance pending — outbound calls blocked until approved.
+      <div className="flex flex-col gap-1 mb-4">
+        {QUICK_DIALS.map(q => (
+          <button
+            key={q.number}
+            onClick={() => setNumber(q.number)}
+            className="flex items-center justify-between bg-[#111e35] hover:bg-[#1e3a5f] border border-slate-700/40 rounded-lg px-3 py-2 text-left transition-colors"
+          >
+            <div>
+              <p className="text-xs font-medium text-white">{q.label}</p>
+              <p className="text-[10px] text-slate-500">{q.note}</p>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400">{q.number}</span>
+          </button>
+        ))}
       </div>
 
       <div className="flex items-center bg-[#1e293b] border border-slate-700/50 rounded-lg px-4 py-3 mb-4 min-h-[56px]">
@@ -179,7 +141,7 @@ function InternationalDialpad() {
           <button
             key={digit}
             onClick={() => press(digit)}
-            disabled={inCall}
+            disabled={status === 'calling'}
             className="flex flex-col items-center justify-center bg-[#1e293b] hover:bg-slate-700/60 border border-slate-700/40 rounded-lg py-3 transition-colors disabled:opacity-40 select-none"
           >
             <span className="text-lg font-semibold text-white leading-none">{digit}</span>
@@ -189,30 +151,28 @@ function InternationalDialpad() {
       </div>
 
       <div className="flex justify-center">
-        {!inCall ? (
+        {status !== 'done' ? (
           <button
             onClick={startCall}
-            disabled={status !== 'ready' || !number}
+            disabled={status === 'calling' || !number}
             className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg"
           >
-            <Phone size={26} fill="white" stroke="white" />
+            {status === 'calling'
+              ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Phone size={26} fill="white" stroke="white" />}
           </button>
         ) : (
           <button
-            onClick={hangUp}
-            className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-lg"
+            onClick={reset}
+            className="w-16 h-16 rounded-full bg-slate-600 hover:bg-slate-500 flex items-center justify-center transition-colors shadow-lg"
           >
             <PhoneOff size={26} stroke="white" />
           </button>
         )}
       </div>
 
-      {status === 'error' && (
-        <div className="mt-5 text-center">
-          <button onClick={initDevice} className="text-xs text-indigo-400 hover:text-indigo-300 underline">
-            Retry connection
-          </button>
-        </div>
+      {callSid && (
+        <p className="mt-4 text-center text-[10px] text-slate-500 font-mono">{callSid}</p>
       )}
     </div>
   )
