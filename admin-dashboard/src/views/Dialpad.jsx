@@ -115,16 +115,32 @@ function InternationalDialpad() {
     try {
       const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
 
-      // Step 1: backend places PSTN call, routes it into a unique Fabric room via SWML
-      const { room_name, call_sid } = await request('/api/signalwire/bridge', {
-        method: 'POST',
-        body: JSON.stringify({ to: dest }),
-      })
+      // Step 1: backend pre-creates room + places PSTN call into it via SWML
+      let bridgeData
+      try {
+        bridgeData = await request('/api/signalwire/bridge', {
+          method: 'POST',
+          body: JSON.stringify({ to: dest }),
+        })
+      } catch (e) { throw new Error(`Bridge: ${e.message}`) }
+
+      const { room_name, call_sid, room_token } = bridgeData
       callSidRef.current = call_sid
 
-      // Step 2: browser joins the same Fabric room (server-to-browser WebRTC — no ICE issues)
-      const client = await getClient()
-      const call = await client.dial(`/public/${room_name}`, { audio: true, video: false })
+      // Step 2: browser joins the pre-created Fabric room
+      // Prefer the room-specific token; fall back to subscriber SAT
+      const { SignalWire, StaticCredentialProvider } = await import('@signalwire/js')
+      const useToken = room_token || (await request('/api/signalwire/token')).token
+      const client = new SignalWire(new StaticCredentialProvider({ token: useToken }))
+      clientRef.current = client
+
+      let call
+      try {
+        call = await client.dial(`/public/${room_name}`, { audio: true, video: false })
+      } catch (e) {
+        console.error('[Dialpad] dial() error:', e)
+        throw new Error(`Room join: ${e.message}`)
+      }
       callRef.current = call
       setStatus('ringing')
 
@@ -140,6 +156,7 @@ function InternationalDialpad() {
     } catch (err) {
       setStatus('error')
       setErrMsg(err.message || 'Failed to start call')
+      console.error('[Dialpad] startCall error:', err)
       clientRef.current = null
     }
   }

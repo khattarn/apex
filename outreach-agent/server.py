@@ -1355,7 +1355,11 @@ async def signalwire_token(_=Depends(verify_token)):
     resp = requests.post(
         f"https://{space}/api/fabric/subscribers/tokens",
         auth=(project_id, api_token),
-        json={"reference": "apex-dialpad", "expires_in": 3600},
+        json={
+            "reference": "apex-dialpad",
+            "expires_in": 3600,
+            "channels": {"voice": {}, "video": {}},
+        },
         timeout=10,
     )
     if not resp.ok:
@@ -1446,6 +1450,26 @@ async def signalwire_bridge(req: SignalWireBridgeRequest, _=Depends(verify_token
     room_name = f"apex-{_uuid_mod.uuid4().hex[:8]}"
     swml_url  = f"{server_url}/api/signalwire/swml/{room_name}"
 
+    # Pre-create the room in the fabric so the browser can join before PSTN answers
+    room_create = requests.post(
+        f"https://{space}/api/video/rooms",
+        auth=(project_id, api_token),
+        json={"name": room_name, "display_name": "Dialpad Bridge", "type": "open"},
+        timeout=10,
+    )
+    log.info("Room create: %s %s", room_create.status_code, room_create.text[:120])
+
+    # Generate a room token for the browser to join
+    room_token_resp = requests.post(
+        f"https://{space}/api/video/rooms/{room_name}/tokens",
+        auth=(project_id, api_token),
+        json={"user_name": "apex-agent", "auto_create_room": True},
+        timeout=10,
+    )
+    log.info("Room token: %s %s", room_token_resp.status_code, room_token_resp.text[:120])
+    room_token = room_token_resp.json().get("token", "") if room_token_resp.ok else ""
+
+    # Place PSTN call; when answered, SWML connects it into the fabric room
     call_url = f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls.json"
     resp = requests.post(
         call_url,
@@ -1454,9 +1478,13 @@ async def signalwire_bridge(req: SignalWireBridgeRequest, _=Depends(verify_token
         timeout=10,
     )
     if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"SignalWire error: {resp.text}")
+        raise HTTPException(status_code=502, detail=f"PSTN call failed: {resp.text}")
 
-    return {"room_name": room_name, "call_sid": resp.json().get("sid", "")}
+    return {
+        "room_name": room_name,
+        "room_token": room_token,
+        "call_sid": resp.json().get("sid", ""),
+    }
 
 
 class SignalWireCancelRequest(BaseModel):
