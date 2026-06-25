@@ -81,17 +81,19 @@ function InternationalDialpad() {
   const [errorMsg, setErrMsg] = useState('')
   const [muted, setMuted]     = useState(false)
 
-  const clientRef = useRef(null)
-  const callRef   = useRef(null)
-  const subRef    = useRef(null)
+  const clientRef  = useRef(null)
+  const callRef    = useRef(null)
+  const subRef     = useRef(null)
+  const callSidRef = useRef(null)
 
   function press(digit)  { setNumber(n => n + digit) }
   function backspace()   { setNumber(n => n.slice(0, -1)) }
 
   function cleanupCall() {
     subRef.current?.unsubscribe()
-    subRef.current = null
-    callRef.current = null
+    subRef.current     = null
+    callRef.current    = null
+    callSidRef.current = null
   }
 
   async function getClient() {
@@ -111,16 +113,26 @@ function InternationalDialpad() {
     setErrMsg('')
     setMuted(false)
     try {
-      const client = await getClient()
       const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
-      const call = await client.dial(dest, { audio: true, video: false })
+
+      // Step 1: backend places PSTN call, routes it into a unique Fabric room via SWML
+      const { room_name, call_sid } = await request('/api/signalwire/bridge', {
+        method: 'POST',
+        body: JSON.stringify({ to: dest }),
+      })
+      callSidRef.current = call_sid
+
+      // Step 2: browser joins the same Fabric room (server-to-browser WebRTC — no ICE issues)
+      const client = await getClient()
+      const call = await client.dial(`/public/${room_name}`, { audio: true, video: false })
       callRef.current = call
       setStatus('ringing')
+
       subRef.current = call.status$.subscribe((s) => {
         if (s === 'connected') {
           setStatus('active')
         } else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
-          if (s === 'failed') { setStatus('error'); setErrMsg('Call failed — check number format') }
+          if (s === 'failed') { setStatus('error'); setErrMsg('Room join failed') }
           else setStatus('ended')
           cleanupCall()
         }
@@ -133,6 +145,13 @@ function InternationalDialpad() {
   }
 
   async function endCall() {
+    // cancel the PSTN outbound leg if still ringing
+    if (callSidRef.current) {
+      request('/api/signalwire/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ call_sid: callSidRef.current }),
+      }).catch(() => {})
+    }
     try { await callRef.current?.hangup() } catch {}
     cleanupCall()
     setStatus('idle')
@@ -150,7 +169,7 @@ function InternationalDialpad() {
   const inCall = ['init', 'ringing', 'active'].includes(status)
   const sm = {
     ...STATUS_META[status],
-    label: status === 'ringing' ? `Ringing ${number}…`
+    label: status === 'ringing' ? `Calling ${number} — waiting for answer…`
          : status === 'error'   ? `Error: ${errorMsg}`
          : STATUS_META[status].label,
   }

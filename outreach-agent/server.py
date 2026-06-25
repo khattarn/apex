@@ -1404,6 +1404,78 @@ async def signalwire_call(req: SignalWireCallRequest, _=Depends(verify_token)):
     return resp.json()
 
 
+@app.get("/api/signalwire/swml/{room_name}")
+async def signalwire_swml(room_name: str):
+    """SWML webhook: SignalWire fetches this when the outbound PSTN leg connects.
+    It instructs the PSTN call to join the named Fabric room so the browser can hear it."""
+    import json as _json
+    swml = {
+        "version": "1.0.0",
+        "sections": {
+            "main": [
+                {
+                    "connect": {
+                        "to": f"/public/{room_name}",
+                        "timeout": 60
+                    }
+                }
+            ]
+        }
+    }
+    return Response(content=_json.dumps(swml), media_type="application/json")
+
+
+class SignalWireBridgeRequest(BaseModel):
+    to: str
+
+@app.post("/api/signalwire/bridge")
+async def signalwire_bridge(req: SignalWireBridgeRequest, _=Depends(verify_token)):
+    """Creates a unique Fabric room, places an outbound PSTN call that joins it via SWML,
+    returns the room name for the browser to join via @signalwire/js."""
+    import uuid as _uuid_mod
+    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
+    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
+    space      = os.getenv("SIGNALWIRE_SPACE", "")
+    caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
+    server_url = os.getenv("SERVER_BASE_URL", "")
+
+    if not all([project_id, api_token, space, server_url]):
+        raise HTTPException(status_code=500, detail="SignalWire env vars missing")
+
+    to_number = req.to if req.to.startswith('+') else f"+{req.to.lstrip('0')}"
+    room_name = f"apex-{_uuid_mod.uuid4().hex[:8]}"
+    swml_url  = f"{server_url}/api/signalwire/swml/{room_name}"
+
+    call_url = f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls.json"
+    resp = requests.post(
+        call_url,
+        auth=(project_id, api_token),
+        data={"To": to_number, "From": caller_id, "Url": swml_url, "Method": "GET"},
+        timeout=10,
+    )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"SignalWire error: {resp.text}")
+
+    return {"room_name": room_name, "call_sid": resp.json().get("sid", "")}
+
+
+class SignalWireCancelRequest(BaseModel):
+    call_sid: str
+
+@app.post("/api/signalwire/cancel")
+async def signalwire_cancel(req: SignalWireCancelRequest, _=Depends(verify_token)):
+    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
+    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
+    space      = os.getenv("SIGNALWIRE_SPACE", "")
+    resp = requests.post(
+        f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls/{req.call_sid}.json",
+        auth=(project_id, api_token),
+        data={"Status": "canceled"},
+        timeout=10,
+    )
+    return {"ok": resp.ok}
+
+
 # Keep legacy Twilio endpoints as aliases during transition
 @app.get("/api/twilio/token")
 async def twilio_token(_=Depends(verify_token)):
