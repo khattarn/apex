@@ -172,7 +172,10 @@ def place_emma_call(
     if not cleaned or cleaned in ("+", ""):
         raise RuntimeError(f"Could not normalise phone '{phone}'")
 
-    telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "598")
+    if cleaned.startswith("0091"):
+        telephony_id = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "477")
+    else:
+        telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "598")
 
     payload: dict = {
         "phone_number": cleaned,
