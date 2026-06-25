@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@twilio/voice-sdk": "^2.18.3",
+    "@signalwire/js": "^4.0.0-beta.12",
     "@vapi-ai/web": "^2.5.2",
     "lucide-react": "^0.395.0",
     "react": "^18.3.1",

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Phone, PhoneOff, Delete } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Phone, PhoneOff, Delete, Mic, MicOff } from 'lucide-react'
 import { request } from '../api'
 
 const KEYS = [
@@ -59,121 +59,199 @@ function IndiaBridge() {
   )
 }
 
-// ── International Dialpad (SignalWire click-to-call) ──────────────────────────
+// ── International Dialpad (SignalWire WebRTC browser softphone) ───────────────
+
+const STATUS_META = {
+  idle:    { color: 'bg-green-900/30 text-green-400',  dot: 'bg-green-400',               label: 'Ready · +1 208-441-4485' },
+  init:    { color: 'bg-amber-900/30 text-amber-400',  dot: 'bg-amber-400 animate-pulse', label: 'Connecting…' },
+  ringing: { color: 'bg-amber-900/30 text-amber-400',  dot: 'bg-amber-400 animate-pulse', label: '' },
+  active:  { color: 'bg-green-900/30 text-green-400',  dot: 'bg-green-400 animate-pulse', label: '● Live call — speak into headset' },
+  ended:   { color: 'bg-slate-800/60 text-slate-400',  dot: 'bg-slate-500',               label: 'Call ended' },
+  error:   { color: 'bg-red-900/30 text-red-400',      dot: 'bg-red-400',                 label: '' },
+}
+
+const QUICK_DIALS = [
+  { label: 'Claire (Bright Smile)', number: '+12084414485', note: 'Dental inbound agent' },
+  { label: 'Test Line 2',           number: '+12086884760', note: 'Inbound test number' },
+]
 
 function InternationalDialpad() {
-  const [number, setNumber] = useState('')
-  const [status, setStatus] = useState('idle')  // idle | calling | done | error
-  const [errorMsg, setErrorMsg] = useState('')
-  const [callSid, setCallSid] = useState('')
+  const [number, setNumber]   = useState('')
+  const [status, setStatus]   = useState('idle')
+  const [errorMsg, setErrMsg] = useState('')
+  const [muted, setMuted]     = useState(false)
 
-  function press(digit) { setNumber(n => n + digit) }
-  function backspace() { setNumber(n => n.slice(0, -1)) }
+  const clientRef = useRef(null)
+  const callRef   = useRef(null)
+  const subRef    = useRef(null)
+
+  function press(digit)  { setNumber(n => n + digit) }
+  function backspace()   { setNumber(n => n.slice(0, -1)) }
+
+  function cleanupCall() {
+    subRef.current?.unsubscribe()
+    subRef.current = null
+    callRef.current = null
+  }
+
+  async function getClient() {
+    if (clientRef.current) return clientRef.current
+    const [{ SignalWire, StaticCredentialProvider }, { token }] = await Promise.all([
+      import('@signalwire/js'),
+      request('/api/signalwire/token'),
+    ])
+    const client = new SignalWire(new StaticCredentialProvider({ token }))
+    clientRef.current = client
+    return client
+  }
 
   async function startCall() {
-    if (!number || status === 'calling') return
-    setStatus('calling')
-    setErrorMsg('')
-    setCallSid('')
+    if (!number || ['init', 'ringing', 'active'].includes(status)) return
+    setStatus('init')
+    setErrMsg('')
+    setMuted(false)
     try {
-      const data = await request('/api/signalwire/call', {
-        method: 'POST',
-        body: JSON.stringify({ to: number }),
+      const client = await getClient()
+      const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
+      const call = await client.dial(dest, { audio: true, video: false })
+      callRef.current = call
+      setStatus('ringing')
+      subRef.current = call.status$.subscribe((s) => {
+        if (s === 'connected') {
+          setStatus('active')
+        } else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
+          if (s === 'failed') { setStatus('error'); setErrMsg('Call failed — check number format') }
+          else setStatus('ended')
+          cleanupCall()
+        }
       })
-      setCallSid(data.sid || '')
-      setStatus('done')
     } catch (err) {
       setStatus('error')
-      setErrorMsg(err.message || 'Call failed')
+      setErrMsg(err.message || 'Failed to start call')
+      clientRef.current = null
     }
   }
 
-  function reset() { setStatus('idle'); setCallSid(''); setErrorMsg('') }
+  async function endCall() {
+    try { await callRef.current?.hangup() } catch {}
+    cleanupCall()
+    setStatus('idle')
+    setMuted(false)
+  }
 
-  const QUICK_DIALS = [
-    { label: 'Claire (Bright Smile)', number: '+12084414485', note: 'Dental inbound agent' },
-    { label: 'Test Line 2',           number: '+12086884760', note: 'New inbound test number' },
-  ]
+  async function toggleMute() {
+    if (!callRef.current) return
+    try {
+      if (muted) { await callRef.current.unmute(); setMuted(false) }
+      else       { await callRef.current.mute();   setMuted(true) }
+    } catch {}
+  }
 
-  const statusBar = {
-    idle:   { ring: 'bg-green-400',               bar: 'bg-green-900/30 text-green-400',    label: 'Ready · +1 208-441-4485 (SignalWire)' },
-    calling:{ ring: 'bg-amber-400 animate-pulse', bar: 'bg-amber-900/30 text-amber-400',   label: `Dialling ${number}…` },
-    done:   { ring: 'bg-indigo-400',              bar: 'bg-indigo-900/30 text-indigo-300', label: 'Call placed — check your phone' },
-    error:  { ring: 'bg-red-400',                 bar: 'bg-red-900/30 text-red-400',       label: `Error: ${errorMsg}` },
-  }[status]
+  const inCall = ['init', 'ringing', 'active'].includes(status)
+  const sm = {
+    ...STATUS_META[status],
+    label: status === 'ringing' ? `Ringing ${number}…`
+         : status === 'error'   ? `Error: ${errorMsg}`
+         : STATUS_META[status].label,
+  }
 
   return (
     <div>
-      <div className={`mb-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${statusBar.bar}`}>
-        <span className={`w-2 h-2 rounded-full shrink-0 ${statusBar.ring}`} />
-        <span className="truncate">{statusBar.label}</span>
+      {/* Status bar */}
+      <div className={`mb-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${sm.color}`}>
+        <span className={`w-2 h-2 rounded-full shrink-0 ${sm.dot}`} />
+        <span className="truncate">{sm.label}</span>
       </div>
 
-      <div className="flex flex-col gap-1 mb-4">
-        {QUICK_DIALS.map(q => (
-          <button
-            key={q.number}
-            onClick={() => setNumber(q.number)}
-            className="flex items-center justify-between bg-[#111e35] hover:bg-[#1e3a5f] border border-slate-700/40 rounded-lg px-3 py-2 text-left transition-colors"
-          >
-            <div>
-              <p className="text-xs font-medium text-white">{q.label}</p>
-              <p className="text-[10px] text-slate-500">{q.note}</p>
-            </div>
-            <span className="text-[11px] font-mono text-slate-400">{q.number}</span>
-          </button>
-        ))}
-      </div>
+      {/* Quick dials (hidden during call) */}
+      {!inCall && (
+        <div className="flex flex-col gap-1 mb-4">
+          {QUICK_DIALS.map(q => (
+            <button
+              key={q.number}
+              onClick={() => setNumber(q.number)}
+              className="flex items-center justify-between bg-[#111e35] hover:bg-[#1e3a5f] border border-slate-700/40 rounded-lg px-3 py-2 text-left transition-colors"
+            >
+              <div>
+                <p className="text-xs font-medium text-white">{q.label}</p>
+                <p className="text-[10px] text-slate-500">{q.note}</p>
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">{q.number}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
+      {/* Number display */}
       <div className="flex items-center bg-[#1e293b] border border-slate-700/50 rounded-lg px-4 py-3 mb-4 min-h-[56px]">
         <span className="flex-1 text-xl font-mono tracking-widest text-white">
           {number || <span className="text-slate-600 text-base font-sans">Enter number</span>}
         </span>
-        {number && (
+        {number && !inCall && (
           <button onClick={backspace} className="text-slate-500 hover:text-slate-200 ml-2 transition-colors">
             <Delete size={18} />
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-5">
-        {KEYS.map(([digit, sub]) => (
-          <button
-            key={digit}
-            onClick={() => press(digit)}
-            disabled={status === 'calling'}
-            className="flex flex-col items-center justify-center bg-[#1e293b] hover:bg-slate-700/60 border border-slate-700/40 rounded-lg py-3 transition-colors disabled:opacity-40 select-none"
-          >
-            <span className="text-lg font-semibold text-white leading-none">{digit}</span>
-            {sub && <span className="text-[9px] text-slate-500 mt-0.5 tracking-widest">{sub}</span>}
-          </button>
-        ))}
-      </div>
+      {/* Keypad (hidden during call) */}
+      {!inCall && (
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {KEYS.map(([digit, sub]) => (
+            <button
+              key={digit}
+              onClick={() => press(digit)}
+              className="flex flex-col items-center justify-center bg-[#1e293b] hover:bg-slate-700/60 border border-slate-700/40 rounded-lg py-3 transition-colors select-none"
+            >
+              <span className="text-lg font-semibold text-white leading-none">{digit}</span>
+              {sub && <span className="text-[9px] text-slate-500 mt-0.5 tracking-widest">{sub}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="flex justify-center">
-        {status !== 'done' ? (
+      {/* Call controls */}
+      <div className="flex justify-center gap-4 items-center">
+        {status === 'active' && (
           <button
-            onClick={startCall}
-            disabled={status === 'calling' || !number}
-            className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg"
+            onClick={toggleMute}
+            title={muted ? 'Unmute mic' : 'Mute mic'}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors shadow ${
+              muted ? 'bg-red-700 hover:bg-red-600' : 'bg-slate-700 hover:bg-slate-600'
+            }`}
           >
-            {status === 'calling'
-              ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <Phone size={26} fill="white" stroke="white" />}
+            {muted ? <MicOff size={20} stroke="white" /> : <Mic size={20} stroke="white" />}
           </button>
-        ) : (
+        )}
+
+        {inCall ? (
           <button
-            onClick={reset}
+            onClick={endCall}
+            className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-lg"
+          >
+            {status === 'init'
+              ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <PhoneOff size={26} stroke="white" />}
+          </button>
+        ) : ['ended', 'error'].includes(status) ? (
+          <button
+            onClick={() => { setStatus('idle'); setErrMsg('') }}
             className="w-16 h-16 rounded-full bg-slate-600 hover:bg-slate-500 flex items-center justify-center transition-colors shadow-lg"
           >
             <PhoneOff size={26} stroke="white" />
           </button>
+        ) : (
+          <button
+            onClick={startCall}
+            disabled={!number}
+            className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-lg"
+          >
+            <Phone size={26} fill="white" stroke="white" />
+          </button>
         )}
       </div>
 
-      {callSid && (
-        <p className="mt-4 text-center text-[10px] text-slate-500 font-mono">{callSid}</p>
-      )}
+      <p className="mt-4 text-center text-[10px] text-slate-500">WebRTC · SignalWire · headset audio</p>
     </div>
   )
 }

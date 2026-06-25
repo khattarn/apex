@@ -1344,21 +1344,24 @@ async def products_stats(_=Depends(verify_token)):
 
 @app.get("/api/signalwire/token")
 async def signalwire_token(_=Depends(verify_token)):
-    from twilio.jwt.access_token import AccessToken
-    from twilio.jwt.access_token.grants import VoiceGrant
-
     project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
     api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
-    app_sid    = os.getenv("SIGNALWIRE_APP_SID", "")
+    space      = os.getenv("SIGNALWIRE_SPACE", "")
     caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
 
-    if not all([project_id, api_token, app_sid]):
+    if not all([project_id, api_token, space]):
         raise HTTPException(status_code=500, detail="SignalWire env vars missing")
 
-    token = AccessToken(project_id, api_token, app_sid, ttl=3600)
-    grant = VoiceGrant(outgoing_application_sid=app_sid, incoming_allow=False)
-    token.add_grant(grant)
-    return {"token": token.to_jwt(), "caller_id": caller_id}
+    resp = requests.post(
+        f"https://{space}/api/fabric/subscribers/tokens",
+        auth=(project_id, api_token),
+        json={"reference": "apex-dialpad", "expires_in": 3600},
+        timeout=10,
+    )
+    if not resp.ok:
+        raise HTTPException(status_code=502, detail=f"SignalWire token error: {resp.text}")
+
+    return {"token": resp.json().get("token", ""), "caller_id": caller_id}
 
 
 @app.post("/api/signalwire/voice")
