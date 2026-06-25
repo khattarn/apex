@@ -62,7 +62,7 @@ function IndiaBridge() {
 // ── International Dialpad (SignalWire WebRTC browser softphone) ───────────────
 
 const STATUS_META = {
-  idle:    { color: 'bg-green-900/30 text-green-400',  dot: 'bg-green-400',               label: 'Ready · +1 208-441-4485' },
+  idle:    { color: 'bg-green-900/30 text-green-400',  dot: 'bg-green-400',               label: 'Ready · +1 208-688-4760' },
   init:    { color: 'bg-amber-900/30 text-amber-400',  dot: 'bg-amber-400 animate-pulse', label: 'Connecting…' },
   ringing: { color: 'bg-amber-900/30 text-amber-400',  dot: 'bg-amber-400 animate-pulse', label: '' },
   active:  { color: 'bg-green-900/30 text-green-400',  dot: 'bg-green-400 animate-pulse', label: '● Live call — speak into headset' },
