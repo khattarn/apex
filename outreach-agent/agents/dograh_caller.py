@@ -11,12 +11,31 @@ _WORKFLOW_PRIYA_DEFAULT  = "8d7b2b07-709a-4925-bb1f-3ecad4408476"
 
 
 def _normalize_phone(phone: str, city: str = "") -> str:
-    """Convert a local number to E.164 using city context for the country code."""
+    """Normalise phone to the format Dograh expects per destination.
+
+    India (Vobiz trunk): Dograh accepts 0091XXXXXXXXXX or bare 10-digit.
+    International:       Dograh accepts E.164 (+XXXXXXXXXXX).
+    """
     if not phone:
         return ""
     digits = "".join(c for c in phone if c.isdigit())
     if not digits:
         return ""
+
+    # ── Detect India ──────────────────────────────────────────────────────────
+    # Inputs: +91XXXXXXXXXX  |  91XXXXXXXXXX  |  0091XXXXXXXXXX  |  XXXXXXXXXX (10)
+    local10 = None
+    if digits.startswith("0091") and len(digits) == 14:
+        local10 = digits[4:]                 # already 0091... just extract local
+    elif digits.startswith("91") and len(digits) == 12:
+        local10 = digits[2:]
+    elif len(digits) == 10 and digits[0] in "6789":
+        local10 = digits                     # bare Indian mobile (starts 6-9)
+
+    if local10:
+        return f"0091{local10}"              # Dograh Vobiz format
+
+    # ── International (E.164) ────────────────────────────────────────────────
     if phone.strip().startswith("+"):
         return f"+{digits}"
     from utils.timezone import CITY_TZ
@@ -60,7 +79,7 @@ def place_outbound_call(
     india_telephony_id   = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")   # 477 — Vobiz +91
     default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 478 — Twilio AU/US (blocked pending Twilio review)
 
-    if cleaned.startswith("+91"):
+    if cleaned.startswith("0091"):
         telephony_id  = india_telephony_id or None
         workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_PRIYA", _WORKFLOW_PRIYA_DEFAULT)
     elif default_telephony_id:
