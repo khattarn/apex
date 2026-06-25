@@ -1338,31 +1338,31 @@ async def products_stats(_=Depends(verify_token)):
     }
 
 
-# ── Twilio browser dialer ─────────────────────────────────────────────────────
+# ── SignalWire browser dialer ─────────────────────────────────────────────────
 
-@app.get("/api/twilio/token")
-async def twilio_token(_=Depends(verify_token)):
+@app.get("/api/signalwire/token")
+async def signalwire_token(_=Depends(verify_token)):
     from twilio.jwt.access_token import AccessToken
     from twilio.jwt.access_token.grants import VoiceGrant
 
-    account_sid  = os.getenv("TWILIO_ACCOUNT_SID", "")
-    auth_token   = os.getenv("TWILIO_AUTH_TOKEN", "")
-    twiml_app_sid = os.getenv("TWILIO_TWIML_APP_SID", "")
-    caller_id    = os.getenv("TWILIO_CALLER_ID", "+13853633720")
+    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
+    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
+    app_sid    = os.getenv("SIGNALWIRE_APP_SID", "")
+    caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
 
-    if not all([account_sid, auth_token, twiml_app_sid]):
-        raise HTTPException(status_code=500, detail="Twilio env vars missing")
+    if not all([project_id, api_token, app_sid]):
+        raise HTTPException(status_code=500, detail="SignalWire env vars missing")
 
-    token = AccessToken(account_sid, auth_token, twiml_app_sid, ttl=3600)
-    grant = VoiceGrant(outgoing_application_sid=twiml_app_sid, incoming_allow=False)
+    token = AccessToken(project_id, api_token, app_sid, ttl=3600)
+    grant = VoiceGrant(outgoing_application_sid=app_sid, incoming_allow=False)
     token.add_grant(grant)
     return {"token": token.to_jwt(), "caller_id": caller_id}
 
 
-@app.post("/api/twilio/voice")
-async def twilio_voice(To: str = "", _From: str = ""):
+@app.post("/api/signalwire/voice")
+async def signalwire_voice(To: str = "", _From: str = ""):
     from twilio.twiml.voice_response import VoiceResponse, Dial
-    caller_id = os.getenv("TWILIO_CALLER_ID", "+13853633720")
+    caller_id = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
     resp = VoiceResponse()
     if To:
         dial = Dial(caller_id=caller_id)
@@ -1371,6 +1371,42 @@ async def twilio_voice(To: str = "", _From: str = ""):
     else:
         resp.say("No destination number provided.")
     return Response(content=str(resp), media_type="application/xml")
+
+
+class SignalWireCallRequest(BaseModel):
+    to: str
+
+@app.post("/api/signalwire/call")
+async def signalwire_call(req: SignalWireCallRequest, _=Depends(verify_token)):
+    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
+    api_token  = os.getenv("SIGNALWIRE_TOKEN", "")
+    space      = os.getenv("SIGNALWIRE_SPACE", "")
+    caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
+
+    if not all([project_id, api_token, space]):
+        raise HTTPException(status_code=500, detail="SignalWire env vars missing")
+
+    url = f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls.json"
+    twiml = f"<Response><Dial callerId='{caller_id}'><Number>{req.to}</Number></Dial></Response>"
+    resp = requests.post(
+        url,
+        auth=(project_id, api_token),
+        data={"To": req.to, "From": caller_id, "Twiml": twiml},
+        timeout=10,
+    )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"SignalWire error: {resp.text}")
+    return resp.json()
+
+
+# Keep legacy Twilio endpoints as aliases during transition
+@app.get("/api/twilio/token")
+async def twilio_token(_=Depends(verify_token)):
+    return await signalwire_token(_)
+
+@app.post("/api/twilio/voice")
+async def twilio_voice(To: str = "", _From: str = ""):
+    return await signalwire_voice(To=To, _From=_From)
 
 
 
@@ -1813,7 +1849,7 @@ async def signal_report_generate():
 
 @app.get("/health")
 async def health_simple():
-    return {"status": "ok"}
+    return {"status": "ok", "v": "emma-1"}
 
 
 @app.get("/my-ip")
@@ -2865,6 +2901,38 @@ async def vp_marketing_commission(body: VPMarketingCommissionRequest, _: str = D
             "output_tokens": result.output_tokens,
         },
     }
+
+
+class EmmaCallRequest(BaseModel):
+    phone: str
+    call_type: str
+    patient_name: str
+    appointment_time: str = ""
+    city: str = ""
+
+
+@app.get("/api/ping-emma")
+async def ping_emma():
+    return {"pong": "emma"}
+
+
+@app.post("/api/emma/call")
+async def emma_call(req: EmmaCallRequest, _=Depends(verify_token)):
+    from agents.dograh_caller import place_emma_call
+    valid_types = {"appointment_reminder", "six_month_recall", "post_treatment_checkin", "no_show_followup"}
+    if req.call_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"call_type must be one of: {', '.join(sorted(valid_types))}")
+    try:
+        result = place_emma_call(
+            phone=req.phone,
+            call_type=req.call_type,
+            patient_name=req.patient_name,
+            appointment_time=req.appointment_time,
+            city=req.city,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return {"ok": True, "workflow_run_id": result.get("workflow_run_id", ""), "call_type": req.call_type}
 
 
 if __name__ == "__main__":

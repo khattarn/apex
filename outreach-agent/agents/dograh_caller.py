@@ -8,6 +8,8 @@ log = logging.getLogger(__name__)
 DOGRAH_BASE = "https://app.dograh.com/api/v1/public"
 _WORKFLOW_SOPHIE_DEFAULT = "3a93c3b2-7b3c-4b1e-9480-7fe5b9191472"
 _WORKFLOW_PRIYA_DEFAULT  = "8d7b2b07-709a-4925-bb1f-3ecad4408476"
+_WORKFLOW_DENTAL_HENRY_DEFAULT = ""  # fill after creating in Dograh dashboard
+_WORKFLOW_DENTAL_EMMA_DEFAULT  = ""
 
 
 def _normalize_phone(phone: str, city: str = "") -> str:
@@ -140,4 +142,58 @@ def place_outbound_call(
         cleaned,
         trigger,
     )
+    return resp.json()
+
+
+def place_emma_call(
+    phone: str,
+    call_type: str,
+    patient_name: str,
+    appointment_time: str = "",
+    city: str = "",
+) -> dict:
+    """
+    Trigger Emma (dental patient care agent) for reminder / recall / check-in calls.
+
+    call_type must be one of:
+      appointment_reminder | six_month_recall | post_treatment_checkin | no_show_followup
+    """
+    api_key = os.getenv("DOGRAH_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("DOGRAH_API_KEY must be set")
+
+    workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_DENTAL_EMMA", _WORKFLOW_DENTAL_EMMA_DEFAULT)
+    if not workflow_uuid:
+        raise RuntimeError(
+            "DOGRAH_WORKFLOW_UUID_DENTAL_EMMA is not set — create Emma in Dograh dashboard first"
+        )
+
+    cleaned = _normalize_phone(phone, city)
+    if not cleaned or cleaned in ("+", ""):
+        raise RuntimeError(f"Could not normalise phone '{phone}'")
+
+    telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "598")
+
+    payload: dict = {
+        "phone_number": cleaned,
+        "initial_context": {
+            "call_type": call_type,
+            "patient_name": patient_name,
+            "appointment_time": appointment_time,
+        },
+    }
+    if telephony_id:
+        payload["telephony_configuration_id"] = telephony_id
+
+    resp = requests.post(
+        f"{DOGRAH_BASE}/agent/workflow/{workflow_uuid}",
+        json=payload,
+        headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+        timeout=30,
+    )
+
+    if not resp.ok:
+        raise RuntimeError(f"Dograh API error {resp.status_code}: {resp.text}")
+
+    log.info("Emma call triggered: phone=%s call_type=%s", cleaned, call_type)
     return resp.json()
