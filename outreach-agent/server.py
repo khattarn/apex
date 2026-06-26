@@ -1417,30 +1417,31 @@ async def signalwire_dialpad_swml(request: Request):
 @app.get("/api/signalwire/dental-inbound-proxy")
 @app.post("/api/signalwire/dental-inbound-proxy")
 async def dental_inbound_proxy(request: Request):
-    """SIP-transfer inbound calls on +12084414485 to Cloudonix → Dograh → Claire.
-    Config 598 is a Cloudonix-backed config; Dograh expects calls via SIP, not HTTP.
-    Cloudonix domain: uniqe-corporation.cloudonix.net (resolves to Cloudonix prod SIP).
-    Bearer token (DOGRAH_DENTAL_BEARER_TOKEN) is used as SIP auth password."""
-    import json as _json
+    """HTTP proxy: SignalWire inbound webhook → Dograh with bearer token.
+    Logs the full SignalWire payload and Dograh response so we can diagnose."""
+    bearer    = os.getenv("DOGRAH_DENTAL_BEARER_TOKEN", "")
     form_data = await request.form()
-    to_num   = form_data.get("To", "+12084414485").lstrip("+")
-    bearer   = os.getenv("DOGRAH_DENTAL_BEARER_TOKEN", "")
-    sip_uri  = f"sip:+{to_num}@uniqe-corporation.cloudonix.net"
+    payload   = dict(form_data)
 
-    log.info("dental-inbound-proxy: SIP transfer To=%s From=%s → %s", to_num, form_data.get("From","?"), sip_uri)
+    # Log EVERYTHING SignalWire sends so we can see the real call parameters
+    log.info("DENTAL_INBOUND payload: %s", payload)
 
-    connect: dict = {"to": sip_uri, "timeout": 30}
-    if bearer:
-        connect["sip_auth_username"] = f"+{to_num}"
-        connect["sip_auth_password"] = bearer
+    if not bearer:
+        log.warning("DENTAL_INBOUND: DOGRAH_DENTAL_BEARER_TOKEN not set")
+        return Response(content="<Response><Hangup/></Response>", media_type="application/xml")
 
-    swml = {
-        "version": "1.0.0",
-        "sections": {
-            "main": [{"connect": connect}]
-        }
-    }
-    return Response(content=_json.dumps(swml), media_type="application/json")
+    dograh_resp = requests.post(
+        "https://api.dograh.com/api/v1/telephony/inbound/run",
+        headers={"Authorization": f"Bearer {bearer}"},
+        data=payload,
+        timeout=10,
+    )
+
+    log.info("DENTAL_INBOUND dograh_status=%s dograh_body=%s", dograh_resp.status_code, dograh_resp.text)
+    return Response(
+        content=dograh_resp.text,
+        media_type=dograh_resp.headers.get("content-type", "application/xml"),
+    )
 
 
 # Keep legacy Twilio endpoints as aliases during transition
