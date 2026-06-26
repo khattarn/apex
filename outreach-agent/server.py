@@ -1417,37 +1417,30 @@ async def signalwire_dialpad_swml(request: Request):
 @app.get("/api/signalwire/dental-inbound-proxy")
 @app.post("/api/signalwire/dental-inbound-proxy")
 async def dental_inbound_proxy(request: Request):
-    """Proxy SignalWire inbound webhook → Dograh with bearer token auth.
-    SignalWire does a plain POST with no auth headers; Dograh requires the
-    bearer_token from telephony config 598 to identify the workflow.
-    Set DOGRAH_DENTAL_BEARER_TOKEN to the bearer_token from Dograh → Config 598."""
-    bearer_token = os.getenv("DOGRAH_DENTAL_BEARER_TOKEN", "")
-    if not bearer_token:
-        log.warning("dental-inbound-proxy: DOGRAH_DENTAL_BEARER_TOKEN not set — hanging up")
-        return Response(
-            content="<Response><Hangup/></Response>",
-            media_type="application/xml",
-        )
-
+    """SIP-transfer inbound calls on +12084414485 to Cloudonix → Dograh → Claire.
+    Config 598 is a Cloudonix-backed config; Dograh expects calls via SIP, not HTTP.
+    Cloudonix domain: uniqe-corporation.cloudonix.net (resolves to Cloudonix prod SIP).
+    Bearer token (DOGRAH_DENTAL_BEARER_TOKEN) is used as SIP auth password."""
+    import json as _json
     form_data = await request.form()
-    log.info(
-        "dental-inbound-proxy: To=%s From=%s",
-        form_data.get("To", "?"),
-        form_data.get("From", "?"),
-    )
+    to_num   = form_data.get("To", "+12084414485").lstrip("+")
+    bearer   = os.getenv("DOGRAH_DENTAL_BEARER_TOKEN", "")
+    sip_uri  = f"sip:+{to_num}@uniqe-corporation.cloudonix.net"
 
-    dograh_resp = requests.post(
-        "https://api.dograh.com/api/v1/telephony/inbound/run",
-        headers={"Authorization": f"Bearer {bearer_token}"},
-        data=dict(form_data),
-        timeout=10,
-    )
+    log.info("dental-inbound-proxy: SIP transfer To=%s From=%s → %s", to_num, form_data.get("From","?"), sip_uri)
 
-    log.info("dental-inbound-proxy: dograh status=%s body=%s", dograh_resp.status_code, dograh_resp.text[:200])
-    return Response(
-        content=dograh_resp.text,
-        media_type=dograh_resp.headers.get("content-type", "application/xml"),
-    )
+    connect: dict = {"to": sip_uri, "timeout": 30}
+    if bearer:
+        connect["sip_auth_username"] = f"+{to_num}"
+        connect["sip_auth_password"] = bearer
+
+    swml = {
+        "version": "1.0.0",
+        "sections": {
+            "main": [{"connect": connect}]
+        }
+    }
+    return Response(content=_json.dumps(swml), media_type="application/json")
 
 
 # Keep legacy Twilio endpoints as aliases during transition
