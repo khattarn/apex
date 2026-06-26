@@ -8,8 +8,8 @@ log = logging.getLogger(__name__)
 DOGRAH_BASE = "https://app.dograh.com/api/v1/public"
 _WORKFLOW_SOPHIE_DEFAULT = "3a93c3b2-7b3c-4b1e-9480-7fe5b9191472"
 _WORKFLOW_PRIYA_DEFAULT  = "8d7b2b07-709a-4925-bb1f-3ecad4408476"
-_WORKFLOW_DENTAL_HENRY_DEFAULT = ""  # fill after creating in Dograh dashboard
-_WORKFLOW_DENTAL_EMMA_DEFAULT  = ""
+_WORKFLOW_DENTAL_CLAIRE_DEFAULT = "707d72ad-bfda-40c6-a76f-9d79d228f6e8"
+_WORKFLOW_DENTAL_EMMA_DEFAULT  = "f4d6a6ba-1f4c-41ad-b40a-305c891717ba"
 
 
 def _normalize_phone(phone: str, city: str = "") -> str:
@@ -172,10 +172,13 @@ def place_emma_call(
     if not cleaned or cleaned in ("+", ""):
         raise RuntimeError(f"Could not normalise phone '{phone}'")
 
+    # Emma always uses config 598 (SignalWire/Cloudonix) regardless of destination.
+    # Never route through 477 (Vobiz India) — that config is bound to Priya's inbound workflow.
+    telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "598")
+
+    # Config 598 expects E.164 (+91...), not Vobiz format (0091...).
     if cleaned.startswith("0091"):
-        telephony_id = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "477")
-    else:
-        telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "598")
+        cleaned = "+" + cleaned[2:]
 
     payload: dict = {
         "phone_number": cleaned,
