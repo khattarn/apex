@@ -81,19 +81,29 @@ function InternationalDialpad() {
   const [errorMsg, setErrMsg] = useState('')
   const [muted, setMuted]     = useState(false)
 
-  const clientRef = useRef(null)
-  const callRef   = useRef(null)
-  const subRef    = useRef(null)
-  const audioRef  = useRef(null)
+  const clientRef    = useRef(null)
+  const callRef      = useRef(null)
+  const subRef       = useRef(null)
+  const streamSubRef = useRef(null)
+  const audioRef     = useRef(null)
 
   function press(digit)  { setNumber(n => n + digit) }
   function backspace()   { setNumber(n => n.slice(0, -1)) }
 
+  function attachAudio(stream) {
+    const el = audioRef.current
+    if (!el || !stream) return
+    el.srcObject = stream
+    el.play().catch(err => console.warn('[Dialpad] audio.play() blocked:', err))
+  }
+
   function cleanupCall() {
     subRef.current?.unsubscribe()
+    streamSubRef.current?.unsubscribe()
     subRef.current = null
+    streamSubRef.current = null
     callRef.current = null
-    if (audioRef.current) audioRef.current.srcObject = null
+    if (audioRef.current) { audioRef.current.srcObject = null }
   }
 
   async function startCall() {
@@ -101,6 +111,15 @@ function InternationalDialpad() {
     setStatus('init')
     setErrMsg('')
     setMuted(false)
+
+    // Unlock the audio element NOW while the user gesture is still active —
+    // Chrome revokes autoplay permission once the call stack goes async.
+    if (audioRef.current) {
+      audioRef.current.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+      audioRef.current.play().catch(() => {})
+      audioRef.current.removeAttribute('src')
+    }
+
     try {
       const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
 
@@ -123,17 +142,21 @@ function InternationalDialpad() {
       callRef.current = call
       setStatus('ringing')
 
-      // Wire remote audio to the hidden <audio> element
-      call.remoteStream$.subscribe((stream) => {
-        if (audioRef.current && stream) {
-          audioRef.current.srcObject = stream
-          audioRef.current.play().catch(() => {})
-        }
+      // Subscribe to remote stream — fires when the far-end audio track arrives
+      streamSubRef.current = call.remoteStream$.subscribe((stream) => {
+        console.log('[Dialpad] remoteStream$ emitted', stream)
+        attachAudio(stream)
       })
 
       subRef.current = call.status$.subscribe((s) => {
-        if (s === 'connected') setStatus('active')
-        else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
+        console.log('[Dialpad] status$:', s)
+        if (s === 'connected') {
+          setStatus('active')
+          // Fallback: if remoteStream$ already emitted before we subscribed,
+          // the sync getter will have the value.
+          const existing = call.remoteStream
+          if (existing) attachAudio(existing)
+        } else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
           if (s === 'failed') { setStatus('error'); setErrMsg('Call failed') }
           else setStatus('ended')
           cleanupCall()
