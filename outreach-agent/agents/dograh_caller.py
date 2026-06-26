@@ -79,18 +79,18 @@ def place_outbound_call(
         raise RuntimeError(f"Could not normalise phone '{phone}'")
 
     india_telephony_id   = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")   # 477 — Vobiz +91
-    default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 478 — Twilio AU/US (blocked pending Twilio review)
+    default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 598 — SignalWire US/CA
+
+    # Sophie handles ALL outbound calls — Priya's workflow is inbound-only (answering +919262171423).
+    # Using Priya's workflow for outbound plays her inbound greeting, not an outbound sales script.
+    workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
 
     if cleaned.startswith("0091"):
-        telephony_id  = india_telephony_id or None
-        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_PRIYA", _WORKFLOW_PRIYA_DEFAULT)
+        telephony_id = india_telephony_id or None        # Vobiz 477 for Indian PSTN
     elif default_telephony_id:
-        telephony_id  = default_telephony_id
-        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
+        telephony_id = default_telephony_id              # SignalWire 598 for international
     else:
-        # Fallback until Twilio unblocked
-        telephony_id  = india_telephony_id or None
-        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
+        telephony_id = india_telephony_id or None        # last-resort fallback
 
     # Build initial_context — Sophie can reference these via {{initial_context.field}}
     initial_context: dict = {
