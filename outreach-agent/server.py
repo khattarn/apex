@@ -1414,6 +1414,42 @@ async def signalwire_dialpad_swml(request: Request):
     return Response(content=_json.dumps(swml), media_type="application/json")
 
 
+@app.get("/api/signalwire/dental-inbound-proxy")
+@app.post("/api/signalwire/dental-inbound-proxy")
+async def dental_inbound_proxy(request: Request):
+    """Proxy SignalWire inbound webhook → Dograh with bearer token auth.
+    SignalWire does a plain POST with no auth headers; Dograh requires the
+    bearer_token from telephony config 598 to identify the workflow.
+    Set DOGRAH_DENTAL_BEARER_TOKEN to the bearer_token from Dograh → Config 598."""
+    bearer_token = os.getenv("DOGRAH_DENTAL_BEARER_TOKEN", "")
+    if not bearer_token:
+        log.warning("dental-inbound-proxy: DOGRAH_DENTAL_BEARER_TOKEN not set — hanging up")
+        return Response(
+            content="<Response><Hangup/></Response>",
+            media_type="application/xml",
+        )
+
+    form_data = await request.form()
+    log.info(
+        "dental-inbound-proxy: To=%s From=%s",
+        form_data.get("To", "?"),
+        form_data.get("From", "?"),
+    )
+
+    dograh_resp = requests.post(
+        "https://api.dograh.com/api/v1/telephony/inbound/run",
+        headers={"Authorization": f"Bearer {bearer_token}"},
+        data=dict(form_data),
+        timeout=10,
+    )
+
+    log.info("dental-inbound-proxy: dograh status=%s body=%s", dograh_resp.status_code, dograh_resp.text[:200])
+    return Response(
+        content=dograh_resp.text,
+        media_type=dograh_resp.headers.get("content-type", "application/xml"),
+    )
+
+
 # Keep legacy Twilio endpoints as aliases during transition
 @app.get("/api/twilio/token")
 async def twilio_token(_=Depends(verify_token)):
