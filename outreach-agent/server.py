@@ -1417,18 +1417,12 @@ async def signalwire_dialpad_swml(request: Request):
 @app.get("/api/signalwire/henry-inbound-swml")
 @app.post("/api/signalwire/henry-inbound-swml")
 async def henry_inbound_swml(request: Request):
-    """SWML endpoint: routes +12895141951 inbound calls to Vapi Claire assistant."""
+    """TwiML endpoint: routes +12895141951 inbound calls to Vapi Claire via SIP Dial."""
     inbound_cred_id = os.getenv("VAPI_INBOUND_CREDENTIAL_ID", "bfbf497d-25ef-4670-a10f-cbd3d25ce0f5")
     dental_number   = os.getenv("VAPI_DENTAL_PHONE_NUMBER", "+12895141951")
-    swml = {
-        "version": "1.0.0",
-        "sections": {
-            "main": [
-                {"connect": {"to": f"sip:{dental_number}@{inbound_cred_id}.sip.vapi.ai"}}
-            ]
-        },
-    }
-    return Response(content=json.dumps(swml), media_type="application/json")
+    sip_uri = f"sip:{dental_number}@{inbound_cred_id}.sip.vapi.ai"
+    twiml = f'<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Sip>{sip_uri}</Sip></Dial></Response>'
+    return Response(content=twiml, media_type="application/xml")
 
 
 # Keep legacy Twilio endpoints as aliases during transition
