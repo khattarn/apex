@@ -102,22 +102,18 @@ function InternationalDialpad() {
     try {
       const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
 
-      // Store destination on backend + fetch embed credentials in parallel
-      const [{ embed_token, space }] = await Promise.all([
-        request('/api/signalwire/token'),
-        request('/api/signalwire/prepare', { method: 'POST', body: JSON.stringify({ to: dest }) }),
-      ])
+      // Fetch a fresh Subscriber Access Token (SAT) from backend
+      const { token } = await request('/api/signalwire/token')
 
-      // Authenticate with the Click-to-Call embed token
-      const { SignalWire, EmbedTokenCredentialProvider } = await import('@signalwire/js')
-      const client = new SignalWire(new EmbedTokenCredentialProvider(space, embed_token))
+      // Authenticate as the practicedesk-dialpad subscriber
+      const { SignalWire, StaticCredentialProvider } = await import('@signalwire/js')
+      const client = new SignalWire(new StaticCredentialProvider({ token }))
       clientRef.current = client
 
-      // Dial the registered Fabric resource — SignalWire calls our SWML webhook
-      // which bridges the call to the stored PSTN destination
+      // Dial the PSTN number directly
       let call
       try {
-        call = await client.dial('/public/practicedesk-dialpad', { audio: true, video: false })
+        call = await client.dial(dest, { audio: true, video: false })
       } catch (e) {
         console.error('[Dialpad] dial() error:', e)
         throw new Error(e.message || 'Call creation failed')

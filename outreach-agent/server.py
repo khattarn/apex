@@ -1344,12 +1344,21 @@ async def products_stats(_=Depends(verify_token)):
 
 @app.get("/api/signalwire/token")
 async def signalwire_token(_=Depends(verify_token)):
-    embed_token = os.getenv("SIGNALWIRE_EMBED_TOKEN", "")
-    space       = os.getenv("SIGNALWIRE_SPACE", "")
-    caller_id   = os.getenv("SIGNALWIRE_CALLER_ID", "+12084414485")
-    if not all([embed_token, space]):
-        raise HTTPException(status_code=500, detail="SIGNALWIRE_EMBED_TOKEN / SIGNALWIRE_SPACE not set")
-    return {"embed_token": embed_token, "space": space, "caller_id": caller_id}
+    space      = os.getenv("SIGNALWIRE_SPACE", "")
+    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
+    sw_token   = os.getenv("SIGNALWIRE_TOKEN", "")
+    caller_id  = os.getenv("SIGNALWIRE_CALLER_ID", "+12086884760")
+    if not all([space, project_id, sw_token]):
+        raise HTTPException(status_code=500, detail="SIGNALWIRE_PROJECT_ID / SIGNALWIRE_TOKEN / SIGNALWIRE_SPACE not set")
+    resp = requests.post(
+        f"https://{space}/api/fabric/subscribers/tokens",
+        auth=(project_id, sw_token),
+        json={"reference": "practicedesk-dialpad@practicedesk.live", "expires_in": 3600},
+        timeout=10,
+    )
+    if not resp.ok:
+        raise HTTPException(status_code=500, detail=f"SAT generation failed: {resp.text}")
+    return {"token": resp.json()["token"], "space": space, "caller_id": caller_id}
 
 
 # Module-level store for the pending dialpad call destination (single-user tool)
