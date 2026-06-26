@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Phone, PhoneOff, Delete, Mic, MicOff } from 'lucide-react'
 import { request } from '../api'
 
@@ -84,6 +84,7 @@ function InternationalDialpad() {
   const clientRef = useRef(null)
   const callRef   = useRef(null)
   const subRef    = useRef(null)
+  const audioRef  = useRef(null)
 
   function press(digit)  { setNumber(n => n + digit) }
   function backspace()   { setNumber(n => n.slice(0, -1)) }
@@ -92,6 +93,7 @@ function InternationalDialpad() {
     subRef.current?.unsubscribe()
     subRef.current = null
     callRef.current = null
+    if (audioRef.current) audioRef.current.srcObject = null
   }
 
   async function startCall() {
@@ -120,6 +122,14 @@ function InternationalDialpad() {
       }
       callRef.current = call
       setStatus('ringing')
+
+      // Wire remote audio to the hidden <audio> element
+      call.remoteStream$.subscribe((stream) => {
+        if (audioRef.current && stream) {
+          audioRef.current.srcObject = stream
+          audioRef.current.play().catch(() => {})
+        }
+      })
 
       subRef.current = call.status$.subscribe((s) => {
         if (s === 'connected') setStatus('active')
@@ -257,6 +267,9 @@ function InternationalDialpad() {
       </div>
 
       <p className="mt-4 text-center text-[10px] text-slate-500">WebRTC · SignalWire · headset audio</p>
+
+      {/* Hidden audio element — receives the remote stream */}
+      <audio ref={audioRef} autoPlay />
     </div>
   )
 }
