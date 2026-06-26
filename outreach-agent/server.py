@@ -1414,34 +1414,21 @@ async def signalwire_dialpad_swml(request: Request):
     return Response(content=_json.dumps(swml), media_type="application/json")
 
 
-@app.get("/api/signalwire/dental-inbound-proxy")
-@app.post("/api/signalwire/dental-inbound-proxy")
-async def dental_inbound_proxy(request: Request):
-    """HTTP proxy: SignalWire inbound webhook → Dograh with bearer token.
-    Logs the full SignalWire payload and Dograh response so we can diagnose."""
-    bearer    = os.getenv("DOGRAH_DENTAL_BEARER_TOKEN", "")
-    form_data = await request.form()
-    payload   = dict(form_data)
-
-    # Log EVERYTHING SignalWire sends so we can see the real call parameters
-    log.info("DENTAL_INBOUND payload: %s", payload)
-
-    if not bearer:
-        log.warning("DENTAL_INBOUND: DOGRAH_DENTAL_BEARER_TOKEN not set")
-        return Response(content="<Response><Hangup/></Response>", media_type="application/xml")
-
-    dograh_resp = requests.post(
-        "https://api.dograh.com/api/v1/telephony/inbound/run",
-        headers={"Authorization": f"Bearer {bearer}"},
-        data=payload,
-        timeout=10,
-    )
-
-    log.info("DENTAL_INBOUND dograh_status=%s dograh_body=%s", dograh_resp.status_code, dograh_resp.text)
-    return Response(
-        content=dograh_resp.text,
-        media_type=dograh_resp.headers.get("content-type", "application/xml"),
-    )
+@app.get("/api/signalwire/henry-inbound-swml")
+@app.post("/api/signalwire/henry-inbound-swml")
+async def henry_inbound_swml(request: Request):
+    """SWML endpoint: routes +12895141951 inbound calls to Vapi Henry assistant."""
+    inbound_cred_id = os.getenv("VAPI_INBOUND_CREDENTIAL_ID", "bfbf497d-25ef-4670-a10f-cbd3d25ce0f5")
+    dental_number   = os.getenv("VAPI_DENTAL_PHONE_NUMBER", "+12895141951")
+    swml = {
+        "version": "1.0.0",
+        "sections": {
+            "main": [
+                {"connect": {"to": f"sip:{dental_number}@{inbound_cred_id}.sip.vapi.ai"}}
+            ]
+        },
+    }
+    return Response(content=_json.dumps(swml), media_type="application/json")
 
 
 # Keep legacy Twilio endpoints as aliases during transition
@@ -2959,21 +2946,20 @@ async def ping_emma():
 
 @app.post("/api/emma/call")
 async def emma_call(req: EmmaCallRequest, _=Depends(verify_token)):
-    from agents.dograh_caller import place_emma_call
+    from agents.vapi_caller import place_emma_call as place_emma_call_vapi
     valid_types = {"appointment_reminder", "six_month_recall", "post_treatment_checkin", "no_show_followup"}
     if req.call_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"call_type must be one of: {', '.join(sorted(valid_types))}")
     try:
-        result = place_emma_call(
+        result = place_emma_call_vapi(
             phone=req.phone,
             call_type=req.call_type,
             patient_name=req.patient_name,
             appointment_time=req.appointment_time,
-            city=req.city,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-    return {"ok": True, "workflow_run_id": result.get("workflow_run_id", ""), "call_type": req.call_type}
+    return {"ok": True, "call_id": result.get("id", ""), "call_type": req.call_type}
 
 
 if __name__ == "__main__":
