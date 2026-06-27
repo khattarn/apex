@@ -17,10 +17,11 @@ Autonomy guardrails:
 """
 
 import logging
+import os
 import re
 from datetime import datetime, timezone, timedelta
 from anthropic import Anthropic
-from database.client import supabase, get_client
+from database.client import get_client
 
 logger = logging.getLogger(__name__)
 _claude = Anthropic()
@@ -874,6 +875,59 @@ Be direct. No preamble. Use plain English."""
     logger.info("Signal weekly report complete: %d scores, %d dead ends, %d targets behind",
                 len(scores), len(dead), len(missed_targets))
     return report
+
+
+# ── 10. Email Delivery ────────────────────────────────────────────────────────
+
+def send_signal_email(report: dict) -> bool:
+    """Email Signal's weekly brief to the founder via Resend."""
+    resend_key    = os.environ.get("RESEND_API_KEY")
+    founder_email = os.environ.get("FOUNDER_EMAIL", "khattarn3@yahoo.com")
+    if not resend_key:
+        logger.warning("Signal email: RESEND_API_KEY not set")
+        return False
+
+    brief = report.get("brief", "No brief generated.")
+    period = report.get("period", _period_label())
+
+    scores_line   = f"Templates scored: {report.get('scores_computed', 0)}"
+    dead_line     = f"Dead ends detected: {report.get('dead_ends', 0)}"
+    behind_line   = f"Targets behind/missed: {report.get('targets_behind', 0)}"
+    projs_line    = f"Projection combos: {report.get('projections', 0)}"
+
+    body = f"""Signal Weekly Brief — {period}
+
+{brief}
+
+───────────────────────────
+{scores_line}
+{dead_line}
+{behind_line}
+{projs_line}
+
+Full data: system_journal table in Supabase → entry_type = signal_weekly_report
+"""
+
+    try:
+        import requests as _req
+        resp = _req.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+            json={
+                "from":    "Signal <signal@practicedesk.live>",
+                "to":      [founder_email],
+                "subject": f"Signal Weekly Brief — {period}",
+                "text":    body,
+            },
+            timeout=15,
+        )
+        ok = resp.status_code in (200, 201)
+        if not ok:
+            logger.warning("Signal email: Resend returned %d — %s", resp.status_code, resp.text[:200])
+        return ok
+    except Exception as exc:
+        logger.warning("Signal email delivery failed: %s", exc)
+        return False
 
 
 # ── 9. Performance Feedback Brief (for Content Agent + VP Marketing) ──────────

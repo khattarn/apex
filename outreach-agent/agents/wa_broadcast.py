@@ -25,6 +25,16 @@ _V1: dict[str, tuple[str, str | None]] = {
     "doctor":          ("apex_outreach_doctor_v1",     None),
 }
 
+# v2 = logo header + 4 buttons (Start free / Watch video / Call Henry / Stop) — Meta APPROVED
+_V2: dict[str, tuple[str, str | None]] = {
+    "dentist":         ("apex_outreach_dentist_v2",    LOGO_URL),
+    "salon":           ("apex_outreach_salon_v2",      LOGO_URL),
+    "accountant":      ("apex_outreach_accountant_v2", LOGO_URL),
+    "physiotherapist": ("apex_outreach_physio_v2",     LOGO_URL),
+    "lawyer":          ("apex_outreach_lawyer_v2",     LOGO_URL),
+    "doctor":          ("apex_outreach_doctor_v2",     LOGO_URL),
+}
+
 # v4 = final: logo header + homepage-first buttons + Henry + Stop (approved 2026-06-13)
 _V4: dict[str, tuple[str, str | None]] = {
     "dentist":         ("apex_outreach_dentist_v4",    LOGO_URL),

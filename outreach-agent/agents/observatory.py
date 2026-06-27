@@ -8,76 +8,11 @@ from agents.outreach import send_whatsapp_message
 log = logging.getLogger(__name__)
 
 
-def _yesterday_range():
-    now = datetime.now(timezone.utc)
-    start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    end   = start.replace(hour=23, minute=59, second=59)
-    return start.isoformat(), end.isoformat()
-
-
-def _get_yesterday_leads_added() -> int:
-    db = get_client()
-    start, end = _yesterday_range()
-    result = (
-        db.table("leads")
-        .select("id", count="exact")
-        .gte("created_at", start)
-        .lte("created_at", end)
-        .execute()
-    )
-    return result.count or 0
-
-
-def _get_yesterday_wa_sent() -> int:
-    db = get_client()
-    start, end = _yesterday_range()
-    result = (
-        db.table("lead_activities")
-        .select("id", count="exact")
-        .in_("type", ["wa_outreach_sent", "wa_followup_sent", "demo_booking_sent"])
-        .gte("created_at", start)
-        .lte("created_at", end)
-        .execute()
-    )
-    return result.count or 0
-
-
-def _get_yesterday_wa_replies() -> int:
-    db = get_client()
-    start, end = _yesterday_range()
-    result = (
-        db.table("lead_activities")
-        .select("id", count="exact")
-        .eq("type", "wa_reply_received")
-        .gte("created_at", start)
-        .lte("created_at", end)
-        .execute()
-    )
-    return result.count or 0
-
-
-def _get_yesterday_calls() -> tuple[int, float]:
-    db = get_client()
-    start, end = _yesterday_range()
-    try:
-        result = (
-            db.table("lead_activities")
-            .select("detail")
-            .in_("type", ["outbound_call_completed", "voice_followup_placed"])
-            .gte("created_at", start)
-            .lte("created_at", end)
-            .execute()
-        )
-        rows = result.data or []
-        total_cost = 0.0
-        for row in rows:
-            detail = row.get("detail") or {}
-            cost_info = detail.get("cost_info") or {}
-            if isinstance(cost_info, dict):
-                total_cost += float(cost_info.get("total_cost", 0) or 0)
-        return len(rows), round(total_cost, 4)
-    except Exception:
-        return 0, 0.0
+def _last_24h_range():
+    now   = datetime.now(timezone.utc)
+    start = (now - timedelta(hours=24)).isoformat()
+    end   = now.isoformat()
+    return start, end
 
 
 def _get_last_pipeline_run() -> str:
@@ -96,25 +31,132 @@ def _get_last_pipeline_run() -> str:
     return f"{ts} UTC — {run.get('city', '?')} {run.get('business_type', '?')} ({run.get('mode', '?')})"
 
 
-def build_digest() -> str:
-    stats              = get_stats()
-    new_leads          = _get_yesterday_leads_added()
-    wa_sent            = _get_yesterday_wa_sent()
-    wa_replies         = _get_yesterday_wa_replies()
-    call_count, cost   = _get_yesterday_calls()
-    last_run           = _get_last_pipeline_run()
+def _count_activities(types: list[str], start: str, end: str) -> int:
+    db = get_client()
+    result = (
+        db.table("lead_activities")
+        .select("id", count="exact")
+        .in_("type", types)
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .execute()
+    )
+    return result.count or 0
 
-    today = datetime.now(timezone.utc).strftime("%d %b %Y")
+
+def _get_calls_detail(start: str, end: str) -> tuple[int, int, float]:
+    """Returns (aria_calls, voice_followup_calls, total_cost)."""
+    db = get_client()
+    try:
+        rows = (
+            db.table("lead_activities")
+            .select("type, detail")
+            .in_("type", ["outbound_call_completed", "voice_followup_placed", "outbound_call_placed"])
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .execute()
+            .data or []
+        )
+        aria = sum(1 for r in rows if r.get("type") in ("outbound_call_completed", "outbound_call_placed"))
+        vf   = sum(1 for r in rows if r.get("type") == "voice_followup_placed")
+        cost = 0.0
+        for r in rows:
+            detail   = r.get("detail") or {}
+            cost_info = detail.get("cost_info") or {}
+            if isinstance(cost_info, dict):
+                cost += float(cost_info.get("total_cost", 0) or 0)
+        return aria, vf, round(cost, 4)
+    except Exception:
+        return 0, 0, 0.0
+
+
+def _get_emails_detail(start: str, end: str) -> tuple[int, int, int]:
+    """Returns (sent, opened, clicked) in last 24h."""
+    db = get_client()
+    try:
+        rows = (
+            db.table("email_sends")
+            .select("opened_at, clicked_at")
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .execute()
+            .data or []
+        )
+        sent    = len(rows)
+        opened  = sum(1 for r in rows if r.get("opened_at"))
+        clicked = sum(1 for r in rows if r.get("clicked_at"))
+        return sent, opened, clicked
+    except Exception:
+        return 0, 0, 0
+
+
+def _get_wa_replies_detail(start: str, end: str) -> tuple[int, int, int]:
+    """Returns (total_replies, interested, not_interested) in last 24h."""
+    db = get_client()
+    try:
+        rows = (
+            db.table("lead_activities")
+            .select("detail")
+            .eq("type", "wa_reply_received")
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .execute()
+            .data or []
+        )
+        interested     = sum(1 for r in rows if (r.get("detail") or {}).get("intent") == "interested")
+        not_interested = sum(1 for r in rows if (r.get("detail") or {}).get("intent") == "not_interested")
+        return len(rows), interested, not_interested
+    except Exception:
+        return 0, 0, 0
+
+
+def _get_leads_added(start: str, end: str) -> int:
+    db = get_client()
+    result = (
+        db.table("leads")
+        .select("id", count="exact")
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .execute()
+    )
+    return result.count or 0
+
+
+def build_digest() -> str:
+    start, end = _last_24h_range()
+    stats = get_stats()
+
+    new_leads                    = _get_leads_added(start, end)
+    wa_broadcast                 = _count_activities(["wa_outreach_sent"], start, end)
+    wa_followup                  = _count_activities(["wa_followup_sent"], start, end)
+    demo_sent                    = _count_activities(["demo_booking_sent"], start, end)
+    aria_calls, vf_calls, cost   = _get_calls_detail(start, end)
+    emails_sent, opened, clicked = _get_emails_detail(start, end)
+    replies, interested, not_int = _get_wa_replies_detail(start, end)
+    last_run                     = _get_last_pipeline_run()
+
+    today = datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC")
 
     lines = [
         f"Apex Daily — {today}",
         "",
-        f"Total leads: {stats['total_leads']}  |  Replied: {stats['replied']}  |  Converted: {stats['converted']}",
-        f"Yesterday: {new_leads} new leads  |  {wa_sent} WA sent  |  {wa_replies} replies",
-        f"Voice calls (yesterday): {call_count}  |  Est. cost: ${cost:.4f}",
-        f"Email sequence active: {stats.get('in_sequence', 0)}  |  Complete: {stats.get('sequence_complete', 0)}",
+        "── LAST 24 HOURS ──────────────────────",
+        f"Leads added:           {new_leads}",
+        f"WA broadcast sent:     {wa_broadcast}",
+        f"WA follow-up sent:     {wa_followup}",
+        f"Demo booking msgs:     {demo_sent}",
+        f"Aria outbound calls:   {aria_calls}",
+        f"Voice follow-up calls: {vf_calls}",
+        f"  Est. call cost:      ${cost:.4f}",
+        f"Emails sent:           {emails_sent}  (opened: {opened} · clicked: {clicked})",
+        f"WA replies received:   {replies}  (interested: {interested} · not interested: {not_int})",
         "",
-        f"Last pipeline run: {last_run}",
+        "── CUMULATIVE TOTALS ───────────────────",
+        f"Total leads:  {stats['total_leads']}  |  Replied: {stats['replied']}  |  Converted: {stats['converted']}",
+        f"Email seq active: {stats.get('in_sequence', 0)}  |  Complete: {stats.get('sequence_complete', 0)}",
+        "",
+        "── LAST PIPELINE RUN ───────────────────",
+        last_run,
     ]
     return "\n".join(lines)
 
@@ -160,25 +202,23 @@ def _send_email_digest(digest: str) -> bool:
 def send_observatory_digest() -> str:
     digest = build_digest()
 
-    # 1. Always persist to DB — readable from dashboard regardless of WA/email status
+    # Always persist to DB — readable from dashboard
     _store_digest(digest)
 
+    # WA delivery (best-effort — Meta 24h window means this only works if lead replied recently)
     recipient = (
         os.getenv("OBSERVATORY_WA_RECIPIENT")
         or os.getenv("FOUNDER_WHATSAPP_NUMBER")
     )
-
-    wa_ok = False
     if recipient:
         try:
-            wa_ok = send_whatsapp_message(recipient, digest)
+            send_whatsapp_message(recipient, digest)
         except Exception as exc:
-            log.warning("Observatory: WA send failed (%s) — falling back to email", exc)
+            log.warning("Observatory: WA send failed: %s", exc)
 
-    # 2. Email fallback if WA failed or no recipient configured
-    if not wa_ok:
-        email_ok = _send_email_digest(digest)
-        if not email_ok:
-            log.error("Observatory: both WA and email delivery failed")
+    # Email always sent regardless of WA status
+    email_ok = _send_email_digest(digest)
+    if not email_ok:
+        log.error("Observatory: email delivery failed")
 
     return digest

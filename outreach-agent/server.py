@@ -1864,15 +1864,24 @@ async def signal_report():
 
 @app.post("/api/signal/report/generate", dependencies=[Depends(verify_token)])
 async def signal_report_generate():
-    """Manually trigger a Signal weekly report."""
-    from agents.signal import generate_weekly_report
-    report = generate_weekly_report()
-    return {
-        "ok": True,
-        "scores": report.get("scores", 0),
-        "dead_ends": report.get("dead_ends", 0),
-        "targets_behind": report.get("targets_behind", 0),
-    }
+    """Manually trigger a Signal weekly report and email it."""
+    import traceback
+    try:
+        from agents.signal import generate_weekly_report, send_signal_email
+        report = generate_weekly_report()
+        email_ok = send_signal_email(report)
+        return {
+            "ok": True,
+            "scores_computed": report.get("scores_computed", 0),
+            "dead_ends": report.get("dead_ends", 0),
+            "targets_behind": report.get("targets_behind", 0),
+            "email_sent": email_ok,
+            "brief": report.get("brief", ""),
+        }
+    except Exception as exc:
+        tb = traceback.format_exc()
+        log.error("Signal generate failed: %s\n%s", exc, tb)
+        raise HTTPException(status_code=500, detail={"error": str(exc), "traceback": tb})
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -2432,14 +2441,15 @@ async def _job_email_campaign():
 
 async def _job_signal_weekly():
     """Signal weekly run — Monday 6am UTC. Scores templates, computes funnel,
-    detects dead ends, generates projections, updates targets, writes brief."""
+    detects dead ends, generates projections, updates targets, writes brief, emails founder."""
     try:
-        from agents.signal import generate_weekly_report
+        from agents.signal import generate_weekly_report, send_signal_email
         report = generate_weekly_report()
         log.info("Signal weekly report: %d scores, %d dead ends, %d targets behind",
                  report.get("scores_computed", 0),
                  report.get("dead_ends", 0),
                  report.get("targets_behind", 0))
+        send_signal_email(report)
     except Exception as exc:
         log.error("Signal weekly job failed: %s", exc)
         from utils.alerter import alert_founder
