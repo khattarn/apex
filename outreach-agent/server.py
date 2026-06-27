@@ -1052,7 +1052,8 @@ async def preview_message(body: PreviewRequest, _=Depends(verify_token)):
 @app.post("/api/leads/{lead_id}/call")
 async def call_lead(lead_id: str, _=Depends(verify_token)):
     from database.client import get_lead_by_id, update_lead
-    from agents.dograh_caller import place_outbound_call
+    from agents.vapi_caller import place_sophie_call
+    from agents.voice_outreach import _get_script
 
     lead = get_lead_by_id(lead_id)
     if not lead:
@@ -1060,28 +1061,36 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     if not lead.get("phone"):
         raise HTTPException(status_code=400, detail="Lead has no phone number")
 
+    script = {}
     try:
-        result = place_outbound_call(
+        script = _get_script(lead.get("business_type", "").lower())
+    except Exception:
+        pass
+
+    try:
+        result = place_sophie_call(
             phone=lead["phone"],
-            business_type=lead.get("business_type", ""),
             business_name=lead.get("name", ""),
-            lead_id=lead_id,
+            business_type=lead.get("business_type", ""),
             city=lead.get("city", ""),
-            trigger="cold",
+            opener=script.get("firstMessage", ""),
+            insight=script.get("insight", ""),
+            pain_question=script.get("pain_question", ""),
+            lead_id=lead_id,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    run_id = result.get("workflow_run_id", "")
-    _track_active_call(run_id, lead_id, lead.get("name", ""), lead.get("phone", ""), "outbound")
-    update_lead(lead_id, {"notes": f"Voice call placed — Dograh run ID: {run_id or 'unknown'}"})
+    call_id = result.get("id", "")
+    _track_active_call(call_id, lead_id, lead.get("name", ""), lead.get("phone", ""), "outbound")
+    update_lead(lead_id, {"notes": f"Voice call placed — Vapi call ID: {call_id or 'unknown'}"})
     from database.client import log_activity
     log_activity(lead_id, "outbound_call", {
-        "dograh_run_id": run_id,
+        "vapi_call_id": call_id,
         "trigger": "manual",
         "phone": lead.get("phone", ""),
     })
-    return {"ok": True, "workflow_run_id": run_id}
+    return {"ok": True, "call_id": call_id}
 
 
 @app.post("/api/dial")
@@ -1090,7 +1099,7 @@ async def dial_direct(payload: dict, _=Depends(verify_token)):
     Used by LegalAidAI admin dashboard to call registered users directly.
     Body: { phone, name, business_type?, city? }
     """
-    from agents.dograh_caller import place_outbound_call
+    from agents.vapi_caller import place_sophie_call
 
     phone = (payload.get("phone") or "").strip()
     name  = (payload.get("name")  or "").strip()
@@ -1098,18 +1107,17 @@ async def dial_direct(payload: dict, _=Depends(verify_token)):
         raise HTTPException(status_code=400, detail="phone and name are required")
 
     try:
-        result = place_outbound_call(
+        result = place_sophie_call(
             phone=phone,
-            business_type=payload.get("business_type") or "lawyer",
             business_name=name,
+            business_type=payload.get("business_type") or "lawyer",
             city=payload.get("city") or "",
-            trigger="manual",
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    run_id = result.get("workflow_run_id", "")
-    return {"ok": True, "workflow_run_id": run_id, "phone": phone, "name": name}
+    call_id = result.get("id", "")
+    return {"ok": True, "call_id": call_id, "phone": phone, "name": name}
 
 
 @app.post("/api/leads/{lead_id}/send")
@@ -2229,23 +2237,31 @@ async def _job_wa_followup():
 
 async def _job_voice_followup():
     try:
-        from agents.dograh_caller import place_outbound_call
+        from agents.vapi_caller import place_sophie_call
+        from agents.voice_outreach import _get_script
         from database.client import get_leads_for_voice_followup, log_activity
         leads = get_leads_for_voice_followup()
         for lead in leads:
             try:
-                result = place_outbound_call(
+                script = {}
+                try:
+                    script = _get_script(lead.get("business_type", "").lower())
+                except Exception:
+                    pass
+                result = place_sophie_call(
                     phone=lead["phone"],
-                    business_type=lead.get("business_type", ""),
                     business_name=lead.get("name", ""),
-                    lead_id=str(lead["id"]),
+                    business_type=lead.get("business_type", ""),
                     city=lead.get("city", ""),
-                    trigger="voice_followup",
+                    opener=script.get("firstMessage", ""),
+                    insight=script.get("insight", ""),
+                    pain_question=script.get("pain_question", ""),
+                    lead_id=str(lead["id"]),
                 )
-                run_id = result.get("workflow_run_id", "")
-                _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
+                call_id = result.get("id", "")
+                _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
                 log_activity(lead["id"], "voice_followup_placed", {
-                    "dograh_run_id": run_id,
+                    "vapi_call_id": call_id,
                     "phone": lead["phone"],
                 })
             except Exception as exc:
@@ -2300,7 +2316,8 @@ async def _job_scheduled_callbacks():
     """Call back leads who asked Sophie to call them at a specific time."""
     try:
         from database.client import get_leads_due_callback, log_activity
-        from agents.dograh_caller import place_outbound_call
+        from agents.vapi_caller import place_sophie_call
+        from agents.voice_outreach import _get_script
         from utils.timezone import is_voice_window
         leads = get_leads_due_callback()
         for lead in leads:
@@ -2309,18 +2326,25 @@ async def _job_scheduled_callbacks():
             if not lead.get("phone"):
                 continue
             try:
-                result = place_outbound_call(
+                script = {}
+                try:
+                    script = _get_script(lead.get("business_type", "").lower())
+                except Exception:
+                    pass
+                result = place_sophie_call(
                     phone=lead["phone"],
-                    business_type=lead.get("business_type", ""),
                     business_name=lead.get("name", ""),
-                    lead_id=str(lead["id"]),
+                    business_type=lead.get("business_type", ""),
                     city=lead.get("city", ""),
-                    trigger="scheduled_callback",
+                    opener=script.get("firstMessage", ""),
+                    insight=script.get("insight", ""),
+                    pain_question=script.get("pain_question", ""),
+                    lead_id=str(lead["id"]),
                 )
-                run_id = result.get("workflow_run_id", "")
-                _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
+                call_id = result.get("id", "")
+                _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
                 log_activity(str(lead["id"]), "outbound_call", {
-                    "dograh_run_id": run_id,
+                    "vapi_call_id": call_id,
                     "trigger": "scheduled_callback",
                     "phone": lead["phone"],
                 })
@@ -2706,7 +2730,8 @@ async def cron_voice_followup(request: Request):
         if auth.removeprefix("Bearer ").strip() != cron_secret:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-    from agents.dograh_caller import place_outbound_call
+    from agents.vapi_caller import place_sophie_call
+    from agents.voice_outreach import _get_script
     from database.client import get_leads_for_voice_followup, log_activity
 
     leads = get_leads_for_voice_followup()
@@ -2714,18 +2739,25 @@ async def cron_voice_followup(request: Request):
 
     for lead in leads:
         try:
-            result = place_outbound_call(
+            script = {}
+            try:
+                script = _get_script(lead.get("business_type", "").lower())
+            except Exception:
+                pass
+            result = place_sophie_call(
                 phone=lead["phone"],
-                business_type=lead.get("business_type", ""),
                 business_name=lead.get("name", ""),
-                lead_id=str(lead["id"]),
+                business_type=lead.get("business_type", ""),
                 city=lead.get("city", ""),
-                trigger="voice_followup",
+                opener=script.get("firstMessage", ""),
+                insight=script.get("insight", ""),
+                pain_question=script.get("pain_question", ""),
+                lead_id=str(lead["id"]),
             )
-            run_id = result.get("workflow_run_id", "")
-            _track_active_call(run_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
+            call_id = result.get("id", "")
+            _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
             log_activity(lead["id"], "voice_followup_placed", {
-                "dograh_run_id": run_id,
+                "vapi_call_id": call_id,
                 "phone": lead["phone"],
             })
             placed += 1
