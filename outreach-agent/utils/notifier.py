@@ -136,7 +136,8 @@ def _send_wa_brief(body: str) -> bool:
                     "language": {"code": "en"},
                     "components": [{
                         "type": "body",
-                        "parameters": [{"type": "text", "text": body[:1024]}],
+                        # {{1}} = digest text; body: "Apex Daily — ...\n\n{{1}}\n\nReply..."
+                        "parameters": [{"type": "text", "text": body[:1000]}],
                     }],
                 },
             },
@@ -171,10 +172,12 @@ def _send_wa_alert(severity: str, component: str, message: str) -> bool:
                     "language": {"code": "en"},
                     "components": [{
                         "type": "body",
+                        # {{1}}=severity, {{2}}=component, {{3}}=reason
+                        # body: "Apex Platform Alert\n\nSeverity: {{1}}\nComponent: {{2}}\n\n{{3}}\n\nCheck Railway logs..."
                         "parameters": [
-                            {"type": "text", "text": icon},
+                            {"type": "text", "text": severity.upper()},
                             {"type": "text", "text": component},
-                            {"type": "text", "text": message[:512]},
+                            {"type": "text", "text": message[:500]},
                         ],
                     }],
                 },
