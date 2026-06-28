@@ -2279,27 +2279,20 @@ async def _job_voice_followup():
         from agents.vapi_caller import place_sophie_call
         from agents.voice_outreach import _get_script
         from agents.email_personalizer import detect_market
-        from database.client import get_leads_for_voice_followup, log_activity, get_client as _gc
+        from database.client import get_leads_for_voice_followup, log_activity
         leads = get_leads_for_voice_followup()
         placed = failed = 0
 
-        # US/CA: cold voice is low-yield; _job_click_calls handles engagement-triggered calls.
-        # Build the set of lead IDs that have clicked an email so we can skip the rest.
-        _clicked = {
-            str(r["lead_id"])
-            for r in (
-                _gc().table("lead_activities")
-                .select("lead_id")
-                .eq("type", "email_clicked")
-                .execute().data or []
-            )
-        }
-
+        # US/CA: _job_click_calls owns all voice for these markets (engagement-triggered).
+        # Never double-call via this cold-followup path — skip US/CA entirely here.
+        # (get_clicked_uncalled_leads deduplicates outbound_call+voice_followup_placed,
+        #  but get_leads_for_voice_followup only excludes voice_followup_placed, so
+        #  passing clicked US/CA leads through here would create duplicate calls.)
         for lead in leads:
             _mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
-            if _mkt in ("US", "CA") and str(lead["id"]) not in _clicked:
+            if _mkt in ("US", "CA"):
                 log.info(
-                    "voice_followup: skip %s — %s market, no email click (handled by click_caller)",
+                    "voice_followup: skip %s — %s market (click_caller handles voice here)",
                     lead.get("name"), _mkt,
                 )
                 continue
