@@ -112,7 +112,9 @@ def _send_email_alert(severity: str, component: str, message: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def _wa_headers() -> dict:
-    token = os.getenv("WHATSAPP_TOKEN") or os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+    # WHATSAPP_ACCESS_TOKEN is the outreach number token (matches agents/outreach.py).
+    # WHATSAPP_TOKEN is a legacy var for the India/PracticeDesk number — do not use here.
+    token = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
     return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
 
