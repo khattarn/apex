@@ -52,6 +52,7 @@ def classify_intent(message: str) -> str:
 def generate_reply(message: str, business_name: str, business_type: str) -> str:
     """Generate a helpful reply to a prospect's question."""
     from agents._master_prompt import compose
+    from agents.agent_prompts import get_prompt
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     prompt = _REPLY_PROMPT.format(
         business_type=business_type,
@@ -61,7 +62,7 @@ def generate_reply(message: str, business_name: str, business_type: str) -> str:
     result = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=200,
-        system=compose(),
+        system=compose(get_prompt("reply_handler")),
         messages=[{"role": "user", "content": prompt}],
     )
     return result.content[0].text.strip()

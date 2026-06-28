@@ -21,11 +21,12 @@ def generate_followup_message(name: str, business_type: str, city: str) -> str:
     prompt = template.format(name=name, business_type=business_type, city=city)
 
     from agents._master_prompt import compose
+    from agents.agent_prompts import get_prompt
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=200,
-        system=compose(),
+        system=compose(get_prompt("followup")),
         messages=[{"role": "user", "content": prompt}],
     )
     return message.content[0].text.strip()
