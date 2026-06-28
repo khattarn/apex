@@ -2278,10 +2278,31 @@ async def _job_voice_followup():
     try:
         from agents.vapi_caller import place_sophie_call
         from agents.voice_outreach import _get_script
-        from database.client import get_leads_for_voice_followup, log_activity
+        from agents.email_personalizer import detect_market
+        from database.client import get_leads_for_voice_followup, log_activity, get_client as _gc
         leads = get_leads_for_voice_followup()
         placed = failed = 0
+
+        # US/CA: cold voice is low-yield; _job_click_calls handles engagement-triggered calls.
+        # Build the set of lead IDs that have clicked an email so we can skip the rest.
+        _clicked = {
+            str(r["lead_id"])
+            for r in (
+                _gc().table("lead_activities")
+                .select("lead_id")
+                .eq("type", "email_clicked")
+                .execute().data or []
+            )
+        }
+
         for lead in leads:
+            _mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
+            if _mkt in ("US", "CA") and str(lead["id"]) not in _clicked:
+                log.info(
+                    "voice_followup: skip %s — %s market, no email click (handled by click_caller)",
+                    lead.get("name"), _mkt,
+                )
+                continue
             try:
                 script = {}
                 try:
@@ -2417,7 +2438,20 @@ async def _job_email_campaign():
         from agents.email_sender import send_email, QuotaExceededError
         from utils.timezone import is_email_window
 
-        leads = get_leads_due_for_email(limit=180)
+        # CASL requires Canada leads on a separate, lower-volume path.
+        # Only send CA emails to publicly-scraped addresses (scrape_attempted=True),
+        # which satisfies implied-consent requirements under CASL s.10(9)(b).
+        _CA_CAP, _NON_CA_CAP = 30, 150
+        all_candidates = get_leads_due_for_email(limit=250)
+        ca_leads, non_ca_leads = [], []
+        for _l in all_candidates:
+            _mkt = detect_market(_l.get("phone", ""), _l.get("address", "") or "")
+            if _mkt == "CA":
+                if _l.get("scrape_attempted"):
+                    ca_leads.append(_l)
+            else:
+                non_ca_leads.append(_l)
+        leads = non_ca_leads[:_NON_CA_CAP] + ca_leads[:_CA_CAP]
         sent = skipped = failed = 0
 
         # Create a campaign run so email_sends records have a parent
@@ -2536,6 +2570,12 @@ async def _job_watchdog():
 
 @app.on_event("startup")
 async def start_scheduler():
+    try:
+        from agents.signal import register_hook_ab_test
+        register_hook_ab_test()
+    except Exception:
+        pass  # non-fatal — Signal tables may not be migrated yet in fresh deploys
+
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(_job_wa_followup,      "cron", hour=9,        minute=0)      # 9am UTC daily

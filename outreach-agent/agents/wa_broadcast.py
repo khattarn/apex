@@ -9,6 +9,7 @@ per invocation so we never flood the Meta API or a single city at once.
 import logging
 from collections import defaultdict
 
+from agents.email_personalizer import detect_market
 from agents.outreach import send_template_message, send_whatsapp_message
 from agents.personalizer import generate_message
 from agents.template_manager import LOGO_URL
@@ -91,7 +92,7 @@ def pending_by_city() -> dict[str, int]:
 
 def run_wa_broadcast() -> dict:
     leads = _get_pending_leads(limit=300)
-    sent = skipped_hours = skipped_no_phone = errors = 0
+    sent = skipped_hours = skipped_no_phone = skipped_market_gate = errors = 0
 
     for lead in leads:
         if sent >= MAX_PER_RUN:
@@ -105,6 +106,15 @@ def run_wa_broadcast() -> dict:
         phone = lead.get("phone", "")
         if not phone:
             skipped_no_phone += 1
+            continue
+
+        # US/CA: WA penetration is low (~23%/lower); cold WA risks spam complaints.
+        # Only send after opt-in (lead replied or expressed interest). AU (~33%)
+        # is viable as a secondary cold channel and is not gated here.
+        market = detect_market(phone, lead.get("address", "") or "")
+        if market in ("US", "CA") and lead.get("status", "new") not in ("replied", "interested"):
+            skipped_market_gate += 1
+            log.info("WA broadcast: skip %s — %s market, not opted-in", lead.get("name"), market)
             continue
 
         try:
@@ -143,5 +153,6 @@ def run_wa_broadcast() -> dict:
         "sent": sent,
         "skipped_outside_hours": skipped_hours,
         "skipped_no_phone": skipped_no_phone,
+        "skipped_market_gate": skipped_market_gate,
         "errors": errors,
     }

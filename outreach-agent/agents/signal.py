@@ -777,6 +777,75 @@ Output ONLY the message text."""
     return improved
 
 
+# ── 8a. Email A/B Hook Experiment ────────────────────────────────────────────
+
+def register_hook_ab_test() -> dict:
+    """Upsert the email subject-hook A/B test row. No-op if already registered.
+
+    Control  = subject_a (moment-based hook: 'Most practices miss 60% of after-hours calls')
+    Variant  = subject_b (timeline hook: 'CDCP window closes in 6 months')
+
+    Benchmarks show timeline hooks outperform moment-based 2.3×;
+    we test that signal on the live list before hardcoding the assumption.
+    """
+    db = get_client()
+    existing = (
+        db.table("ab_tests").select("id, status")
+        .eq("template_name", "email_subject_hook").eq("channel", "email")
+        .execute().data
+    )
+    if existing:
+        return {"status": "already_registered", "id": existing[0]["id"]}
+    result = db.table("ab_tests").insert({
+        "template_name": "email_subject_hook",
+        "channel":       "email",
+        "business_type": "all",
+        "country":       "all",
+        "control_copy":  "subject_a — moment-based hook (e.g. 'Most practices miss 60% of after-hours calls')",
+        "variant_copy":  "subject_b — timeline hook (e.g. 'CDCP window closes in 6 months')",
+        "status":        "running",
+        "autonomous":    True,
+        "rationale":     "Benchmark data shows timeline hooks 2.3x moment-based; testing on live list before hardcoding.",
+    }).execute()
+    return result.data[0] if result.data else {}
+
+
+def _sync_email_ab_stats() -> None:
+    """Refresh ab_tests control/variant counters from email_sends + reply activity.
+
+    Called from generate_weekly_report() so Signal's evaluate_ab_tests() has
+    current data to auto-promote or auto-kill the hook experiment.
+    """
+    db = get_client()
+    test_rows = (
+        db.table("ab_tests").select("id")
+        .eq("template_name", "email_subject_hook").eq("status", "running")
+        .execute().data
+    )
+    if not test_rows:
+        return
+    test_id = test_rows[0]["id"]
+
+    sends = db.table("email_sends").select("variant, lead_id").execute().data or []
+    a_lead_ids = {str(r["lead_id"]) for r in sends if (r.get("variant") or "").upper() == "A"}
+    b_lead_ids = {str(r["lead_id"]) for r in sends if (r.get("variant") or "").upper() == "B"}
+
+    replies = db.table("lead_activities").select("lead_id").eq("type", "wa_reply_received").execute().data or []
+    reply_ids = {str(r["lead_id"]) for r in replies}
+
+    db.table("ab_tests").update({
+        "control_sends":   len(a_lead_ids),
+        "variant_sends":   len(b_lead_ids),
+        "control_replies": len(a_lead_ids & reply_ids),
+        "variant_replies": len(b_lead_ids & reply_ids),
+    }).eq("id", test_id).execute()
+    logger.info(
+        "Signal email A/B stats synced — A: %d sends / %d replies; B: %d sends / %d replies",
+        len(a_lead_ids), len(a_lead_ids & reply_ids),
+        len(b_lead_ids), len(b_lead_ids & reply_ids),
+    )
+
+
 # ── 8. Weekly Report (Marketing Head Brief) ───────────────────────────────────
 
 def generate_weekly_report() -> dict:
@@ -871,6 +940,12 @@ Be direct. No preamble. Use plain English."""
         f"Signal Weekly Brief — {_period_label()}",
         report,
     )
+
+    # Refresh email A/B hook counters so evaluate_ab_tests() has current data.
+    try:
+        _sync_email_ab_stats()
+    except Exception as _e:
+        logger.warning("Signal: could not sync email A/B stats: %s", _e)
 
     logger.info("Signal weekly report complete: %d scores, %d dead ends, %d targets behind",
                 len(scores), len(dead), len(missed_targets))
