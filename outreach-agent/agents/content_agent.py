@@ -206,11 +206,12 @@ def generate_content(req: ContentRequest) -> ContentResult:
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set")
 
+    from agents._master_prompt import compose
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=4096,
-        system=_SYSTEM_PROMPT,
+        system=compose(_SYSTEM_PROMPT),
         messages=[{"role": "user", "content": _build_prompt(req)}],
     )
 

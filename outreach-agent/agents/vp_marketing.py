@@ -210,6 +210,27 @@ def _build_standard_queue() -> list[dict]:
                 "reason":       "LegalAidAI Advocate — Hindi WA template (peer-to-peer channel in IN)",
             })
 
+    # LegalAidAI — Cause List Email Service (lead gen funnel, no voice)
+    for ct, tone, platform, lang, reason in [
+        ("wa_template", "pain_first",    "",          "en", "Cause List — WA forward for bar association groups (EN)"),
+        ("wa_template", "conversational","",          "hi", "Cause List — WA forward for district court bar groups (Hindi)"),
+        ("email",       "structured",    "",          "en", "Cause List — bar association secretary outreach email"),
+        ("email",       "outcome_first", "",          "en", "Cause List — email blast to existing LegalAidAI advocate contacts"),
+        ("social_post", "structured",    "linkedin",  "en", "Cause List — LinkedIn post (story arc: eCourts pain → solution)"),
+        ("social_post", "structured",    "instagram", "en", "Cause List — Instagram carousel script"),
+    ]:
+        queue.append({
+            "priority":     "standard",
+            "product":      "legalaidai",
+            "module":       "cause_list",
+            "content_type": ct,
+            "tone":         tone,
+            "platform":     platform,
+            "market":       "IN",
+            "language":     lang,
+            "reason":       reason,
+        })
+
     return queue
 
 
@@ -250,6 +271,8 @@ Devise a comprehensive campaign plan covering all active verticals:
 
 PracticeDesk: dentist · salon · accountant · physiotherapist · lawyer × AU (primary) / US / CA
 LegalAidAI:   advocate · corporate · citizen × IN (English + Hindi WA for Advocate)
+              cause_list × IN — free daily cause list email service (lead gen funnel into NSP Pro;
+              content types: WA forward EN+HI, email x2, LinkedIn post, Instagram carousel; no voice)
 
 Your response must include:
 
@@ -271,10 +294,11 @@ The single most important action across all agents this week.
 If Signal shows a winner — name the pattern and how to replicate it across verticals.
 """
 
+    from agents._master_prompt import compose
     resp = client.messages.create(
         model=_MODEL,
         max_tokens=2500,
-        system=_SYSTEM_PROMPT,
+        system=compose(_SYSTEM_PROMPT),
         messages=[{"role": "user", "content": user_msg}],
     )
     plan_text = resp.content[0].text.strip()
@@ -309,6 +333,7 @@ def execute_commission(commission: dict, signal_context: str = "") -> Commission
         tone=commission.get("tone", "structured"),
         market=commission.get("market", "AU"),
         language=commission.get("language", "en"),
+        platform=commission.get("platform", ""),
         brief=commission.get("reason", ""),
         signal_feedback=signal_context,
     )

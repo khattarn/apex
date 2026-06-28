@@ -27,10 +27,12 @@ def generate_message(name: str, business_type: str, city: str) -> str:
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
         prompt = db_template.format(name=name, business_type=business_type, city=city)
+        from agents._master_prompt import compose
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=500,
+            system=compose(),
             messages=[{"role": "user", "content": prompt}],
         )
         return msg.content[0].text.strip()
@@ -54,10 +56,12 @@ def generate_message(name: str, business_type: str, city: str) -> str:
         "Mention one specific pain point for their business type and end with a soft call to action. "
         "Keep it under 150 words. Reply with only the message text."
     )
+    from agents._master_prompt import compose
     client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=400,
+        system=compose(),
         messages=[{"role": "user", "content": fallback_prompt}],
     )
     return msg.content[0].text.strip()

@@ -1,7 +1,9 @@
 import os
 import re
 import random
-from agents.email_templates import TEMPLATES, DEMO_LINK, PRODUCT_URL, INBOUND_PHONE, INBOUND_PHONE_RAW, YOUTUBE_INTRO
+import yaml
+from functools import lru_cache
+from agents.email_templates import DEMO_LINK, PRODUCT_URL, INBOUND_PHONE, INBOUND_PHONE_RAW, YOUTUBE_INTRO
 
 # Canadian provinces — used to distinguish +1 CA from +1 US
 _CA_TOKENS = {
@@ -13,6 +15,16 @@ _CA_TOKENS = {
 
 # Australian state abbreviations
 _AU_STATES = {"NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT", "AUSTRALIA"}
+
+# Tokens that must never appear in non-dental email copy
+_DENTAL_TOKENS = {"dentist", "dental", "patient", "doctor", "cdcp", "cdbs"}
+
+
+@lru_cache(maxsize=1)
+def _load_email_copy() -> dict:
+    path = os.path.join(os.path.dirname(__file__), "..", "assets", "email_copy.yaml")
+    with open(path, encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
 
 def detect_market(phone: str, address: str = "") -> str:
@@ -45,34 +57,16 @@ def extract_state(address: str) -> str:
     return ""
 
 
-def _pain_line(name: str, city: str, market: str, review_count: int = 0) -> str:
-    if market == "AU":
-        base = f"Noticed {name} on Google"
-        return f"{base} — {review_count} reviews tells me you have real patients who depend on you." if review_count else f"{base} — clearly a practice your patients trust."
-    if market == "CA":
-        return f"Found {name} on Google while looking at dental practices in {city} — clearly a practice your patients trust."
-    # US default
-    base = f"Searched for dental practices in {city} and {name} came up"
-    return f"{base} — {review_count} reviews tells me your patients value what you do." if review_count else f"{base}."
-
-
-def _review_line(name: str, review_count: int) -> str:
-    if review_count:
-        return f"{review_count} Google reviews tells me {name} has real patients who care about you. They deserve to reach you every time they call."
-    return f"{name}'s patients deserve to reach you every time they call."
-
-
 def _first_email_number(market: str) -> int:
     if market == "CA":
         return 6
-    return 1  # Email 2 used when review pain found — not yet implemented
+    return 1
 
 
-def pick_subject(email_num: int) -> tuple[str, str]:
-    """Returns (variant_letter, subject_string). A/B split on first two variants."""
-    subjects = TEMPLATES[email_num]["subjects"]
-    chosen_text, chosen_variant = random.choice(subjects[:2])
-    return chosen_variant, chosen_text
+def pick_subject(subject_a: str, subject_b: str) -> tuple[str, str]:
+    """Returns (variant_letter, subject_string). Random A/B split."""
+    pair = random.choice([("a", subject_a), ("b", subject_b)])
+    return pair[0], pair[1]
 
 
 def _tracking_base() -> str:
@@ -91,8 +85,18 @@ def _btn(href: str, label: str, bg: str, color: str, border: str) -> str:
     )
 
 
-def _render(email_num: int, variables: dict) -> str:
-    body = TEMPLATES[email_num]["body"]
+def _render(body: str, preheader: str, variables: dict) -> str:
+    # Preheader: hidden span for inbox preview line
+    preheader_html = ""
+    if preheader:
+        ph = preheader
+        for key, val in variables.items():
+            ph = ph.replace("{" + key + "}", str(val))
+        preheader_html = (
+            f'<span style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
+            f'{ph}</span>'
+        )
+
     for key, val in variables.items():
         body = body.replace("{" + key + "}", str(val))
 
@@ -137,6 +141,7 @@ def _render(email_num: int, variables: dict) -> str:
   <title>PracticeDesk</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+{preheader_html}
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f5f9;">
 <tr><td align="center" style="padding:24px 16px;">
 
@@ -222,7 +227,7 @@ def _build_footer(variables: dict, market: str) -> str:
 
     return (
         f"{sender} · PracticeDesk · "
-        f'<a href="{product}" style="color:#888888;">practicedesk.netlify.app</a><br>'
+        f'<a href="{product}" style="color:#888888;">practicedesk.live</a><br>'
         f'<a href="{demo}" style="color:#4f46e5;">Book a demo</a> &nbsp;·&nbsp; '
         f'<a href="{product}" style="color:#4f46e5;">Start 14-day free trial</a> &nbsp;·&nbsp; '
         f'<a href="tel:{INBOUND_PHONE_RAW}" style="color:#4f46e5;">Call Henry: {INBOUND_PHONE}</a>'
@@ -235,30 +240,34 @@ def _build_footer(variables: dict, market: str) -> str:
 def generate_email(lead: dict, email_number: int = None) -> tuple[str, str, int, str]:
     """
     Returns (subject, html, email_number_used, subject_variant).
-    email_number=None means auto-select based on routing logic.
+    Selects vertical-correct copy from email_copy.yaml by lead.business_type.
+    Falls back to defaults block for unrecognised verticals; callers must skip
+    leads with empty business_type before calling (Change #2).
     """
     market = detect_market(lead.get("phone", ""), lead.get("address", ""))
 
     if email_number is None:
         email_number = _first_email_number(market)
 
-    name          = lead.get("name", "your practice")
-    business_type = lead.get("business_type", "")
-    city          = lead.get("city", "")
-    address       = lead.get("address", "")
-    state         = extract_state(address) or city
+    name    = lead.get("name", "your practice")
+    city    = lead.get("city", "")
+    address = lead.get("address", "")
+    state   = extract_state(address) or city
+
+    # ── Vertical lookup ───────────────────────────────────────────────────────
+    ec = _load_email_copy()
+    vertical = (lead.get("business_type") or "").lower().strip()
+    seq_data = ec["verticals"].get(vertical) or ec["defaults"]
+    sequence = seq_data["sequence"]
+    idx = min(max(email_number - 1, 0), len(sequence) - 1)
+    entry = sequence[idx]
 
     variables = {
         "PRACTICE_NAME": name,
-        "FIRST_NAME": "Doctor",
         "CITY": city,
         "STATE": state,
         "NEARBY_CITY": city,
         "MARKET": market,
-        "PAIN_LINE": _pain_line(name, city, market),
-        "REVIEW_LINE": _review_line(name, 0),
-        "REVIEW_COUNT": "",
-        "RATING": "",
         "DEMO_LINK": DEMO_LINK,
         "PRODUCT_URL": PRODUCT_URL,
         "YOUTUBE_LINK": YOUTUBE_INTRO,
@@ -267,11 +276,59 @@ def generate_email(lead: dict, email_number: int = None) -> tuple[str, str, int,
         "UNSUBSCRIBE_LINK": f"{_tracking_base()}/unsubscribe?id={lead.get('id', '')}",
     }
 
-    variant, subject_tpl = pick_subject(email_number)
+    variant, subject_tpl = pick_subject(entry["subject_a"], entry["subject_b"])
     subject = subject_tpl
     for key, val in variables.items():
         subject = subject.replace("{" + key + "}", str(val))
 
-    html = _render(email_number, variables)
+    html = _render(entry["body"], entry.get("preheader", ""), variables)
 
     return subject, html, email_number, variant
+
+
+# ── Vertical leak test (run: python -m agents.email_personalizer) ─────────────
+if __name__ == "__main__":
+    import sys
+
+    BASE_LEAD = {
+        "id": "test-000",
+        "name": "Test Business",
+        "city": "Sydney",
+        "address": "123 Main St, Sydney NSW 2000",
+        "phone": "+61 2 9000 0000",
+        "email": "test@example.com",
+    }
+
+    verticals_under_test = ["dentist", "physiotherapist", "salon", "accountant", "lawyer"]
+    # Tokens that are exclusive to dental — must never appear in any other vertical.
+    # "patient" is valid for physiotherapist so it's excluded from this set.
+    # (The real guard against wrong-vertical sends is the yaml itself.)
+    dental_only_tokens = {"dentist", "dental", "cdcp", "cdbs"}
+    # Additional tokens invalid for non-clinical verticals (salon / accountant / lawyer)
+    non_clinical_extra = {"patient"}
+    clinical_verticals = {"dentist", "physiotherapist"}
+
+    errors = []
+    for v in verticals_under_test:
+        lead = {**BASE_LEAD, "business_type": v}
+        for step in [1, 2, 3, 4]:
+            subj, html, _, variant = generate_email(lead, email_number=step)
+            combined = (subj + html).lower()
+            if v != "dentist":
+                forbidden = dental_only_tokens.copy()
+                if v not in clinical_verticals:
+                    forbidden |= non_clinical_extra
+                leaked = [tok for tok in forbidden if tok in combined]
+                if leaked:
+                    errors.append(f"FAIL  vertical={v} step={step}  leaked tokens: {leaked}")
+                else:
+                    print(f"OK    vertical={v} step={step} variant={variant}  subject: {subj[:60]}")
+            else:
+                print(f"OK    vertical={v} step={step} variant={variant}  subject: {subj[:60]}")
+
+    if errors:
+        for e in errors:
+            print(e)
+        sys.exit(1)
+    else:
+        print("\nAll verticals clean — no dental language leaks to non-dental.")

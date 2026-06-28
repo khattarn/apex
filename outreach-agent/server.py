@@ -462,6 +462,10 @@ async def email_campaign(_=Depends(verify_token)):
 
         for i, lead in enumerate(leads):
             name   = lead["name"]
+            if not (lead.get("business_type") or "").strip():
+                skipped += 1
+                yield {"data": json.dumps({"type": "log", "line": f"  ⚠ {name} — skipped (no business_type)"})}
+                continue
             city   = lead.get("city", "")
             market = detect_market(lead.get("phone", ""), lead.get("address", ""))
 
@@ -876,6 +880,10 @@ async def cron_email_sequence(request: Request):
     sent = skipped = failed = 0
 
     for lead in leads:
+        if not (lead.get("business_type") or "").strip():
+            skipped += 1
+            log.info("email: skipped %s — no business_type", lead.get("name", lead.get("id")))
+            continue
         city   = lead.get("city", "")
         market = detect_market(lead.get("phone", ""), lead.get("address", ""))
         if not is_email_window(city, market):
@@ -2387,6 +2395,10 @@ async def _job_email_campaign():
         run_id = run_record["id"] if run_record else None
 
         for lead in leads:
+            if not (lead.get("business_type") or "").strip():
+                skipped += 1
+                log.info("email: skipped %s — no business_type", lead.get("name", lead.get("id")))
+                continue
             city   = lead.get("city", "")
             market = detect_market(lead.get("phone", ""), lead.get("address", ""))
             if not is_email_window(city, market):

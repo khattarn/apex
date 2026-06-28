@@ -20,10 +20,12 @@ def generate_followup_message(name: str, business_type: str, city: str) -> str:
     template = get_setting("whatsapp_followup_template") or DEFAULT_FOLLOWUP_TEMPLATE
     prompt = template.format(name=name, business_type=business_type, city=city)
 
+    from agents._master_prompt import compose
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=200,
+        system=compose(),
         messages=[{"role": "user", "content": prompt}],
     )
     return message.content[0].text.strip()

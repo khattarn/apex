@@ -36,10 +36,12 @@ _DEMO_MESSAGE = (
 
 def classify_intent(message: str) -> str:
     """Returns one of: interested | not_interested | question | out_of_office."""
+    from agents._master_prompt import MASTER_PROMPT_LITE
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     result = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=10,
+        system=MASTER_PROMPT_LITE,
         messages=[{"role": "user", "content": _INTENT_PROMPT.format(message=message)}],
     )
     intent = result.content[0].text.strip().lower()
@@ -49,6 +51,7 @@ def classify_intent(message: str) -> str:
 
 def generate_reply(message: str, business_name: str, business_type: str) -> str:
     """Generate a helpful reply to a prospect's question."""
+    from agents._master_prompt import compose
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     prompt = _REPLY_PROMPT.format(
         business_type=business_type,
@@ -58,6 +61,7 @@ def generate_reply(message: str, business_name: str, business_type: str) -> str:
     result = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=200,
+        system=compose(),
         messages=[{"role": "user", "content": prompt}],
     )
     return result.content[0].text.strip()
