@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cause List WA Templates — Nyaya Saathi</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      padding: 32px 24px;
+      min-height: 100vh;
+    }
+
+    .page-header {
+      max-width: 860px;
+      margin: 0 auto 36px;
+      border-bottom: 1px solid #1e2a3a;
+      padding-bottom: 24px;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #C5A041;
+      letter-spacing: -0.3px;
+    }
+
+    .page-header p {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 6px;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 20px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .meta-pill {
+      font-size: 11px;
+      background: #1e2a3a;
+      border: 1px solid #2d3e52;
+      color: #94a3b8;
+      border-radius: 20px;
+      padding: 4px 12px;
+    }
+
+    .meta-pill span { color: #C5A041; font-weight: 600; }
+
+    .section-label {
+      max-width: 860px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-label h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #94a3b8;
+    }
+
+    .lang-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .lang-en { background: #0D1B3E; color: #93c5fd; border: 1px solid #1e3a6e; }
+    .lang-hi { background: #2d1a00; color: #fbbf24; border: 1px solid #78350f; }
+
+    .templates-grid {
+      max-width: 860px;
+      margin: 0 auto 48px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 680px) {
+      .templates-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: #141c26;
+      border: 1px solid #1e2a3a;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: #0D1B3E;
+      border-bottom: 1px solid #1e2a3a;
+    }
+
+    .card-header .variant { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+    .card-header .tag {
+      font-size: 10px;
+      color: #64748b;
+      background: #1e2a3a;
+      border: 1px solid #2d3e52;
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+
+    .card-body { padding: 18px; }
+
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #C5A041;
+      margin-bottom: 6px;
+    }
+
+    .field-value {
+      font-size: 13px;
+      line-height: 1.65;
+      color: #cbd5e1;
+      background: #0f1117;
+      border: 1px solid #1e2a3a;
+      border-radius: 8px;
+      padding: 12px 14px;
+      white-space: pre-wrap;
+      font-family: inherit;
+    }
+
+    .field-value strong { color: #e2e8f0; }
+    .field-value em { color: #94a3b8; font-style: italic; }
+
+    .field-value a {
+      color: #C5A041;
+      text-decoration: none;
+    }
+
+    .buttons-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .btn-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #94a3b8;
+      background: #0f1117;
+      border: 1px solid #1e2a3a;
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+
+    .btn-item .btn-type {
+      font-size: 10px;
+      background: #1e2a3a;
+      color: #64748b;
+      border-radius: 3px;
+      padding: 2px 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .copy-btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 9px;
+      background: #1e2a3a;
+      border: 1px solid #2d3e52;
+      border-radius: 7px;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      text-align: center;
+    }
+
+    .copy-btn:hover { background: #C5A041; color: #0D1B3E; border-color: #C5A041; }
+    .copy-btn.copied { background: #064e3b; color: #34d399; border-color: #065f46; }
+
+    .divider {
+      max-width: 860px;
+      margin: 0 auto 36px;
+      border: none;
+      border-top: 1px solid #1e2a3a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Cause List Email Service — WA Templates</h1>
+    <p>Ready to paste into LegalAidAI admin dashboard for WA broadcast campaigns</p>
+    <div class="meta-row">
+      <span class="meta-pill">Generated <span>2026-06-24</span></span>
+      <span class="meta-pill">Agent <span>8 · Content</span></span>
+      <span class="meta-pill">Signup URL <span>legalaidai.in/cause-list-subscribe</span></span>
+      <span class="meta-pill">4 variants <span>EN × 2 · HI × 2</span></span>
+    </div>
+  </div>
+
+  <!-- ENGLISH -->
+  <div class="section-label">
+    <h2>English</h2>
+    <span class="lang-badge lang-en">EN</span>
+  </div>
+
+  <div class="templates-grid">
+
+    <!-- EN Short -->
+    <div class="card">
+      <div class="card-header">
+        <span class="variant">Variant 1 — Short</span>
+        <span class="tag">forward-friendly · 3 lines</span>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <div class="field-label">Header</div>
+          <div class="field-value">Check eCourts manually this morning?</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Body</div>
+          <div class="field-value" id="en-short-body">Every morning, advocates check each case on eCourts one by one. With 20 cases, that is 20 minutes — and one missed hearing is a professional risk you cannot afford.
+
+<strong>Free Cause List Email:</strong> Add your CNR numbers once, get all your listed cases by 7:30 AM. No login. No payment.
+
+https://www.legalaidai.in/cause-list-subscribe</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Buttons</div>
+          <div class="buttons-list">
+            <div class="btn-item"><span class="btn-type">URL Button</span> Sign Up Free → legalaidai.in/cause-list-subscribe</div>
+          </div>
+        </div>
+        <button class="copy-btn" onclick="copyCard('en-short-body', this)">Copy Body</button>
+      </div>
+    </div>
+
+    <!-- EN Long -->
+    <div class="card">
+      <div class="card-header">
+        <span class="variant">Variant 2 — Long</span>
+        <span class="tag">with bullets · detailed</span>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <div class="field-label">Header</div>
+          <div class="field-value">20 minutes every morning on eCourts?</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Body</div>
+          <div class="field-value" id="en-long-body">Most advocates start the day the same way — open eCourts, check case one, check case two, check case three. By the time you are done, half an hour is gone. And if you miss a listed hearing, the consequences follow you into court.
+
+There is a simpler way.
+
+*Free Cause List Email — what you get:*
+
+• All your cases aggregated in one email
+• Delivered to your inbox by 7:30 AM IST
+• Today's hearings highlighted — case name, court, stage
+• Upcoming hearings for the rest of the week
+• Cases with no hearing this week, clearly marked
+
+_No app. No login. No payment — free, permanently._
+
+Just your email address and your CNR numbers. That is it.
+
+Sign up once. Get your cause list every morning.
+
+https://www.legalaidai.in/cause-list-subscribe</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Buttons</div>
+          <div class="buttons-list">
+            <div class="btn-item"><span class="btn-type">URL Button</span> Sign Up Free → legalaidai.in/cause-list-subscribe</div>
+            <div class="btn-item"><span class="btn-type">Quick Reply</span> Share with a colleague</div>
+          </div>
+        </div>
+        <button class="copy-btn" onclick="copyCard('en-long-body', this)">Copy Body</button>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="divider" />
+
+  <!-- HINDI -->
+  <div class="section-label">
+    <h2>Hindi (Hinglish)</h2>
+    <span class="lang-badge lang-hi">HI</span>
+  </div>
+
+  <div class="templates-grid">
+
+    <!-- HI Short -->
+    <div class="card">
+      <div class="card-header">
+        <span class="variant">Variant 1 — Short</span>
+        <span class="tag">forward-friendly · district courts</span>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <div class="field-label">Header</div>
+          <div class="field-value">रोज़ सुबह eCourts manually check करते हो?</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Body</div>
+          <div class="field-value" id="hi-short-body">हर case का CNR अलग-अलग डालो, फिर देखो listed है या नहीं — यह daily routine बदल सकती है।
+
+अपनी सभी cases की cause list *एक email में, सुबह 7:30 बजे* — बिल्कुल free।
+
+No app। No login। बस email address और CNR numbers।
+
+👉 Sign up: https://www.legalaidai.in/cause-list-subscribe</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Buttons</div>
+          <div class="buttons-list">
+            <div class="btn-item"><span class="btn-type">URL Button</span> Sign Up Free → legalaidai.in/cause-list-subscribe</div>
+          </div>
+        </div>
+        <button class="copy-btn" onclick="copyCard('hi-short-body', this)">Copy Body</button>
+      </div>
+    </div>
+
+    <!-- HI Long -->
+    <div class="card">
+      <div class="card-header">
+        <span class="variant">Variant 2 — Long</span>
+        <span class="tag">with bullets · bar group share</span>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <div class="field-label">Header</div>
+          <div class="field-value">Cause List Email Service — Free for Advocates</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Body</div>
+          <div class="field-value" id="hi-long-body">साथी advocates को forward करें 🙏
+
+हर सुबह eCourts खोलो, एक-एक case number डालो, देखो listed है या नहीं — 20 cases हों तो 20 minutes। और फिर भी एक hearing miss होने का डर।
+
+*Nyaya Saathi का Free Cause List Service* यह काम आपके लिए करता है।
+
+आपको मिलता है:
+• सुबह *7:30 AM* तक inbox में email
+• *आज* listed cases — court, time, stage सब एक जगह
+• इस हफ्ते की upcoming hearings
+• जिन cases में इस हफ्ते कोई date नहीं — वो भी clearly दिखेगा
+
+_Free है। हमेशा के लिए।_
+_कोई app नहीं। कोई login नहीं। बस आपका email और CNR numbers।_
+
+District court से High Court तक — सभी cases track होती हैं।
+
+Sign up यहाँ करें:
+https://www.legalaidai.in/cause-list-subscribe</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Buttons</div>
+          <div class="buttons-list">
+            <div class="btn-item"><span class="btn-type">URL Button</span> Free Sign Up करें → legalaidai.in/cause-list-subscribe</div>
+            <div class="btn-item"><span class="btn-type">Quick Reply</span> अपने bar group में share करें</div>
+          </div>
+        </div>
+        <button class="copy-btn" onclick="copyCard('hi-long-body', this)">Copy Body</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function copyCard(id, btn) {
+      const el = document.getElementById(id)
+      navigator.clipboard.writeText(el.innerText).then(() => {
+        btn.textContent = 'Copied!'
+        btn.classList.add('copied')
+        setTimeout(() => {
+          btn.textContent = 'Copy Body'
+          btn.classList.remove('copied')
+        }, 2000)
+      })
+    }
+  </script>
+
+</body>
+</html>

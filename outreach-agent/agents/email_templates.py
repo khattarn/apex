@@ -1,5 +1,5 @@
 DEMO_LINK = "https://cal.com/neeraj-khattar-3zszap/practicedesk-demo"
-PRODUCT_URL = "https://practicedesk.netlify.app"
+PRODUCT_URL = "https://practicedesk.live"
 INBOUND_PHONE = "+1 (318) 770-6725"
 INBOUND_PHONE_RAW = "+13187706725"
 
@@ -144,7 +144,7 @@ It doesn't. The AI collects booking details and creates a pending request. You r
 <p>I'm closing your file so I'm not cluttering your inbox.</p>
 <p>If the front-office problem ever becomes something you want to solve — missed calls, after-hours bookings, WhatsApp follow-ups — the demo is always open and the 14-day trial is always free.</p>
 <p>Wishing {PRACTICE_NAME} a full schedule.</p>
-<p>{SENDER_NAME}<br><a href="{PRODUCT_URL}" style="color:#4f46e5;">practicedesk.netlify.app</a></p>
+<p>{SENDER_NAME}<br><a href="{PRODUCT_URL}" style="color:#4f46e5;">practicedesk.live</a></p>
 <p><a href="{DEMO_LINK}" style="display:inline-block;background-color:#4f46e5;color:#ffffff;padding:11px 24px;text-decoration:none;border-radius:4px;font-size:14px;font-weight:bold;">Start free trial anytime →</a></p>
 <p style="font-size:13px;color:#999999;margin-top:24px;border-top:1px solid #eeeeee;padding-top:12px;">You won't hear from me again after this. To ensure that: <a href="{UNSUBSCRIBE_LINK}" style="color:#aaaaaa;">unsubscribe</a></p>""",
     },
@@ -170,6 +170,6 @@ It doesn't. The AI collects booking details and creates a pending request. You r
 <p>Plans from $49 · $99 · $180/month. Still 14 days free.</p>
 <p>If anything's changed since we last connected — whether you're busier, growing, or just tired of missed calls — worth 10 minutes.</p>
 <p><a href="{DEMO_LINK}" style="display:inline-block;background-color:#4f46e5;color:#ffffff;padding:11px 24px;text-decoration:none;border-radius:4px;font-size:14px;font-weight:bold;">Book a demo →</a></p>
-<p style="font-size:13px;color:#666666;margin-top:24px;"><em>P.S. This is genuinely the last email I'll send. If the timing is ever right: <a href="{PRODUCT_URL}" style="color:#4f46e5;">practicedesk.netlify.app</a></em></p>""",
+<p style="font-size:13px;color:#666666;margin-top:24px;"><em>P.S. This is genuinely the last email I'll send. If the timing is ever right: <a href="{PRODUCT_URL}" style="color:#4f46e5;">practicedesk.live</a></em></p>""",
     },
 }

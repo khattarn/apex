@@ -16,7 +16,7 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
     from agents.personalizer import generate_message
     from agents.outreach import send_whatsapp_message
     from agents.email_scraper import scrape_email
-    from database.client import get_lead_by_place_id, save_lead, update_lead, mark_contacted
+    from database.client import get_lead_by_place_id, get_existing_place_ids, save_lead, update_lead, mark_contacted
 
     cities = [c.strip() for c in city.split(",") if c.strip()]
     multi = len(cities) > 1
@@ -35,7 +35,10 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
         # ── Step 1: Prospect ──────────────────────────────────────────────────
         yield f"[{_ts()}] Searching Google Maps for {business_type} businesses in {current_city}..."
         try:
-            businesses = await asyncio.to_thread(find_businesses, business_type, current_city, max_prospects)
+            known_ids = await asyncio.to_thread(get_existing_place_ids, business_type, current_city)
+            if known_ids:
+                yield f"[{_ts()}] Skipping {len(known_ids)} already-seen places, fetching new ones..."
+            businesses = await asyncio.to_thread(find_businesses, business_type, current_city, max_prospects, known_ids)
         except Exception as exc:
             yield f"[{_ts()}] ERROR during prospecting in {current_city}: {exc}"
             continue
@@ -56,11 +59,21 @@ async def run(business_type: str, city: str, max_prospects: int, send_whatsapp: 
                 continue
 
             lead_data = {
-                **biz,
+                "name":         biz.get("name"),
+                "address":      biz.get("address"),
+                "place_id":     biz.get("place_id"),
+                "phone":        biz.get("phone"),
+                "website":      biz.get("website"),
                 "business_type": business_type,
-                "city": current_city,
-                "status": "new",
+                "city":         current_city,
+                "status":       "new",
                 "outreach_sent": False,
+                # enrichment fields (require migration SQL to exist in DB)
+                "pain_score":         biz.get("pain_score"),
+                "pain_signal":        biz.get("pain_signal"),
+                "pain_finding":       biz.get("pain_finding"),
+                "has_online_booking": biz.get("has_online_booking"),
+                "hours_json":         biz.get("hours_json"),
             }
             lead = await asyncio.to_thread(save_lead, lead_data)
             new_leads += 1

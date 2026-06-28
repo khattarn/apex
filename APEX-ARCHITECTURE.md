@@ -12,7 +12,7 @@
 | Nyaya Saathi — Citizen | legalaidai.in/citizen | India (1.4B citizens) | Live (Beta 3) | Freemium — ₹499/mo premium |
 | Nyaya Saathi — Advocate | legalaidai.in/advocate | India (1.7M advocates) | Live (Beta 3) | ₹2,500/mo · ₹5,000 renewal |
 | Nyaya Saathi — Corporate | legalaidai.in/corporate | India (corporates) | Live (Beta 3) | ₹5,000+/mo |
-| PracticeDesk | practicedesk.netlify.app | AU / USA / Global | Live (Beta) | $49 · $99 · $180/mo |
+| PracticeDesk | practicedesk.live | AU / USA / Global | Live (Beta) | $49 · $99 · $180/mo |
 | **Apex** | TBD (internal) | All markets | **Building now** | Internal tool — drives all above |
 
 ---
@@ -127,7 +127,7 @@ A two-sided AI legal platform for India:
 ## 2. PracticeDesk
 
 **Repo:** `C:\Projects\Practice desk`
-**Deployed:** practicedesk.netlify.app
+**Deployed:** practicedesk.live
 **Outreach agent:** `practicedesk-agent/` (Python + FastAPI — runs locally, needs Railway)
 
 ### What It Does

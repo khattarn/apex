@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Apex — Promotion Mandate</title>
+<style>
+  :root {
+    --bg:        #0f172a;
+    --surface:   #1e293b;
+    --surface2:  #273548;
+    --border:    #334155;
+    --text:      #f1f5f9;
+    --muted:     #94a3b8;
+    --dim:       #64748b;
+    --green:     #22c55e;
+    --green-bg:  #14532d40;
+    --amber:     #f59e0b;
+    --amber-bg:  #78350f40;
+    --blue:      #60a5fa;
+    --blue-bg:   #1e3a5f40;
+    --purple:    #a78bfa;
+    --purple-bg: #2e1065;
+    --red:       #f87171;
+    --indigo:    #818cf8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 40px 24px 80px;
+  }
+
+  .page { max-width: 1100px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .page-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 40px;
+  }
+  .page-header .meta {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--dim);
+    margin-bottom: 8px;
+  }
+  .page-header h1 { font-size: 28px; font-weight: 700; color: var(--text); }
+  .page-header .subtitle { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .page-header .tags { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .tag.live  { border-color: var(--green);  color: var(--green); }
+  .tag.build { border-color: var(--amber);  color: var(--amber); }
+  .tag.plan  { border-color: var(--dim);    color: var(--dim); }
+
+  /* ── Section titles ── */
+  .section { margin-bottom: 48px; }
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--indigo);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Org Chart ── */
+  .org-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 24px;
+    overflow-x: auto;
+  }
+  .org-chart {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    min-width: 660px;
+  }
+  .org-node {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    position: relative;
+  }
+  .org-node .role { font-size: 10px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .org-node.ceo   { border-color: var(--indigo); background: #1e1b4b; color: var(--indigo); }
+  .org-node.vp    { border-color: var(--blue);   background: #1e3a5f40; color: var(--blue); }
+  .org-node.gm    { border-color: var(--purple); background: #2e106540; color: var(--purple); }
+  .org-node.obs   { border-color: var(--amber);  background: var(--amber-bg); color: var(--amber); }
+  .org-node.agent-live   { border-color: var(--green);  background: var(--green-bg); }
+  .org-node.agent-build  { border-color: var(--amber);  background: var(--amber-bg); }
+  .org-node.agent-plan   { border-color: var(--dim);    background: #1e293b; color: var(--dim); }
+
+  .org-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: nowrap;
+  }
+  .org-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .org-connector-v {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+  .org-connector-h-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .org-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .org-h-line {
+    height: 1px;
+    background: var(--border);
+  }
+  .tier-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    position: relative;
+    padding-top: 20px;
+  }
+  .tier-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    transform: translateX(-50%);
+  }
+
+  .org-level {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .org-children {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    position: relative;
+    padding-top: 20px;
+  }
+  .org-children::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    transform: translateX(-50%);
+  }
+  .org-child {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+  }
+  .org-child::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    transform: translateX(-50%);
+  }
+
+  /* ── Full org chart using SVG-like HTML ── */
+  .org-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .org-tier {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    position: relative;
+    padding-top: 24px;
+    width: 100%;
+  }
+
+  /* Top vertical stem down from CEO */
+  .has-stem-down { position: relative; }
+  .has-stem-down::after {
+    content: '';
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    transform: translateX(-50%);
+  }
+
+  /* Horizontal bar connecting three columns */
+  .h-bar-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+  .h-bar {
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Agent Grid ── */
+  .agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .agent-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .agent-card.live   { border-left: 3px solid var(--green); }
+  .agent-card.build  { border-left: 3px solid var(--amber); }
+  .agent-card.plan   { border-left: 3px solid var(--dim);   }
+
+  .agent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .agent-num {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--dim);
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .badge.live  { background: var(--green-bg);  color: var(--green); }
+  .badge.build { background: var(--amber-bg);  color: var(--amber); }
+  .badge.plan  { background: #1e293b;           color: var(--dim);   border: 1px solid var(--border); }
+
+  .agent-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .agent-owner {
+    font-size: 11px;
+    color: var(--dim);
+    margin-bottom: 12px;
+  }
+  .agent-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .agent-bullets li {
+    font-size: 12px;
+    color: var(--muted);
+    padding-left: 14px;
+    position: relative;
+  }
+  .agent-bullets li::before {
+    content: '·';
+    position: absolute;
+    left: 4px;
+    color: var(--dim);
+  }
+
+  /* ── Product Cards ── */
+  .product-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 700px) { .product-grid { grid-template-columns: 1fr; } }
+
+  .product-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .product-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .product-header h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .product-header .market { font-size: 12px; color: var(--muted); }
+  .product-body { padding: 18px 20px; }
+
+  .channel-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .channel-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .channel-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .channel-icon.wa    { background: #14532d40; }
+  .channel-icon.email { background: #1e3a5f40; }
+  .channel-icon.voice { background: #2e106540; }
+  .channel-icon.social{ background: #78350f40; }
+
+  .channel-info { flex: 1; }
+  .channel-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .channel-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .channel-bullets li {
+    font-size: 11px;
+    color: var(--muted);
+    padding-left: 12px;
+    position: relative;
+  }
+  .channel-bullets li::before {
+    content: '·';
+    position: absolute;
+    left: 3px;
+    color: var(--dim);
+  }
+  .channel-status {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  /* ── Module table for LegalAidAI ── */
+  .module-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .module-row {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+  }
+  .module-row h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .module-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .chip.live   { background: var(--green-bg);  color: var(--green); }
+  .chip.plan   { background: #1e293b;           color: var(--dim);   border: 1px solid var(--border); }
+  .chip.build  { background: var(--amber-bg);  color: var(--amber); }
+
+  /* ── Timeline ── */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .tl-item {
+    display: flex;
+    gap: 16px;
+    padding-bottom: 24px;
+    position: relative;
+  }
+  .tl-item:last-child { padding-bottom: 0; }
+  .tl-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .tl-dot.live  { background: var(--green); }
+  .tl-dot.build { background: var(--amber); }
+  .tl-dot.plan  { background: var(--dim);   border: 2px solid var(--dim); background: transparent; }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 14px;
+    width: 1px;
+    height: 100%;
+    background: var(--border);
+  }
+  .tl-item:last-child::before { display: none; }
+
+  .tl-content { flex: 1; }
+  .tl-phase {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--dim);
+    margin-bottom: 3px;
+  }
+  .tl-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .tl-bullets {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .tl-bullets li {
+    font-size: 12px;
+    color: var(--muted);
+    padding-left: 14px;
+    position: relative;
+  }
+  .tl-bullets li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--dim);
+    font-size: 10px;
+    top: 1px;
+  }
+
+  /* ── Org diagram (proper) ── */
+  .org-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px 24px 32px;
+    overflow-x: auto;
+  }
+  .org-diagram svg { display: block; margin: 0 auto; }
+
+  /* ── Stat bar ── */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-box .val { font-size: 26px; font-weight: 700; color: var(--text); }
+  .stat-box .lbl { font-size: 11px; color: var(--dim); }
+  .stat-box.green .val { color: var(--green); }
+  .stat-box.amber .val { color: var(--amber); }
+  .stat-box.blue  .val { color: var(--blue); }
+  .stat-box.purple .val { color: var(--purple); }
+
+  /* Print */
+  @media print {
+    body { background: #fff; color: #000; padding: 20px; }
+    .org-diagram, .agent-card, .product-card, .stat-box { border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div class="meta">Apex Internal — Promotion Mandate v1.0 · Issued June 2026 · Authority: CEO (Neeraj Khattar)</div>
+    <h1>Apex Promotion Mandate</h1>
+    <div class="subtitle">Multi-agent outreach &amp; promotion strategy for PracticeDesk and LegalAidAI / Nyaya Saathi</div>
+    <div class="tags">
+      <span class="tag live">● 8 Agents Live</span>
+      <span class="tag build">◐ 2 Agents Building</span>
+      <span class="tag plan">○ 2 Agents Planned</span>
+      <span class="tag">2 Products</span>
+      <span class="tag">4 Channels</span>
+      <span class="tag">5 Markets</span>
+    </div>
+  </div>
+
+  <!-- ══ SNAPSHOT ═════════════════════════════════════════════════════════ -->
+  <div class="stat-row">
+    <div class="stat-box green">
+      <div class="val">8</div>
+      <div class="lbl">Agents live on Railway</div>
+    </div>
+    <div class="stat-box amber">
+      <div class="val">2</div>
+      <div class="lbl">Agents in build / planned</div>
+    </div>
+    <div class="stat-box blue">
+      <div class="val">4</div>
+      <div class="lbl">Active channels (WA · Email · Voice · Social)</div>
+    </div>
+    <div class="stat-box purple">
+      <div class="val">5</div>
+      <div class="lbl">Markets (AU · US · CA · IN · Global)</div>
+    </div>
+  </div>
+
+  <!-- ══ ORG STRUCTURE ════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Org Structure &amp; Delegation</div>
+    <div class="org-diagram">
+      <svg width="900" height="360" viewBox="0 0 900 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Styles -->
+        <defs>
+          <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#334155"/>
+          </marker>
+        </defs>
+
+        <!-- CEO box -->
+        <rect x="350" y="10" width="200" height="52" rx="8" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.5"/>
+        <text x="450" y="32" text-anchor="middle" font-size="13" font-weight="700" fill="#818cf8">CEO</text>
+        <text x="450" y="50" text-anchor="middle" font-size="10" fill="#64748b">Neeraj Khattar (human)</text>
+
+        <!-- CEO → stem -->
+        <line x1="450" y1="62" x2="450" y2="90" stroke="#334155" stroke-width="1"/>
+        <!-- Horizontal bar across 3 columns -->
+        <line x1="145" y1="90" x2="755" y2="90" stroke="#334155" stroke-width="1"/>
+
+        <!-- Stems down to 3 boxes -->
+        <line x1="145" y1="90" x2="145" y2="118" stroke="#334155" stroke-width="1"/>
+        <line x1="450" y1="90" x2="450" y2="118" stroke="#334155" stroke-width="1"/>
+        <line x1="755" y1="90" x2="755" y2="118" stroke="#334155" stroke-width="1"/>
+
+        <!-- VP Marketing -->
+        <rect x="45" y="118" width="200" height="52" rx="8" fill="#1e3a5f40" stroke="#60a5fa" stroke-width="1.5"/>
+        <text x="145" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#60a5fa">VP Marketing</text>
+        <text x="145" y="157" text-anchor="middle" font-size="10" fill="#64748b">Neeraj acting (AI agent planned)</text>
+
+        <!-- GM Care -->
+        <rect x="350" y="118" width="200" height="52" rx="8" fill="#2e106540" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="450" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#a78bfa">GM Care</text>
+        <text x="450" y="157" text-anchor="middle" font-size="10" fill="#64748b">Neeraj acting (AI agent planned)</text>
+
+        <!-- Observatory -->
+        <rect x="655" y="118" width="200" height="52" rx="8" fill="#78350f40" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="755" y="140" text-anchor="middle" font-size="13" font-weight="700" fill="#f59e0b">Observatory</text>
+        <text x="755" y="157" text-anchor="middle" font-size="10" fill="#64748b">Agent 10 — AI only</text>
+
+        <!-- VP Marketing children stems -->
+        <line x1="145" y1="170" x2="145" y2="198" stroke="#334155" stroke-width="1"/>
+        <line x1="15" y1="198" x2="280" y2="198" stroke="#334155" stroke-width="1"/>
+        <line x1="15"  y1="198" x2="15"  y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="57"  y1="198" x2="57"  y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="102" y1="198" x2="102" y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="145" y1="198" x2="145" y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="192" y1="198" x2="192" y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="240" y1="198" x2="240" y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="280" y1="198" x2="280" y2="220" stroke="#334155" stroke-width="1"/>
+
+        <!-- VP Marketing agents (7 agents) -->
+        <!-- Agent 1 Prospector -->
+        <rect x="-5" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="15" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A1</text>
+        <text x="15" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Prosp.</text>
+        <!-- Agent 2 Personalizer -->
+        <rect x="37" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="57" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A2</text>
+        <text x="57" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Person.</text>
+        <!-- Agent 3 Outreach -->
+        <rect x="82" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="102" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A3</text>
+        <text x="102" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Outreach</text>
+        <!-- Agent 6 Follow-up -->
+        <rect x="125" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="145" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A6</text>
+        <text x="145" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Follow-up</text>
+        <!-- Agent 8 Content -->
+        <rect x="172" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="192" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A8</text>
+        <text x="192" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Content</text>
+        <!-- Agent 9 Re-engage -->
+        <rect x="220" y="220" width="40" height="36" rx="5" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <text x="240" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#64748b">A9</text>
+        <text x="240" y="247" text-anchor="middle" font-size="7" fill="#64748b">Re-eng.</text>
+        <!-- Agent 11 Affiliate -->
+        <rect x="260" y="220" width="40" height="36" rx="5" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <text x="280" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#64748b">A11</text>
+        <text x="280" y="247" text-anchor="middle" font-size="7" fill="#64748b">Affiliat.</text>
+
+        <!-- VP Marketing signal feedback -->
+        <line x1="145" y1="256" x2="145" y2="280" stroke="#334155" stroke-width="1" stroke-dasharray="3 2"/>
+        <rect x="95" y="280" width="100" height="30" rx="5" fill="#1e293b" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3 2"/>
+        <text x="145" y="296" text-anchor="middle" font-size="8" fill="#60a5fa">A12 VP Mktg Agent</text>
+        <text x="145" y="307" text-anchor="middle" font-size="7" fill="#64748b">live — orchestrates</text>
+
+        <!-- GM Care children stems -->
+        <line x1="450" y1="170" x2="450" y2="198" stroke="#334155" stroke-width="1"/>
+        <line x1="390" y1="198" x2="510" y2="198" stroke="#334155" stroke-width="1"/>
+        <line x1="390" y1="198" x2="390" y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="450" y1="198" x2="450" y2="220" stroke="#334155" stroke-width="1"/>
+        <line x1="510" y1="198" x2="510" y2="220" stroke="#334155" stroke-width="1"/>
+
+        <!-- GM Care agents -->
+        <!-- Agent 4 Reply Handler -->
+        <rect x="370" y="220" width="40" height="36" rx="5" fill="#78350f40" stroke="#f59e0b" stroke-width="1"/>
+        <text x="390" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#f59e0b">A4</text>
+        <text x="390" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Reply</text>
+        <!-- Agent 5 Demo Booking -->
+        <rect x="430" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="450" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A5</text>
+        <text x="450" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Demo Bk.</text>
+        <!-- Agent 7 Voice -->
+        <rect x="490" y="220" width="40" height="36" rx="5" fill="#14532d40" stroke="#22c55e" stroke-width="1"/>
+        <text x="510" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#22c55e">A7</text>
+        <text x="510" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Voice</text>
+
+        <!-- Observatory agent -->
+        <line x1="755" y1="170" x2="755" y2="220" stroke="#334155" stroke-width="1"/>
+        <rect x="715" y="220" width="80" height="36" rx="5" fill="#78350f40" stroke="#f59e0b" stroke-width="1"/>
+        <text x="755" y="234" text-anchor="middle" font-size="8" font-weight="700" fill="#f59e0b">Agent 10</text>
+        <text x="755" y="247" text-anchor="middle" font-size="7" fill="#94a3b8">Daily digest → founder WA</text>
+
+        <!-- Legend -->
+        <rect x="320" y="300" width="260" height="52" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <circle cx="340" cy="316" r="5" fill="#22c55e"/>
+        <text x="352" y="320" font-size="10" fill="#94a3b8">Live</text>
+        <circle cx="390" cy="316" r="5" fill="#f59e0b"/>
+        <text x="402" y="320" font-size="10" fill="#94a3b8">Building</text>
+        <rect x="453" y="311" width="10" height="10" rx="2" fill="#1e293b" stroke="#334155"/>
+        <text x="470" y="320" font-size="10" fill="#94a3b8">Planned</text>
+        <text x="340" y="342" font-size="9" fill="#64748b">Dashed = feedback / reporting loop</text>
+
+        <!-- Observatory → CEO feedback loop dashed -->
+        <path d="M755 256 Q755 290 700 310 Q620 340 530 330 Q480 325 470 310" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2" fill="none"/>
+        <text x="680" y="345" font-size="8" fill="#f59e0b">daily digest</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ══ AGENT CARDS ═══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">All 12 Agents — Status &amp; Mandate</div>
+    <div class="agent-grid">
+
+      <!-- A1 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 1</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Prospector</div>
+        <div class="agent-owner">VP Marketing · <code style="font-size:10px;color:var(--dim)">agents/prospector.py</code></div>
+        <ul class="agent-bullets">
+          <li>Queries Google Maps Places API by business type + city</li>
+          <li>Deduplicates by <code style="font-size:10px">place_id</code> — never inserts twice</li>
+          <li>Feeds new leads into Supabase <code style="font-size:10px">leads</code> table</li>
+          <li>Supports: dentist · salon · accountant · physiotherapist · lawyer</li>
+        </ul>
+      </div>
+
+      <!-- A2 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 2</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Personalizer</div>
+        <div class="agent-owner">VP Marketing · <code style="font-size:10px;color:var(--dim)">agents/personalizer.py</code></div>
+        <ul class="agent-bullets">
+          <li>Claude Haiku generates a personalised WA message per lead</li>
+          <li>Uses vertical-specific pain points from <code style="font-size:10px">copy.yaml</code></li>
+          <li>Adapts tone by market (AU / US / CA / IN)</li>
+          <li>Output consumed by Agent 3 (Outreach)</li>
+        </ul>
+      </div>
+
+      <!-- A3 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 3</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Outreach</div>
+        <div class="agent-owner">VP Marketing · <code style="font-size:10px;color:var(--dim)">agents/outreach.py</code></div>
+        <ul class="agent-bullets">
+          <li>Sends personalised WA messages via Meta Cloud API</li>
+          <li>Uses dedicated outreach number +1 385-363-3720</li>
+          <li>Marks lead status <code style="font-size:10px">contacted</code> on send</li>
+          <li>Hourly cron: 10am–5:30pm local business time only</li>
+        </ul>
+      </div>
+
+      <!-- A4 -->
+      <div class="agent-card build">
+        <div class="agent-header"><span class="agent-num">Agent 4</span><span class="badge build">◐ Building</span></div>
+        <div class="agent-name">Reply Handler</div>
+        <div class="agent-owner">GM Care · <code style="font-size:10px;color:var(--dim)">agents/reply_handler.py</code></div>
+        <ul class="agent-bullets">
+          <li>Catches inbound WA replies to the outreach number</li>
+          <li>Claude Haiku classifies intent: interested · question · not_interested · OOO</li>
+          <li>Updates lead status in Supabase</li>
+          <li>If question → auto-replies; if interested → hands off to Agent 5</li>
+        </ul>
+      </div>
+
+      <!-- A5 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 5</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Demo Booking</div>
+        <div class="agent-owner">GM Care · <code style="font-size:10px;color:var(--dim)">Aria (Dograh)</code></div>
+        <ul class="agent-bullets">
+          <li>Triggered on interested signal from Reply Handler</li>
+          <li>Aria books demo via Cal.com API (Event ID 5901537)</li>
+          <li>Sends confirmation WA message with Zoom link</li>
+          <li>Lead status updated to <code style="font-size:10px">replied</code></li>
+        </ul>
+      </div>
+
+      <!-- A6 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 6</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">WA Follow-up</div>
+        <div class="agent-owner">VP Marketing · <code style="font-size:10px;color:var(--dim)">agents/followup.py</code></div>
+        <ul class="agent-bullets">
+          <li>Fires after 3 days of silence since first WA message</li>
+          <li>Vertical-specific follow-up copy from <code style="font-size:10px">copy.yaml</code></li>
+          <li>Respects send-window: 10am–5:30pm local time</li>
+          <li>Maximum 1 follow-up per lead</li>
+        </ul>
+      </div>
+
+      <!-- A7 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 7</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Voice Follow-up (Aria / Sophie / Priya)</div>
+        <div class="agent-owner">GM Care · <code style="font-size:10px;color:var(--dim)">agents/voice_outreach.py</code></div>
+        <ul class="agent-bullets">
+          <li>Triggers after 5 days of WA silence → Dograh outbound call</li>
+          <li>Sophie: international (AU/US/CA) via Vobiz free number</li>
+          <li>Priya: India inbound on +91 9262171423 (Dograh workflow 6243)</li>
+          <li>Henry: international inbound (Dograh workflow caa24f24)</li>
+          <li>Call cron: 11am–5pm local time, Mon–Fri</li>
+        </ul>
+      </div>
+
+      <!-- A8 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 8</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Content Agent</div>
+        <div class="agent-owner">VP Marketing · <code style="font-size:10px;color:var(--dim)">agents/content_agent.py</code></div>
+        <ul class="agent-bullets">
+          <li>Single source of truth for all outbound copy</li>
+          <li>Generates: WA templates · email · voice scripts · social posts</li>
+          <li>Informed by Signal feedback loop (reply rates, open rates)</li>
+          <li>Cannot auto-publish — VP Marketing approval required</li>
+          <li>Covers both PracticeDesk and LegalAidAI verticals</li>
+        </ul>
+      </div>
+
+      <!-- A9 -->
+      <div class="agent-card plan">
+        <div class="agent-header"><span class="agent-num">Agent 9</span><span class="badge plan">○ Planned</span></div>
+        <div class="agent-name">Re-engagement</div>
+        <div class="agent-owner">VP Marketing</div>
+        <ul class="agent-bullets">
+          <li>Win-back sequences for churned / gone-cold leads</li>
+          <li>Triggers at 30-day silence with new angle / offer</li>
+          <li>Separate copy track from cold outreach</li>
+        </ul>
+      </div>
+
+      <!-- A10 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 10</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">Observatory</div>
+        <div class="agent-owner">Reports to CEO directly</div>
+        <ul class="agent-bullets">
+          <li>Daily 7am IST cron → posts digest to founder's personal WA</li>
+          <li>Reports: Anthropic spend · leads added · conversions · voice minutes</li>
+          <li>Tracks pipeline last run time and campaign health</li>
+        </ul>
+      </div>
+
+      <!-- A11 -->
+      <div class="agent-card plan">
+        <div class="agent-header"><span class="agent-num">Agent 11</span><span class="badge plan">○ Planned</span></div>
+        <div class="agent-name">Affiliate Tracker</div>
+        <div class="agent-owner">VP Marketing · LegalAidAI only</div>
+        <ul class="agent-bullets">
+          <li>Referral links: <code style="font-size:10px">legalaidai.in/advocate?ref=CODE</code></li>
+          <li>₹500 on first paid subscription · ₹500 on first renewal</li>
+          <li>Tracks affiliates, referrals, commissions in Supabase</li>
+          <li>Targets: advocate bar-roll network in India</li>
+        </ul>
+      </div>
+
+      <!-- A12 -->
+      <div class="agent-card live">
+        <div class="agent-header"><span class="agent-num">Agent 12</span><span class="badge live">● Live</span></div>
+        <div class="agent-name">VP Marketing Agent</div>
+        <div class="agent-owner">Reports to CEO · orchestrates A1–3, 6, 8, 9, 11</div>
+        <ul class="agent-bullets">
+          <li>Receives Signal feedback → issues content briefs</li>
+          <li>Plans weekly campaign calendar</li>
+          <li>Endpoint: <code style="font-size:10px">POST /api/vp-marketing/plan</code></li>
+          <li>Wires Signal → Content Agent feedback loop</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ PRODUCTS ══════════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Promotion by Product</div>
+    <div class="product-grid">
+
+      <!-- PracticeDesk -->
+      <div class="product-card">
+        <div class="product-header">
+          <h3>🦷 PracticeDesk</h3>
+          <div class="market">Australia · USA · Canada · Global &nbsp;|&nbsp; $49–$180/mo USD</div>
+        </div>
+        <div class="product-body">
+
+          <div class="channel-row">
+            <div class="channel-icon wa">💬</div>
+            <div class="channel-info">
+              <div class="channel-name">WhatsApp Outreach</div>
+              <ul class="channel-bullets">
+                <li>Cold prospect via Google Maps (A1 → A2 → A3)</li>
+                <li>Follow-up after 3 days silence (A6)</li>
+                <li>Number: +1 385-363-3720 (Meta verified)</li>
+                <li>Send window: 10am–5:30pm local · hourly cron</li>
+                <li>Verticals: Dentist · Salon · Accountant · Physio · Lawyer</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge live">Live</span>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon email">📧</div>
+            <div class="channel-info">
+              <div class="channel-name">Email Sequence</div>
+              <ul class="channel-bullets">
+                <li>6-step drip: Day 0 / 3 / 6 / 9 / 12 / 30</li>
+                <li>Timezone-aware · Mon–Fri 8:30am–7pm local</li>
+                <li>Sent via Resend from practicedesk.live</li>
+                <li>Open &amp; click tracking live (webhook + Supabase)</li>
+                <li>8 HTML templates, A/B subject lines</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge live">Live</span>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon voice">📞</div>
+            <div class="channel-info">
+              <div class="channel-name">Voice Follow-up (Sophie / Henry)</div>
+              <ul class="channel-bullets">
+                <li>Sophie outbound: 5-day WA silence → Dograh call</li>
+                <li>Henry inbound: answers calls to intl number</li>
+                <li>7-phase Aria sales playbook · 330s cap</li>
+                <li>Interested → Aria books Cal.com demo automatically</li>
+                <li>Cron: 11am–5pm local Mon–Fri</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge live">Live</span>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon social">📣</div>
+            <div class="channel-info">
+              <div class="channel-name">Social Media</div>
+              <ul class="channel-bullets">
+                <li>Content Agent generates LinkedIn + Instagram posts</li>
+                <li>Vertical hooks: pain-first, stat-lead, outcome-first</li>
+                <li>Currently founder-posted manually</li>
+                <li>Future: auto-publish agent</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge build">Partial</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- LegalAidAI -->
+      <div class="product-card">
+        <div class="product-header">
+          <h3>⚖️ LegalAidAI / Nyaya Saathi</h3>
+          <div class="market">India · 1.4B citizens · 1.7M advocates &nbsp;|&nbsp; ₹2,500–₹5,000/mo</div>
+        </div>
+        <div class="product-body">
+
+          <div style="margin-bottom:14px">
+            <div class="module-grid">
+              <div class="module-row">
+                <h4>Advocate Module</h4>
+                <div class="module-chips">
+                  <span class="chip live">Voice (Priya)</span>
+                  <span class="chip live">WA Outreach</span>
+                  <span class="chip live">Email</span>
+                  <span class="chip build">Affiliate (planned)</span>
+                </div>
+              </div>
+              <div class="module-row">
+                <h4>Corporate / In-house Module</h4>
+                <div class="module-chips">
+                  <span class="chip live">Voice</span>
+                  <span class="chip live">Email Sequence</span>
+                  <span class="chip plan">Human Close</span>
+                </div>
+              </div>
+              <div class="module-row">
+                <h4>Citizen Module</h4>
+                <div class="module-chips">
+                  <span class="chip live">Social Media</span>
+                  <span class="chip live">WA (inbound)</span>
+                  <span class="chip plan">SMS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon voice">📞</div>
+            <div class="channel-info">
+              <div class="channel-name">Voice — Priya (India AI Agent)</div>
+              <ul class="channel-bullets">
+                <li>Inbound on +91 9262171423 (Dograh workflow 6243)</li>
+                <li>Handles advocate enquiries · books consultations</li>
+                <li>Telephony config 477 (Vobiz India SIP)</li>
+                <li>End-of-call webhook → Railway → Supabase (just wired)</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge live">Live</span>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon wa">💬</div>
+            <div class="channel-info">
+              <div class="channel-name">WhatsApp</div>
+              <ul class="channel-bullets">
+                <li>Advocate: outreach + reply handling</li>
+                <li>Citizen: inbound self-service queries</li>
+                <li>India-specific Hinglish copy templates</li>
+                <li>India WA number: pending registration (+91 needed)</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge build">Partial</span>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon social">📣</div>
+            <div class="channel-info">
+              <div class="channel-name">Social Media (Citizen focus)</div>
+              <ul class="channel-bullets">
+                <li>Instagram &amp; LinkedIn content for citizen reach</li>
+                <li>Scraped advocate followee network for targeting</li>
+                <li>Content Agent generates Hindi + English posts</li>
+                <li>Founder-posted currently · publish agent planned</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge live">Live</span>
+            </div>
+          </div>
+
+          <div class="channel-row">
+            <div class="channel-icon wa">🤝</div>
+            <div class="channel-info">
+              <div class="channel-name">Affiliate Programme</div>
+              <ul class="channel-bullets">
+                <li>Advocate referral links: legalaidai.in/advocate?ref=CODE</li>
+                <li>₹500 on first paid sub · ₹500 on first renewal</li>
+                <li>Target: bar-roll advocate network across India</li>
+                <li>Agent 11 build not yet started</li>
+              </ul>
+            </div>
+            <div class="channel-status">
+              <span class="badge plan">Planned</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ INDIA EXPANSION ═══════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">India Expansion — PracticeDesk (Next Build)</div>
+    <div class="timeline">
+
+      <div class="tl-item">
+        <div class="tl-dot plan"></div>
+        <div class="tl-content">
+          <div class="tl-phase">Phase 1 — Week 1–2</div>
+          <div class="tl-title">WhatsApp Outreach Agent (India)</div>
+          <ul class="tl-bullets">
+            <li>Register Indian +91 WA number (second WABA slot)</li>
+            <li>Create <code style="font-size:10px">agents/india_personalizer.py</code> — Hinglish templates</li>
+            <li>Add <code style="font-size:10px">doctor</code> + <code style="font-size:10px">clinic</code> business types to prospector</li>
+            <li>Cities: Delhi · Mumbai · Bangalore · Hyderabad · Pune</li>
+            <li>Add <code style="font-size:10px">market=india</code> + <code style="font-size:10px">currency=INR</code> flags to leads</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot plan"></div>
+        <div class="tl-content">
+          <div class="tl-phase">Phase 2 — Week 3–4</div>
+          <div class="tl-title">AI Telecalling Agent "Priya" (PracticeDesk)</div>
+          <ul class="tl-bullets">
+            <li>Exotel account + Indian DID number (TRAI/DLT registration)</li>
+            <li>Exotel → Vapi SIP bridge · Priya 5-phase Hindi/English script</li>
+            <li>NDNC scrubbing before each call batch · 9am–9pm IST Mon–Sat</li>
+            <li>New endpoint: <code style="font-size:10px">/api/cron/india-voice-followup</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot plan"></div>
+        <div class="tl-content">
+          <div class="tl-phase">Phase 3 — Week 5</div>
+          <div class="tl-title">Razorpay Billing + India Email Drip</div>
+          <ul class="tl-bullets">
+            <li>Razorpay subscription plans: ₹2,499 · ₹4,999 · ₹9,999 · ₹14,999</li>
+            <li>UPI AutoPay mandate collected during free trial</li>
+            <li>India email drip — Hinglish subjects · ₹ pricing · Indian social proof</li>
+            <li>Admin dashboard: INR display for India leads</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ SEND WINDOWS ══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Operating Windows &amp; Cron Schedule</div>
+    <div class="agent-grid" style="grid-template-columns: repeat(auto-fill, minmax(240px, 1fr))">
+
+      <div class="agent-card live">
+        <div class="agent-name" style="margin-bottom:10px">💬 WhatsApp</div>
+        <ul class="agent-bullets">
+          <li>Window: 10:00am – 5:30pm local business time</li>
+          <li>Cron: hourly with per-lead timezone gate</li>
+          <li>Markets: AU · US · CA · IN</li>
+          <li>Max: 5 leads per run (configurable)</li>
+        </ul>
+      </div>
+
+      <div class="agent-card live">
+        <div class="agent-name" style="margin-bottom:10px">📞 Voice Calls</div>
+        <ul class="agent-bullets">
+          <li>Window: 11:00am – 5:00pm local business time</li>
+          <li>Cron: hourly · Mon–Fri only</li>
+          <li>India: 9:00am – 9:00pm IST · Mon–Sat (TRAI mandate)</li>
+          <li>Dograh outbound via Sophie / Priya</li>
+        </ul>
+      </div>
+
+      <div class="agent-card live">
+        <div class="agent-name" style="margin-bottom:10px">📧 Email</div>
+        <ul class="agent-bullets">
+          <li>Window: 8:30am – 7:00pm local time</li>
+          <li>Cron: hourly · Mon–Fri only</li>
+          <li>Drip: 6 steps at Days 0 / 3 / 6 / 9 / 12 / 30</li>
+          <li>scrape_attempted guard prevents double-send</li>
+        </ul>
+      </div>
+
+      <div class="agent-card live">
+        <div class="agent-name" style="margin-bottom:10px">📊 Observatory</div>
+        <ul class="agent-bullets">
+          <li>Daily: 7:00am IST (01:30 UTC)</li>
+          <li>Covers: spend · leads · conversions · voice minutes</li>
+          <li>Delivered to founder's personal WA: +919810982019</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ════════════════════════════════════════════════════════════ -->
+  <div style="border-top: 1px solid var(--border); padding-top: 24px; margin-top: 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px">
+    <div style="font-size:11px; color:var(--dim)">
+      Apex Promotion Mandate v1.0 · Issued June 2026 · CEO: Neeraj Khattar
+    </div>
+    <div style="display:flex; gap:16px; font-size:11px; color:var(--dim)">
+      <span>Railway: serene-passion-production-cd82.up.railway.app</span>
+      <span>Dashboard: mpex.netlify.app</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

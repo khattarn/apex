@@ -83,6 +83,19 @@ def get_lead_by_place_id(place_id):
     return result.data[0] if result.data else None
 
 
+def get_existing_place_ids(business_type: str, city: str) -> set:
+    """Return all place_ids already in the DB for this business type + city combo."""
+    db = get_client()
+    result = (
+        db.table("leads")
+        .select("place_id")
+        .eq("business_type", business_type)
+        .ilike("city", f"%{city}%")
+        .execute()
+    )
+    return {row["place_id"] for row in result.data if row.get("place_id")}
+
+
 def save_lead(data):
     db = get_client()
     result = db.table("leads").insert(data).execute()
@@ -502,6 +515,72 @@ def get_leads_for_followup(limit=20) -> list:
     return leads[:limit]
 
 
+def get_voice_priority_queue(cap: int = 50) -> list[dict]:
+    """
+    Returns up to `cap` leads ranked for voice outreach in this priority order:
+      Tier 1: clicked an email (email_clicked=True, click was before today UTC)
+      Tier 2: opened but not clicked (email_opened=True, email_clicked=False/null)
+      Tier 3: emailed >24h ago, not opened
+      Tier 4: never contacted (no email sent, no WA sent)
+    Within each tier: sorted by pain_score DESC.
+    Excludes leads already called (outbound_call or voice_followup_placed).
+    Excludes dead/converted leads and leads with no phone.
+    """
+    from datetime import datetime, timezone, timedelta
+    db = get_client()
+    today_utc   = datetime.now(timezone.utc).date().isoformat()
+    cutoff_24h  = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+    called_rows = (
+        db.table("lead_activities")
+        .select("lead_id")
+        .in_("type", ["outbound_call", "voice_followup_placed"])
+        .execute()
+        .data or []
+    )
+    called_ids = {str(r["lead_id"]) for r in called_rows}
+
+    candidates = (
+        db.table("leads")
+        .select(
+            "id, name, phone, city, market, business_type, status, "
+            "email_clicked, email_clicked_at, email_opened, email_sent, "
+            "email_last_sent_at, outreach_sent, pain_score, pain_signal, pain_finding"
+        )
+        .not_.in_("status", ["dead", "converted"])
+        .not_.is_("phone", "null")
+        .neq("phone", "")
+        .limit(cap * 10)
+        .execute()
+        .data or []
+    )
+
+    def _tier(lead: dict) -> int:
+        if lead.get("email_clicked") and (lead.get("email_clicked_at") or "")[:10] < today_utc:
+            return 1
+        if lead.get("email_opened") and not lead.get("email_clicked"):
+            return 2
+        last_sent = lead.get("email_last_sent_at") or ""
+        if lead.get("email_sent") and last_sent and last_sent < cutoff_24h:
+            return 3
+        if not lead.get("email_sent") and not lead.get("outreach_sent"):
+            return 4
+        return 99
+
+    scored = []
+    for lead in candidates:
+        if str(lead["id"]) in called_ids:
+            continue
+        tier = _tier(lead)
+        if tier == 99:
+            continue
+        pain = lead.get("pain_score") or 0
+        scored.append((tier, -pain, lead))
+
+    scored.sort(key=lambda x: (x[0], x[1]))
+    return [item[2] for item in scored[:cap]]
+
+
 def get_leads_for_voice_followup(limit=10) -> list:
     """Leads that were WA-contacted 5+ days ago, haven't replied/died, and haven't had a voice call placed."""
     from datetime import datetime, timezone, timedelta
@@ -559,6 +638,41 @@ def get_wa_inbox(limit: int = 100, status: str | None = None) -> list[dict]:
 
 def get_wa_inbox_unread_count() -> int:
     result = get_client().table("wa_inbox").select("id", count="exact").eq("status", "new").execute()
+    return result.count or 0
+
+
+# ── Content Approvals ─────────────────────────────────────────────────────────
+
+def save_approval(data: dict) -> dict | None:
+    db = get_client()
+    result = db.table("content_approvals").insert(data).execute()
+    return result.data[0] if result.data else None
+
+
+def get_approvals(status: str | None = None, limit: int = 100) -> list[dict]:
+    db = get_client()
+    query = (
+        db.table("content_approvals")
+        .select("*")
+        .order("created_at", desc=True)
+        .limit(limit)
+    )
+    if status:
+        query = query.eq("status", status)
+    return query.execute().data or []
+
+
+def update_approval(approval_id: str, data: dict) -> dict | None:
+    from datetime import datetime, timezone
+    if data.get("status") in ("approved", "rejected"):
+        data["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+    db = get_client()
+    result = db.table("content_approvals").update(data).eq("id", approval_id).execute()
+    return result.data[0] if result.data else None
+
+
+def get_approvals_pending_count() -> int:
+    result = get_client().table("content_approvals").select("id", count="exact").eq("status", "pending").execute()
     return result.count or 0
 
 

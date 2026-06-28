@@ -109,6 +109,36 @@ def _get_wa_replies_detail(start: str, end: str) -> tuple[int, int, int]:
         return 0, 0, 0
 
 
+def _get_sprint_funnel(start: str, end: str) -> dict:
+    """Returns demos booked and email replies in the last 24h."""
+    db = get_client()
+    demos = (
+        db.table("lead_activities")
+        .select("id", count="exact")
+        .in_("type", ["demo_booked", "demo_booking_sent"])
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .execute()
+    ).count or 0
+    email_replies = (
+        db.table("lead_activities")
+        .select("id", count="exact")
+        .eq("type", "email_reply_received")
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .execute()
+    ).count or 0
+    trial_starts = (
+        db.table("lead_activities")
+        .select("id", count="exact")
+        .in_("type", ["booked_demo_manually", "demo_booked"])
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .execute()
+    ).count or 0
+    return {"demos": demos, "email_replies": email_replies, "trial_starts": trial_starts}
+
+
 def _get_leads_added(start: str, end: str) -> int:
     db = get_client()
     result = (
@@ -128,10 +158,10 @@ def build_digest() -> str:
     new_leads                    = _get_leads_added(start, end)
     wa_broadcast                 = _count_activities(["wa_outreach_sent"], start, end)
     wa_followup                  = _count_activities(["wa_followup_sent"], start, end)
-    demo_sent                    = _count_activities(["demo_booking_sent"], start, end)
-    aria_calls, vf_calls, cost   = _get_calls_detail(start, end)
+    sophie_calls, vf_calls, cost = _get_calls_detail(start, end)
     emails_sent, opened, clicked = _get_emails_detail(start, end)
     replies, interested, not_int = _get_wa_replies_detail(start, end)
+    sprint                       = _get_sprint_funnel(start, end)
     last_run                     = _get_last_pipeline_run()
 
     today = datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC")
@@ -139,16 +169,19 @@ def build_digest() -> str:
     lines = [
         f"Apex Daily — {today}",
         "",
-        "── LAST 24 HOURS ──────────────────────",
-        f"Leads added:           {new_leads}",
-        f"WA broadcast sent:     {wa_broadcast}",
-        f"WA follow-up sent:     {wa_followup}",
-        f"Demo booking msgs:     {demo_sent}",
-        f"Aria outbound calls:   {aria_calls}",
-        f"Voice follow-up calls: {vf_calls}",
-        f"  Est. call cost:      ${cost:.4f}",
-        f"Emails sent:           {emails_sent}  (opened: {opened} · clicked: {clicked})",
-        f"WA replies received:   {replies}  (interested: {interested} · not interested: {not_int})",
+        "── SPRINT FUNNEL (last 24h) ────────────",
+        f"Prospected (new leads):  {new_leads}",
+        f"Emailed:                 {emails_sent}  (opened: {opened} · clicked: {clicked})",
+        f"Replies — WA: {replies}  (interested: {interested})  |  Email: {sprint['email_replies']}",
+        f"Demos booked:            {sprint['demos']}",
+        f"Trial starts:            {sprint['trial_starts']}",
+        "",
+        "── OUTREACH (last 24h) ─────────────────",
+        f"WA broadcast sent:       {wa_broadcast}",
+        f"WA follow-up sent:       {wa_followup}",
+        f"Sophie outbound calls:   {sophie_calls}",
+        f"Voice follow-up calls:   {vf_calls}",
+        f"  Est. call cost:        ${cost:.4f}",
         "",
         "── CUMULATIVE TOTALS ───────────────────",
         f"Total leads:  {stats['total_leads']}  |  Replied: {stats['replied']}  |  Converted: {stats['converted']}",

@@ -393,7 +393,7 @@ const DEPLOYMENTS = [
     status: 'active',
     provider: 'Netlify',
     cost: 'Free tier',
-    accountId: 'practicedesk.netlify.app',
+    accountId: 'practicedesk.live',
     usedFor: 'Customer-facing SaaS: dentists, salons, accountants, physios',
     products: 'PracticeDesk',
     notes: 'Also hosts Netlify functions (outreach webhook)',

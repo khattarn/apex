@@ -365,7 +365,7 @@ PracticeDesk for Medical Professionals — Full Feature Guide
  Publish/unpublish with one toggle 
  Edit tagline, about paragraph, location 
  Live preview in your dashboard 
- Shareable URL: practicedesk.netlify.app/book/[your-id] 
+ Shareable URL: practicedesk.live/book/[your-id] 
  
  
  
@@ -981,7 +981,7 @@ PracticeDesk for Medical Professionals — Quick Guide
  
  
  PracticeDesk 
- practicedesk.netlify.app 
+ practicedesk.live 
  Start free trial →
 
 ---
@@ -1782,7 +1782,7 @@ PracticeDesk for Medical Professionals — India Edition
 
  
  PracticeDesk 🇮🇳 
- practicedesk.netlify.app 
+ practicedesk.live 
  Free trial शुरू करें →
 
 ---

@@ -980,7 +980,7 @@ PracticeDesk for Salons — Quick Guide
  
  
  PracticeDesk 
- practicedesk.netlify.app 
+ practicedesk.live 
  Start free trial →
 
 ---
@@ -1760,5 +1760,5 @@ PracticeDesk for Salons — India Edition
  
  
  PracticeDesk 🇮🇳 
- practicedesk.netlify.app 
+ practicedesk.live 
  Free trial शुरू करें →

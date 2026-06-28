@@ -69,13 +69,21 @@ def place_sophie_call(
     insight: str = "",
     pain_question: str = "",
     lead_id: str = "",
+    phone_number_id: str = "",
+    pain_signal: str = "",
+    pain_finding: str = "",
 ) -> dict:
     """
     Trigger Sophie (PracticeDesk outbound sales) via Vapi.
-    Caller ID shown: +13129408233 (PracticeDesk platform number).
+    Pass phone_number_id to override the default number (e.g. use CA number for Canadian leads).
+    pain_signal / pain_finding flow into Vapi variableValues so the assistant
+    selects the matching gentle opener from the signal→opener table.
+    Default caller ID: +13129408233 (Vapi free number, US/AU).
+    CA caller ID: +15872090343 (SignalWire 587 Alberta).
     """
     assistant_id    = os.getenv("VAPI_SOPHIE_ASSISTANT_ID",   "bfecad5e-dce4-469f-8570-d44efc49de15")
-    phone_number_id = os.getenv("VAPI_PLATFORM_PHONE_ID",     "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
+    if not phone_number_id:
+        phone_number_id = os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
 
     if not phone.startswith("+"):
         phone = f"+{phone.lstrip('0')}"
@@ -92,6 +100,8 @@ def place_sophie_call(
                 "opener":         opener,
                 "insight":        insight,
                 "pain_question":  pain_question,
+                "pain_signal":    pain_signal,
+                "pain_finding":   pain_finding,
             }
         },
     }

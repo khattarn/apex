@@ -12,7 +12,7 @@ export const PRODUCTS = [
     market: 'Australia · USA · Global',
     verticals: 'Dentists · Salons · Accountants · Physiotherapists',
     pricing: '$49 · $99 · $180 / month',
-    url: 'https://practicedesk.netlify.app',
+    url: 'https://practicedesk.live',
     status: 'live',
     stack: 'Netlify · Supabase · Claude · Vapi · Meta WA',
     description: 'AI-powered booking, voice, and outreach platform for service-based small businesses.',

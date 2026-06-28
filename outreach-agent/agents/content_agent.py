@@ -4,7 +4,7 @@ Content Agent — Agent 8.
 Generates all outbound content for PracticeDesk and LegalAidAI:
   - WhatsApp broadcast templates (Meta-approved format)
   - Email subject + HTML body
-  - Voice guidance (Aria opener, insight, pain question, objection handlers)
+  - Voice guidance (Sophie opener, insight, pain question, objection handlers)
   - Social media posts (LinkedIn, Instagram)
   - Blog outlines (SEO-structured, keyword-targeted)
   - Blog posts (full long-form HTML articles, 1200–2000 words)

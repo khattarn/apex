@@ -1,0 +1,329 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# email_copy.yaml  —  Vertical-aware email sequence library  (PracticeDesk)
+#
+# WHY THIS FILE EXISTS
+#   The old email path (agents/email_templates.py) hard-coded dental copy and was
+#   sent to every vertical — salons, accountants and lawyers all received
+#   "Dear Doctor … 73% of dental practices…". This file replaces that with one
+#   sequence PER vertical, selected at send time by lead.business_type.
+#
+# HOW IT IS CONSUMED  (wired in VS Code / Claude Code — see handoff prompt)
+#   generate_email(lead) → vertical = lead["business_type"] →
+#   sequence = email_copy["verticals"][vertical]["sequence"][step] →
+#   existing _render() interpolates the placeholders below into the HTML shell.
+#
+# PLACEHOLDERS (already supported by the current _render / variables dict)
+#   {PRACTICE_NAME}  {CITY}  {STATE}  {DEMO_LINK}  {PRODUCT_URL}
+#   {SENDER_NAME}    {INBOUND_PHONE}
+#
+# SEQUENCE CADENCE (maps to existing EMAIL_SEQUENCE day spacing)
+#   step 1 = Day 1  (the hook)      step 3 = Day 6  (proof / outcome)
+#   step 2 = Day 3  (the test)      step 4 = Day 9  (objection + break-up)
+#
+# RULES BAKED IN (from knowledge/brand/practicedesk-brief.md)
+#   • Positioning: "AI office assistant across phone, WhatsApp and email — 24/7".
+#     Never "WhatsApp assistant", never "chatbot".
+#   • Always sign off as Henry, PracticeDesk.
+#   • Every claim/stat below is from the brand brief — do not inflate.
+#   • Compliance footer + tracking pixel + CTA buttons are added by _render(),
+#     NOT here. This file is body copy only.
+#   • A/B: two subject lines per email. Preheader = the inbox "hook" line.
+# ─────────────────────────────────────────────────────────────────────────────
+
+shared:
+  positioning: "an AI office assistant that handles your front desk across phone, WhatsApp and email — 24 hours a day, 7 days a week"
+  signoff: "Henry, PracticeDesk"
+  pricing_line: "Plans from $49/month. 14-day free trial, live in 15 minutes, no lock-in."
+
+verticals:
+
+  # ════════════════════════════════════════════════════════════════════════
+  dentist:
+    label: "dental practice"
+    audience: "patients"
+    sequence:
+
+      - step: 1   # Day 1 — the hook (after-hours angle)
+        subject_a: "The patient who called {PRACTICE_NAME} at 8pm last night"
+        subject_b: "Who answers {PRACTICE_NAME}'s phone after 6pm?"
+        preheader: "They didn't leave a voicemail. They booked with the practice that picked up."
+        body: |
+          <p>Last night, while {PRACTICE_NAME} was closed, someone in {CITY} was looking for a dentist.</p>
+          <p>They called. It rang out. Most patients won't leave a voicemail — they simply call the next practice on the list. You never see that booking, because it never reaches you.</p>
+          <p>PracticeDesk is an AI office assistant that handles your front desk across phone, WhatsApp and email, 24 hours a day. It answers every call and message, books the appointment, and drops it in your dashboard for you to confirm with one click. No extra staff, no missed calls.</p>
+          <p>Practices that turn it on cut no-shows by about 30% in the first month — and stop losing the after-hours bookings they never knew about.</p>
+          <p><a href="{DEMO_LINK}">See how it answers a call &rarr;</a></p>
+          <p style="font-size:13px;color:#666;"><em>P.S. 14-day free trial, live in 15 minutes, no lock-in.</em></p>
+
+      - step: 2   # Day 3 — the test
+        subject_a: "A 30-second test for {PRACTICE_NAME}'s phone"
+        subject_b: "Try this tonight, then decide"
+        preheader: "Call your own number after hours. Hear exactly what your patients hear."
+        body: |
+          <p>Here's a test worth 30 seconds.</p>
+          <p>Tonight, after {PRACTICE_NAME} closes, call your own main line from your mobile.</p>
+          <p>If it goes to voicemail, that's the experience every after-hours patient gets — and most of them hang up and dial the next dentist instead of leaving a message.</p>
+          <p>PracticeDesk answers that call. Every time. It books the appointment over phone or WhatsApp, sends a confirmation, and waits for your one-click approval before anything is final. You stay in control; the front desk just stops sleeping.</p>
+          <p><a href="{DEMO_LINK}">Hear the AI take a booking &rarr;</a></p>
+
+      - step: 3   # Day 6 — proof / outcome
+        subject_a: "30% fewer no-shows in the first month"
+        subject_b: "What 30 days looked like for a practice like {PRACTICE_NAME}"
+        preheader: "Fewer empty chairs, fewer reminder calls, no new hires."
+        body: |
+          <p>A solo practice much like {PRACTICE_NAME} was losing an estimated 8–12 bookings a week to unanswered calls and last-minute no-shows.</p>
+          <p>Thirty days after switching on PracticeDesk:</p>
+          <ul>
+            <li>No-shows down roughly 30% — automated WhatsApp confirmations and reminders</li>
+            <li>After-hours calls answered and booked instead of lost to voicemail</li>
+            <li>Reception time on phone tag cut sharply — the AI handles the repetitive calls</li>
+          </ul>
+          <p>It works across phone, WhatsApp and email at once, so a patient can reach you however they prefer — at any hour. Setup takes about 15 minutes.</p>
+          <p><a href="{DEMO_LINK}">See the booking flow end to end &rarr;</a></p>
+          <p style="font-size:13px;color:#666;"><em>P.S. {PRACTICE_NAME}'s first recovered appointment usually covers the month.</em></p>
+
+      - step: 4   # Day 9 — objection + break-up
+        subject_a: '"We already have a receptionist" — last note, {PRACTICE_NAME}'
+        subject_b: "I'll close {PRACTICE_NAME}'s file here"
+        preheader: "PracticeDesk works alongside your front desk, not instead of it."
+        body: |
+          <p>The most common reason practices hesitate: <em>"We already have a receptionist."</em></p>
+          <p>PracticeDesk works alongside them, not instead of them. Your receptionist looks after the patients in the chair; the AI covers after-hours, overflow, WhatsApp and email — the calls that currently go to voicemail. Together they miss nothing, and the AI never confirms a sensitive appointment without your one-click approval.</p>
+          <p>If the timing isn't right for {PRACTICE_NAME}, that's completely fine — I'll close the file so I'm not cluttering your inbox. The 14-day trial stays open whenever you want to test it.</p>
+          <p>— {SENDER_NAME}</p>
+          <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
+
+  # ════════════════════════════════════════════════════════════════════════
+  physiotherapist:
+    label: "physio practice"
+    audience: "patients"
+    sequence:
+
+      - step: 1   # Day 1 — the hook (rebooking gap)
+        subject_a: "The patients who never rebook at {PRACTICE_NAME}"
+        subject_b: "What happens 48 hours after a first session?"
+        preheader: "Most don't decide not to come back. Nobody nudged them at the right moment."
+        body: |
+          <p>Most patients who don't rebook with {PRACTICE_NAME} aren't unhappy. They just finished one session, got busy, and no one followed up at the moment they would have said yes.</p>
+          <p>A short message 48 hours after treatment changes that — it's the moment a patient is most likely to rebook, and it almost never happens manually.</p>
+          <p>PracticeDesk is an AI office assistant across phone, WhatsApp and email, 24/7. It sends the 48-hour follow-up automatically, offers real slots, books the rebooking, and lets patients lock in a time at 10pm when they're finally thinking about it.</p>
+          <p>The average practice recovers around $2,000/month in lost rebookings within 30 days.</p>
+          <p><a href="{DEMO_LINK}">See the 48-hour follow-up in action &rarr;</a></p>
+          <p style="font-size:13px;color:#666;"><em>P.S. 14-day free trial, live in 15 minutes, no lock-in.</em></p>
+
+      - step: 2   # Day 3 — the test
+        subject_a: "Count last month's first-visit patients, {PRACTICE_NAME}"
+        subject_b: "A quick number worth checking"
+        preheader: "How many came once and never came back?"
+        body: |
+          <p>Quick exercise for {PRACTICE_NAME}: look at the patients who had a first session last month, then count how many booked a second.</p>
+          <p>The gap between those two numbers is rebookings walking out the door — usually because the follow-up call never got made in a busy week.</p>
+          <p>PracticeDesk closes that gap automatically. A friendly message goes out 48 hours after each session, the patient picks a slot, and the rebooking lands in your dashboard. No staff hours, no chasing.</p>
+          <p><a href="{DEMO_LINK}">See how it rebooks a patient &rarr;</a></p>
+
+      - step: 3   # Day 6 — proof / outcome
+        subject_a: "$2,000/month in rebookings most practices miss"
+        subject_b: "30 days of automatic follow-up at {PRACTICE_NAME}"
+        preheader: "The rebookings were always there. They just needed a nudge."
+        body: |
+          <p>The money in physio isn't in the first session — it's in the course of treatment that should follow it.</p>
+          <p>With PracticeDesk handling follow-up across WhatsApp, phone and email, a practice like {PRACTICE_NAME} typically sees within 30 days:</p>
+          <ul>
+            <li>Around $2,000/month in rebookings recovered</li>
+            <li>3–5 staff hours a week freed from manual rebooking calls</li>
+            <li>Home-care and exercise instructions sent automatically after each session</li>
+          </ul>
+          <p>Setup is about 15 minutes and nothing is confirmed without your approval.</p>
+          <p><a href="{DEMO_LINK}">See the full flow &rarr;</a></p>
+
+      - step: 4   # Day 9 — objection + break-up
+        subject_a: '"My patients rebook on their own" — last note, {PRACTICE_NAME}'
+        subject_b: "I'll close {PRACTICE_NAME}'s file here"
+        preheader: "The ones who don't are the ones this is for."
+        body: |
+          <p>Some {PRACTICE_NAME} patients rebook without any prompting. This isn't for them.</p>
+          <p>It's for the ones who meant to call back, then life got in the way — the quiet leak that's hard to see because those patients simply never return. A 48-hour message catches most of them, with zero effort from your team.</p>
+          <p>If now isn't the time, no problem — I'll close the file. The 14-day trial is here whenever you want to see how many rebookings you're leaving on the table.</p>
+          <p>— {SENDER_NAME}</p>
+          <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
+
+  # ════════════════════════════════════════════════════════════════════════
+  salon:
+    label: "salon"
+    audience: "clients"
+    sequence:
+
+      - step: 1   # Day 1 — the hook (no-shows / silent cancels)
+        subject_a: "The empty chair at {PRACTICE_NAME} on Saturday"
+        subject_b: "When a client cancels, who fills the slot?"
+        preheader: "No-shows don't call to cancel. They just don't show."
+        body: |
+          <p>The most expensive booking at {PRACTICE_NAME} is the one that doesn't show up — a stylist sitting idle in a slot that could have gone to someone on the waitlist.</p>
+          <p>Most no-shows never call to cancel. They just don't arrive, and by then it's too late to fill the chair.</p>
+          <p>PracticeDesk is an AI office assistant across phone, WhatsApp and email, 24/7. Clients confirm with a tap, late cancellations trigger an instant message to your waitlist, and people browsing at midnight can lock in a slot without calling.</p>
+          <p>Salons typically go from around 15% no-shows to under 5% in the first month.</p>
+          <p><a href="{DEMO_LINK}">See how it fills a cancelled slot &rarr;</a></p>
+          <p style="font-size:13px;color:#666;"><em>P.S. 14-day free trial, live in 15 minutes, no lock-in.</em></p>
+
+      - step: 2   # Day 3 — the test
+        subject_a: "How many no-shows last week, {PRACTICE_NAME}?"
+        subject_b: "A 10-second number for your salon"
+        preheader: "Multiply it by your average ticket. That's the weekly leak."
+        body: |
+          <p>One number tells the story at {PRACTICE_NAME}: how many no-shows and last-minute cancellations did you have last week?</p>
+          <p>Multiply it by your average ticket. That's what walks out the door every week — and most of it is preventable with a confirmation that clients actually read.</p>
+          <p>WhatsApp confirmations get opened where calls and texts get ignored. PracticeDesk sends them automatically, and when someone cancels, it offers the slot to your waitlist before the chair goes cold.</p>
+          <p><a href="{DEMO_LINK}">See the waitlist auto-fill &rarr;</a></p>
+
+      - step: 3   # Day 6 — proof / outcome
+        subject_a: "From 15% no-shows to under 5%"
+        subject_b: "What changed for a salon like {PRACTICE_NAME}"
+        preheader: "Full chairs, fewer reminder calls, a waitlist that works itself."
+        body: |
+          <p>A salon similar to {PRACTICE_NAME} was running about 15% no-shows and burning staff time chasing confirmations by phone.</p>
+          <p>Within the first month on PracticeDesk:</p>
+          <ul>
+            <li>No-shows dropped to under 5% — tap-to-confirm WhatsApp reminders</li>
+            <li>Cancelled slots refilled automatically from the waitlist</li>
+            <li>Front desk stopped chasing confirmations and got back to clients</li>
+          </ul>
+          <p>It runs across WhatsApp, phone and email at once, so clients book and confirm however they like — even at midnight. Setup is about 15 minutes.</p>
+          <p><a href="{DEMO_LINK}">See it working &rarr;</a></p>
+
+      - step: 4   # Day 9 — objection + break-up
+        subject_a: '"We just text our clients" — last note, {PRACTICE_NAME}'
+        subject_b: "I'll close {PRACTICE_NAME}'s file here"
+        preheader: "Texts get ignored. This is the part that actually fills the chair."
+        body: |
+          <p>Plenty of salons already text reminders. The trouble is texts get ignored, and a reminder alone doesn't refill a chair when someone cancels at 9am.</p>
+          <p>PracticeDesk does the part that actually protects revenue: confirmations clients tap, and an instant waitlist offer the moment a slot opens — so the gap gets filled instead of lost.</p>
+          <p>If the timing isn't right for {PRACTICE_NAME}, no problem — I'll close the file. The 14-day trial is open whenever you want to see a week of full chairs.</p>
+          <p>— {SENDER_NAME}</p>
+          <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
+
+  # ════════════════════════════════════════════════════════════════════════
+  accountant:
+    label: "accounting firm"
+    audience: "clients"
+    sequence:
+
+      - step: 1   # Day 1 — the hook (document chasing / email silence)
+        subject_a: "The signatures {PRACTICE_NAME} is still waiting on"
+        subject_b: "Why your clients ignore email but reply on WhatsApp"
+        preheader: "The work isn't the bottleneck. Getting documents back is."
+        body: |
+          <p>At most firms like {PRACTICE_NAME}, the bottleneck isn't the accounting — it's waiting on clients for the missing document, the signature, the one approval that holds up the whole job.</p>
+          <p>Emails sit unread for days. The same request on WhatsApp gets answered in minutes.</p>
+          <p>PracticeDesk is an AI office assistant across phone, WhatsApp and email, 24/7. It chases missing documents and signatures automatically, sends deadline reminders for BAS, lodgement and EOFY, and confirms appointments — without your team lifting a finger.</p>
+          <p>Firms typically reclaim a full day a week within the first month.</p>
+          <p><a href="{DEMO_LINK}">See the document chase on autopilot &rarr;</a></p>
+          <p style="font-size:13px;color:#666;"><em>P.S. 14-day free trial, live in 15 minutes, no lock-in.</em></p>
+
+      - step: 2   # Day 3 — the test
+        subject_a: "How many open document requests right now, {PRACTICE_NAME}?"
+        subject_b: "The follow-ups your team is doing by hand"
+        preheader: "Each one is a manual nudge that could send itself."
+        body: |
+          <p>Quick check for {PRACTICE_NAME}: how many clients are you currently waiting on for documents, info or signatures?</p>
+          <p>Every one of those is a follow-up someone on your team has to remember and send by hand — and the ones that slip are the jobs that stall.</p>
+          <p>PracticeDesk turns those into automatic WhatsApp nudges that clients actually answer, escalating politely until the document arrives. Your team stops being a reminder service.</p>
+          <p><a href="{DEMO_LINK}">See how it chases a client &rarr;</a></p>
+
+      - step: 3   # Day 6 — proof / outcome
+        subject_a: "A full day a week, back"
+        subject_b: "30 days of automated follow-up at {PRACTICE_NAME}"
+        preheader: "Less chasing, faster turnaround, no extra headcount."
+        body: |
+          <p>The hidden cost at an accounting firm isn't overhead — it's the hours staff spend chasing clients for documents, responses and confirmations.</p>
+          <p>With PracticeDesk handling that across WhatsApp, phone and email, a firm like {PRACTICE_NAME} typically sees in 30 days:</p>
+          <ul>
+            <li>A full day a week reclaimed from manual follow-up</li>
+            <li>Faster document turnaround — clients reply in minutes, not days</li>
+            <li>Fewer missed deadlines — reminders for BAS, lodgement and EOFY go out on time</li>
+          </ul>
+          <p>No new headcount, and setup takes about 15 minutes.</p>
+          <p><a href="{DEMO_LINK}">See it working &rarr;</a></p>
+
+      - step: 4   # Day 9 — objection + break-up
+        subject_a: '"We already use a portal" — last note, {PRACTICE_NAME}'
+        subject_b: "I'll close {PRACTICE_NAME}'s file here"
+        preheader: "Portals wait to be visited. This reaches the client where they reply."
+        body: |
+          <p>Many firms already have a client portal. The catch is that a portal waits for the client to log in — and the slow clients, the ones holding up your jobs, are exactly the ones who don't.</p>
+          <p>PracticeDesk reaches them where they actually respond: a WhatsApp nudge with the specific ask, repeated politely until it's done. It complements the portal; it doesn't replace it.</p>
+          <p>If now isn't the time for {PRACTICE_NAME}, that's fine — I'll close the file. The 14-day trial is here whenever chasing documents gets old.</p>
+          <p>— {SENDER_NAME}</p>
+          <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
+
+  # ════════════════════════════════════════════════════════════════════════
+  lawyer:
+    label: "law firm"
+    audience: "clients"
+    sequence:
+
+      - step: 1   # Day 1 — the hook (speed-to-lead)
+        subject_a: "The enquiry {PRACTICE_NAME} lost before lunch"
+        subject_b: "70% of clients leave if no one answers fast"
+        preheader: "First firm to respond usually wins the matter."
+        body: |
+          <p>When someone needs a lawyer, they rarely contact just one. They send the same enquiry to several firms and instruct whoever responds first.</p>
+          <p>Around 70% abandon the process if there's no fast response — and most enquiries arrive after hours, when {PRACTICE_NAME}'s office is closed.</p>
+          <p>PracticeDesk is an AI office assistant across phone, WhatsApp and email, 24/7. It responds to every enquiry within seconds, captures the matter details, books the consultation, and hands you a qualified lead instead of a missed call.</p>
+          <p>Firms see 20–30% fewer missed enquiries in the first month.</p>
+          <p><a href="{DEMO_LINK}">See how it captures an enquiry &rarr;</a></p>
+          <p style="font-size:13px;color:#666;"><em>P.S. 14-day free trial, live in 15 minutes, no lock-in.</em></p>
+
+      - step: 2   # Day 3 — the test
+        subject_a: "Send {PRACTICE_NAME} an enquiry at 8pm tonight"
+        subject_b: "What happens to an after-hours enquiry?"
+        preheader: "Whatever your competitor's site does next is what wins the client."
+        body: |
+          <p>Try this with {PRACTICE_NAME}: send your own firm an enquiry through the website tonight, after hours, then see how long until anyone responds.</p>
+          <p>If the answer is "tomorrow morning," that's a window for the client to instruct the firm that replied in seconds — usually before you've even read the message.</p>
+          <p>PracticeDesk closes that window. It answers instantly over phone, WhatsApp or email, qualifies the matter, and books the consult while the client is still looking.</p>
+          <p><a href="{DEMO_LINK}">See the instant response &rarr;</a></p>
+
+      - step: 3   # Day 6 — proof / outcome
+        subject_a: "20–30% fewer missed enquiries"
+        subject_b: "What changed for a firm like {PRACTICE_NAME}"
+        preheader: "More consults booked, less fee-earner time on scheduling."
+        body: |
+          <p>A firm comparable to {PRACTICE_NAME} was losing enquiries at the first touchpoint — after-hours messages and missed calls that quietly went to a competitor.</p>
+          <p>Within 30 days on PracticeDesk:</p>
+          <ul>
+            <li>20–30% fewer missed enquiries — every one gets an instant response</li>
+            <li>Consultations booked automatically, around the clock</li>
+            <li>Fee-earners off scheduling admin and back on billable work</li>
+          </ul>
+          <p>It runs across phone, WhatsApp and email together, so a prospective client reaches you however they make contact. Setup is about 15 minutes.</p>
+          <p><a href="{DEMO_LINK}">See it working &rarr;</a></p>
+
+      - step: 4   # Day 9 — objection + break-up
+        subject_a: '"Our clients expect a human" — last note, {PRACTICE_NAME}'
+        subject_b: "I'll close {PRACTICE_NAME}'s file here"
+        preheader: "They get a human. The AI just makes sure they reach you first."
+        body: |
+          <p>A fair concern: clients with a legal problem want to speak to a person, not a machine.</p>
+          <p>They still do. PracticeDesk handles the first 60 seconds — answering instantly, capturing the matter, and booking the consultation — so the client is secured and routed to you, instead of giving up and calling the next firm. It wins you the conversation; you have it.</p>
+          <p>If the timing isn't right for {PRACTICE_NAME}, no problem — I'll close the file. The 14-day trial is open whenever you want to stop losing after-hours enquiries.</p>
+          <p>— {SENDER_NAME}</p>
+          <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FALLBACK — used only if a lead's business_type has no vertical above.
+# Generic but never wrong. The pipeline should prefer to SKIP unknown types
+# rather than send dental copy (see handoff prompt, change #1).
+# ─────────────────────────────────────────────────────────────────────────────
+defaults:
+  label: "business"
+  audience: "clients"
+  sequence:
+    - step: 1
+      subject_a: "Who answers {PRACTICE_NAME} when you can't?"
+      subject_b: "The enquiries {PRACTICE_NAME} misses after hours"
+      preheader: "Every missed call or message is a client who tries the next option."
+      body: |
+        <p>Every business loses enquiries the same way — a call or message arrives when no one's free to answer, and the customer moves on.</p>
+        <p>PracticeDesk is an AI office assistant that handles your front desk across phone, WhatsApp and email, 24/7. It answers, books, and follows up automatically, and nothing is confirmed without your one-click approval.</p>
+        <p><a href="{DEMO_LINK}">See it working &rarr;</a></p>
+        <p style="font-size:13px;color:#666;"><em>P.S. 14-day free trial, live in 15 minutes, no lock-in.</em></p>

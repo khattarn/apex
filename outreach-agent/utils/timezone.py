@@ -72,6 +72,17 @@ MARKET_TZ = {
     "UK": "Europe/London",
 }
 
+CA_CITIES = {
+    "Toronto", "Mississauga", "Brampton", "Markham", "Richmond Hill",
+    "Hamilton", "Kitchener", "Ottawa", "Montreal", "Quebec City",
+    "Windsor", "Barrie", "Halifax", "Winnipeg", "Saskatoon", "Regina",
+    "Calgary", "Edmonton", "Vancouver", "Victoria", "Kelowna", "Abbotsford",
+}
+
+
+def is_canadian(city: str, market: str = "") -> bool:
+    return market.upper() == "CA" or city in CA_CITIES
+
 # Email: Mon–Fri, 8:30 AM – 7 PM local
 EMAIL_SEND_DAYS = {0, 1, 2, 3, 4}
 EMAIL_HOUR_START = 8

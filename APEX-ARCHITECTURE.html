@@ -424,7 +424,7 @@ const D = {
     ic:'💬', n:'Agent 4: Reply Handler', t:'Inbound Reply Classification Agent', s:'bld', sl:'🔨 Currently Building',
     role:'Catches inbound WhatsApp replies on the outreach number. Verifies Meta webhook signatures, looks up sender in Supabase by phone, classifies intent with Claude Haiku, then routes: questions get an AI reply, interested leads go to Demo Booking, not-interested leads are marked dead.',
     tools:['Meta WhatsApp Cloud API (inbound webhook)','Anthropic Claude Haiku (intent classifier)','Supabase — reads leads by phone, writes status','Netlify Functions'],
-    host:'Netlify · practicedesk.netlify.app/.netlify/functions/outreach-webhook',
+    host:'Netlify · practicedesk.live/.netlify/functions/outreach-webhook',
     file:'reply-handler/outreach-webhook.js (planned)',
     flow:[{d:'Trigger',v:'POST from Meta webhook on inbound WA reply'},{d:'Verifies',v:'Meta hub.verify_token + X-Hub-Signature-256'},{d:'Looks up',v:'Supabase leads table by sender phone'},{d:'Calls',v:'Claude Haiku → classifies: interested | not_interested | question | out_of_office'},{d:'Routes',v:'"interested" → Agent 5 (Demo Booking)'},{d:'Routes',v:'"question" → Claude generates reply → sends WA'},{d:'Routes',v:'"not_interested" → status → "dead"'},{d:'Writes',v:'status → "replied", logs message to Supabase activity'}],
     prompt:'Claude Haiku — "Classify the intent of this WhatsApp reply: [{message}]. Respond with exactly one word: interested | not_interested | question | out_of_office. If question, also provide a concise helpful reply on the next line."',

@@ -6,7 +6,7 @@ GRAPH_API_BASE = "https://graph.facebook.com/v19.0"
 
 LOGO_URL    = "https://mpex.netlify.app/logo.png"
 YOUTUBE_URL = "https://www.youtube.com/watch?v=zHVLE5ek7jY"
-HOME_URL    = "https://practicedesk.netlify.app/"
+HOME_URL    = "https://practicedesk.live/"
 HENRY_PHONE = "+13129408233"
 
 _V2_BUTTONS = [

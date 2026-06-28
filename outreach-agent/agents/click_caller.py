@@ -4,7 +4,7 @@ click_caller.py — Outbound voice campaign targeting leads who clicked an email
 Triggered hourly Mon–Fri by APScheduler inside server.py.
 
 Each lead is called once. Calls only within 10 AM–5 PM local time.
-Aria follows a 7-phase sales playbook: open → discover → insight pitch →
+Sophie follows a 7-phase sales playbook: open → discover → insight pitch →
 trial + urgency → objection → 3-close sequence → exit.
 """
 
@@ -40,9 +40,9 @@ def _get_script(business_type: str) -> dict:
     if not vertical:
         vertical = copy.get('defaults') or {}
     return {
-        "firstMessage": vertical.get('aria_opener', ''),
-        "insight":      vertical.get('aria_insight', ''),
-        "pain_question": vertical.get('aria_pain_question', ''),
+        "firstMessage": vertical.get('sophie_opener', ''),
+        "insight":      vertical.get('sophie_insight', ''),
+        "pain_question": vertical.get('sophie_pain_question', ''),
     }
 
 
@@ -51,22 +51,24 @@ def _get_script(business_type: str) -> dict:
 _SCRIPTS = {
     "dentist": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk. "
-            "Quick question — do you ever get patients trying to book after your reception closes? "
-            "Most clinics miss those completely."
+            "Hi, this is Sophie from PracticeDesk. "
+            "Quick question — when a patient calls after you've closed for the day, "
+            "or when the front desk is slammed, what happens to that call right now?"
         ),
         "insight": (
-            "Most appointment searches happen between 8 PM and midnight — "
-            "when every dental clinic is closed and the phone just rings out. "
-            "Those patients don't call back in the morning. They book with whoever responded first. "
-            "PracticeDesk acts as your after-hours receptionist on WhatsApp — "
-            "it confirms bookings, sends reminders, and handles reschedules automatically."
+            "Here's what we see: most patients searching in the evening won't leave a voicemail — "
+            "they call the next practice. "
+            "So the lost booking never even shows up as a missed call. "
+            "It's invisible, which is why it's easy to under-rate."
         ),
-        "pain_question": "Right now, when a patient tries to reach you after hours — what happens to that enquiry?",
+        "pain_question": (
+            "When the phone rings and no one can grab it — after hours, or mid-treatment — "
+            "where does that call go today? Voicemail, or just missed?"
+        ),
     },
     "physiotherapist": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk. "
+            "Hi, this is Sophie from PracticeDesk. "
             "Quick question — do you find most patients complete one session "
             "and then just don't rebook?"
         ),
@@ -81,7 +83,7 @@ _SCRIPTS = {
     },
     "salon": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk. "
+            "Hi, this is Sophie from PracticeDesk. "
             "Quick question — how many no-shows does your salon typically deal with each week?"
         ),
         "insight": (
@@ -94,7 +96,7 @@ _SCRIPTS = {
     },
     "accountant": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk. "
+            "Hi, this is Sophie from PracticeDesk. "
             "Quick question — is your team spending more than a few hours a week "
             "chasing clients for documents or signatures?"
         ),
@@ -109,7 +111,7 @@ _SCRIPTS = {
     },
     "lawyer": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk. "
+            "Hi, this is Sophie from PracticeDesk. "
             "Quick question — how many potential clients do you think you lose "
             "just because they couldn't reach anyone quickly?"
         ),
@@ -125,7 +127,7 @@ _SCRIPTS = {
     },
     "doctor": {
         "firstMessage": (
-            "Hi, this is Aria from PracticeDesk. "
+            "Hi, this is Sophie from PracticeDesk. "
             "Quick question — do you wish your patients could book their next appointment "
             "at any hour, even when your clinic is closed?"
         ),
@@ -141,7 +143,7 @@ _SCRIPTS = {
 
 _DEFAULT_SCRIPT = {
     "firstMessage": (
-        "Hi, this is Aria from PracticeDesk. "
+        "Hi, this is Sophie from PracticeDesk. "
         "Quick question — do you ever miss client enquiries or bookings "
         "simply because they came in after hours?"
     ),
@@ -157,8 +159,9 @@ _DEFAULT_SCRIPT = {
 # ── Full 7-phase system prompt ────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = """\
-You are Aria, a confident and warm outbound sales executive for PracticeDesk — \
-a WhatsApp-based AI receptionist for healthcare and professional practices.
+You are Sophie, a confident and warm outbound sales executive for PracticeDesk — \
+an AI office assistant across phone, WhatsApp, and email for healthcare and \
+professional practices.
 
 If asked directly whether you are an AI or a bot, answer honestly: yes, you are.
 Maximum call length: 5 minutes. Never exceed this.
@@ -176,6 +179,16 @@ If the prospect says ANYTHING like "call me back", "can you call back", \
 NEVER say "this will just take a sec", "it'll only be a moment", \
 or any phrase that attempts to continue the call after a callback request. \
 Pushing past a callback request destroys trust and loses the prospect permanently.
+
+═══════════════════════════════════════════════════════════════════════════════
+GENTLE-TONE RULES (non-negotiable)
+═══════════════════════════════════════════════════════════════════════════════
+1. Warmth or a compliment before the pain — never open with the problem cold.
+2. Normalise it — "this happens to almost every busy practice", "totally normal".
+3. Point at the patient's experience, not the clinic's failing.
+4. No numbers as a weapon in the opener.
+5. Ask permission, give an easy yes — "mind if I share?", "worth thirty seconds?"
+6. Back off instantly if they bristle — pivot to a soft offer to email instead.
 
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 1 — OPENING  (target: 20 seconds)
@@ -210,12 +223,12 @@ Then connect: "Based on what you just told me about [their pain word], \
 that's exactly the problem PracticeDesk solves — [one-sentence solution]."
 
 ═══════════════════════════════════════════════════════════════════════════════
-PHASE 4 — TRIAL OFFER + URGENCY  (target: 20 seconds)
+PHASE 4 — TRIAL OFFER  (target: 20 seconds)
 ═══════════════════════════════════════════════════════════════════════════════
-"You can sign up right now and be live within 15 minutes — \
-there's a 14-day free trial, no obligation at all. \
-I should mention these are introductory prices that will be going up as we grow, \
-so right now is genuinely a good time to lock in."
+"PracticeDesk is an AI office assistant that answers every call, WhatsApp and \
+email for you, 24/7 — books the appointment and drops it in your dashboard for \
+a one-click confirm. Nothing is final without you. Practices see about 30% fewer \
+no-shows in the first month. Worth a look?"
 
 Pricing if asked:
   Starter: $49/month · Growth: $99/month · Pro: $180/month
@@ -226,20 +239,22 @@ PHASE 5 — OBJECTION HANDLING  (one round only, target: 30 seconds)
 Handle only ONE objection. If there are more, acknowledge them briefly and move \
 straight to Phase 6.
 
-"Too expensive":
-  "At $49 a month, that's less than the cost of one missed appointment. \
-   If PracticeDesk saves you even two no-shows a month, it more than pays for itself."
+"We have a receptionist":
+  "Perfect — this works alongside them, not instead. It covers after-hours and \
+   overflow, the calls that currently hit voicemail. Your receptionist keeps the \
+   chair-side work."
 
-"No time to set up":
-  "Setup takes 15 minutes — and we walk you through every step. \
-   Most practices are live before lunch."
+"We're too busy to set it up":
+  "That's the part people are surprised by — it's about fifteen minutes, and \
+   it's answering calls the same evening."
 
-"Need to think about it":
-  Acknowledge briefly, then go straight to Close 2 in Phase 6.
+"I don't want AI dealing with patients":
+  "It never confirms anything on its own. It collects the booking and you approve \
+   it with one click. You stay in control of every patient."
 
-"Not the right person / need to check with partner":
-  "Of course — who would be the right person? I'm happy to give them a call, \
-   or I can send you both a short overview."
+"Just email me":
+  "Happy to — I'll send a 90-second video. Can I also book you a quick look so \
+   you see it taking a live booking? No pressure."
 
 "Not interested":
   Thank them warmly and end the call immediately. Never retry.
@@ -247,22 +262,14 @@ straight to Phase 6.
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 6 — CLOSE SEQUENCE  (target: 40 seconds, stop at first yes)
 ═══════════════════════════════════════════════════════════════════════════════
-Attempt all three closes in order. Stop the moment you get a yes.
+"I'll set you up with the free 14-day trial — no card, live in fifteen minutes — \
+and send a calendar link so we can switch it on together. What email's best?"
 
-CLOSE 1 — Assumptive (Zig Ziglar):
-  "Based on everything we've discussed, can I assume you're convinced \
-   and you'll sign up for the trial today?"
-
-CLOSE 2 — Conditional (The Perfect Close):
-  "What would need to happen for you to sign up today?"
-  → If they name something you can address, address it, then ask Close 1 again.
-  → If they can't name anything, move to Close 3.
-
-CLOSE 3 — Invitation (Chris Voss):
+If they hesitate:
   "Would it be completely crazy to just try it free for 14 days \
    and see the numbers yourself?"
 
-After 3 closes with no yes: do NOT push further. Move to Phase 7.
+After two attempts with no yes: move to Phase 7.
 
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 7 — EXIT  (target: 20 seconds)
@@ -290,8 +297,9 @@ IF NOT READY (soft no):
   → Confirm: "Perfect — I'll call you then. Have a great day."
 
 IF HARD NO:
-  "Thank you for your time, [Name]. Take care."
-  → End immediately, mark as not interested.
+  "No problem at all. I'll send a short note so you have it if the timing changes. \
+   Thanks for the twenty seconds — have a good one."
+  → End immediately.
 
 ═══════════════════════════════════════════════════════════════════════════════
 CALLBACK HANDLING (any point in the call — see ABSOLUTE RULE at top)
@@ -302,50 +310,95 @@ CALLBACK HANDLING (any point in the call — see ABSOLUTE RULE at top)
 → END THE CALL. Do not add another sentence. Do not pitch anything.
 
 ═══════════════════════════════════════════════════════════════════════════════
-QUESTIONS OR OBSERVATIONS
-═══════════════════════════════════════════════════════════════════════════════
-If the prospect has specific questions or observations, address what you can. \
-For anything beyond your knowledge: \
-"If you have any specific queries or observations, feel free to share them — \
-I'll do my best to respond, or arrange for a member of our team to get back to you."
-
-═══════════════════════════════════════════════════════════════════════════════
 STYLE RULES
 ═══════════════════════════════════════════════════════════════════════════════
-- One question at a time. Never stack two questions.
+- 1–2 sentences per turn. Never monologue.
 - Use their exact words when referencing their pain — it signals you listened.
-- Speak at a confident, natural pace. Do not rush.
-- Never repeat the same close twice in a row.
+- Conversational fillers ("sure", "got it", "fair enough") are fine.
 - Never apologise for calling — you're offering genuine value.
 - Avoid filler words: "absolutely", "certainly", "of course", "great question".
 - If they mention a competitor, acknowledge it briefly and return to their pain.
+- Warm, slightly informal. Aim "helpful colleague", not "call centre".
 """
 
 
 def place_click_call(lead: dict) -> dict:
-    """Trigger a Dograh outbound call for an email-clicked lead. Returns Dograh response dict."""
-    from agents.dograh_caller import place_outbound_call as _dograh_call
+    """Trigger an outbound call for an email-clicked lead.
+    Canadian leads use Vapi + SignalWire (+15872090343). All others use Dograh.
+    """
+    from utils.timezone import is_canadian
     phone = lead.get("phone", "")
     if not phone:
         raise RuntimeError(f"Lead {lead.get('id')} has no phone number")
+
+    city = lead.get("city", "")
+    market = lead.get("market", "")
+    business_type = lead.get("business_type", "")
+    business_name = lead.get("name", "")
+    lead_id = str(lead.get("id", ""))
+
+    if is_canadian(city, market):
+        from agents.vapi_caller import place_sophie_call
+        script = _get_script(business_type)
+        ca_phone_id = os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
+        return place_sophie_call(
+            phone=phone,
+            business_name=business_name,
+            business_type=business_type,
+            city=city,
+            opener=script.get("firstMessage", ""),
+            insight=script.get("insight", ""),
+            pain_question=script.get("pain_question", ""),
+            lead_id=lead_id,
+            phone_number_id=ca_phone_id,
+            pain_signal=lead.get("pain_signal", ""),
+            pain_finding=lead.get("pain_finding", ""),
+        )
+
+    from agents.dograh_caller import place_outbound_call as _dograh_call
     return _dograh_call(
         phone=phone,
-        business_type=lead.get("business_type", ""),
-        business_name=lead.get("name", ""),
-        lead_id=str(lead.get("id", "")),
-        city=lead.get("city", ""),
+        business_type=business_type,
+        business_name=business_name,
+        lead_id=lead_id,
+        city=city,
         trigger="email_click",
     )
 
 
+_TIER_LABELS = {1: "clicked", 2: "opened", 3: "emailed_24h", 4: "never_contacted"}
+
+
+def _lead_tier_label(lead: dict, today_utc: str, cutoff_24h: str) -> str:
+    if lead.get("email_clicked") and (lead.get("email_clicked_at") or "")[:10] < today_utc:
+        return "clicked"
+    if lead.get("email_opened") and not lead.get("email_clicked"):
+        return "opened"
+    last_sent = lead.get("email_last_sent_at") or ""
+    if lead.get("email_sent") and last_sent and last_sent < cutoff_24h:
+        return "emailed_24h"
+    return "never_contacted"
+
+
 def run_click_campaign() -> dict:
     """
-    Main entry point called by the APScheduler job.
-    Finds clicked-but-uncalled leads in their 10 AM–5 PM window and places calls.
+    Voice priority queue — ranked by engagement tier then pain_score.
+    Tier order: clicked > opened (no click) > emailed >24h (no open) > never-contacted.
+    Cap: voice_dial_cap setting (default 50). Respects 11am–5pm local window.
     """
-    from database.client import get_clicked_uncalled_leads, log_activity
+    from datetime import datetime, timezone, timedelta
+    from database.client import get_voice_priority_queue, get_setting, log_activity
+    from utils.monitoring import upsert_heartbeat
 
-    leads = get_clicked_uncalled_leads()
+    try:
+        cap = int(get_setting("voice_dial_cap") or 50)
+    except Exception:
+        cap = 50
+
+    today_utc  = datetime.now(timezone.utc).date().isoformat()
+    cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+    leads = get_voice_priority_queue(cap=cap)
     called, skipped_tz, skipped_no_phone, errors = 0, 0, 0, 0
 
     for lead in leads:
@@ -357,19 +410,23 @@ def run_click_campaign() -> dict:
             skipped_no_phone += 1
             continue
 
+        tier = _lead_tier_label(lead, today_utc, cutoff_24h)
         try:
             call = place_click_call(lead)
             log_activity(str(lead["id"]), "outbound_call", {
                 "dograh_run_id": call.get("workflow_run_id", ""),
-                "trigger": "email_click",
-                "phone": lead["phone"],
+                "trigger":       "voice_priority_queue",
+                "tier":          tier,
+                "pain_signal":   lead.get("pain_signal", ""),
+                "phone":         lead["phone"],
             })
             called += 1
-            log.info("Placed click-call to lead %s (%s)", lead["id"], lead["phone"])
+            log.info("Priority call placed: lead=%s tier=%s pain=%s", lead["id"], tier, lead.get("pain_score"))
         except Exception as exc:
-            log.error("Click-call failed for lead %s: %s", lead.get("id"), exc)
+            log.error("Priority call failed: lead=%s: %s", lead.get("id"), exc)
             errors += 1
 
+    upsert_heartbeat("click_calls", {"called": called, "skipped_tz": skipped_tz, "errors": errors})
     return {
         "called": called,
         "skipped_outside_hours": skipped_tz,

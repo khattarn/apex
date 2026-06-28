@@ -2,7 +2,7 @@
 ## Complete Email Outreach System
 ### Markets: Australia · USA · Canada
 ### Vertical: Dental Practices (Solo + Small)
-### Product: PracticeDesk (practicedesk.netlify.app)
+### Product: PracticeDesk (practicedesk.live)
 
 ---
 
@@ -45,7 +45,7 @@ dental practices. It gives solo and small practices:
 
 Price: $49/month Starter · $99/month Growth · $179/month Pro
 Trial: 14 days free · No setup fees · No IT help needed
-URL: practicedesk.netlify.app
+URL: practicedesk.live
 
 ---
 
@@ -77,7 +77,7 @@ the entire month."
 | {{PAIN_LINE}} | Review mining output | see default below |
 | {{NEARBY_CITY}} | Closest major city | nearest metro |
 | {{MARKET}} | AU / US / CA | derive from phone code |
-| {{DEMO_LINK}} | Calendar booking URL | practicedesk.netlify.app/demo |
+| {{DEMO_LINK}} | Calendar booking URL | practicedesk.live/demo |
 | {{SENDER_NAME}} | Rotating sender name | configured in Apex |
 | {{UNSUBSCRIBE_LINK}} | Auto-generated | required for compliance |
 
@@ -240,10 +240,10 @@ CANADA (CASL):
 SIGNATURE FOOTER (use on all emails, required):
   {{SENDER_NAME}}
   PracticeDesk
-  practicedesk.netlify.app
+  practicedesk.live
 
   [Book a demo: {{DEMO_LINK}}]
-  [Start free trial: practicedesk.netlify.app]
+  [Start free trial: practicedesk.live]
 
   To stop receiving emails: {{UNSUBSCRIBE_LINK}}
   PracticeDesk · [Physical address] · ABN/registration number
@@ -331,7 +331,7 @@ Worth a 10-minute look?
 
 {{SENDER_NAME}}
 PracticeDesk
-practicedesk.netlify.app
+practicedesk.live
 
 P.S. 14-day free trial — no setup fees, no IT help needed.
 ```
@@ -615,7 +615,7 @@ WhatsApp follow-ups — the demo is always open and the
 Wishing {{PRACTICE_NAME}} a full schedule.
 
 {{SENDER_NAME}}
-practicedesk.netlify.app
+practicedesk.live
 
 [Start free trial anytime → {{DEMO_LINK}}]
 
@@ -670,7 +670,7 @@ missed calls — worth 10 minutes.
 {{SENDER_NAME}}
 
 P.S. This is genuinely the last email I'll send.
-If the timing is ever right: practicedesk.netlify.app
+If the timing is ever right: practicedesk.live
 ```
 
 ---
@@ -766,7 +766,7 @@ Happy to reschedule whenever works for you:
 
 Alternatively, if you'd rather see it at your own pace —
 there's a 3-minute walkthrough at:
-practicedesk.netlify.app/demo-video
+practicedesk.live/demo-video
 
 {{SENDER_NAME}}
 ```
@@ -791,7 +791,7 @@ If you want to test it yourself before committing:
 the 14-day trial is completely free, takes 20 minutes
 to set up, and you can cancel any time.
 
-[Start free trial → practicedesk.netlify.app]
+[Start free trial → practicedesk.live]
 
 Any questions before you decide — just reply here.
 
@@ -870,4 +870,4 @@ REPORT FORMAT:
 *Markets: AU · US · CA*
 *Vertical: Dental (Solo and Small Practice)*
 *Templates: 8 cold outreach + 5 demo sequence*
-*Product URL: practicedesk.netlify.app*
+*Product URL: practicedesk.live*

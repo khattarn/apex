@@ -277,7 +277,7 @@ class LeadUpdate(BaseModel):
 
 @app.get("/api/leads/called-ids")
 async def get_called_ids(_=Depends(verify_token)):
-    """Returns set of lead IDs that have received an outbound Aria call."""
+    """Returns set of lead IDs that have received an outbound Sophie call."""
     from database.client import get_client
     rows = get_client().table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or []
     return {"ids": list({str(r["lead_id"]) for r in rows})}
@@ -1696,7 +1696,7 @@ async def activity_live():
 
     def _next_email_campaign() -> str:
         candidates = []
-        for h in [13, 22]:
+        for h in [13, 15, 22]:
             t = now_utc.replace(hour=h, minute=0, second=0, microsecond=0)
             if t <= now_utc:
                 t += timedelta(days=1)
@@ -1740,19 +1740,19 @@ async def activity_live():
             "queue": voice_pending,
             "frequency": "Daily 9:00 UTC",
             "last_ran": _last_of("voice_followup_placed"),
-            "description": "Aria outbound call to leads silent 5+ days",
+            "description": "Sophie outbound call to leads silent 5+ days",
         },
         {
             "job": "Email Campaign",
             "next_run": _next_email_campaign(),
             "next_runs": [_next_email_campaign()],
             "queue": email_pending,
-            "frequency": "13:00 & 22:00 UTC",
+            "frequency": "13:00, 15:00 & 22:00 UTC",
             "last_ran": _last_of("email_campaign_auto"),
-            "description": "Next email in 6-step drip sequence (AU 8am / CA 9am EDT)",
+            "description": "Next email in 6-step drip sequence (CA 9am ET / US 11am ET / AU 8am AEST)",
         },
         {
-            "job": "Aria Click Calls",
+            "job": "Sophie Click Calls",
             "next_run": hourly_runs[0],
             "next_runs": hourly_runs,
             "queue": click_pending,
@@ -1768,7 +1768,7 @@ async def activity_live():
             "queue": 0,
             "frequency": "Every 15 min Mon–Fri",
             "last_ran": None,
-            "description": "Processes Aria-scheduled callbacks from previous calls",
+            "description": "Processes Sophie-scheduled callbacks from previous calls",
         },
         {
             "job": "Observatory",
@@ -2561,6 +2561,92 @@ async def _job_watchdog():
         log.error("_job_watchdog failed: %s", exc)
 
 
+async def _job_prospect():
+    """Daily 12:00 UTC prospecting cron — discovers new leads for configured types/cities.
+
+    Reads config from Supabase settings table (keys seeded at deploy time):
+      cron_prospect_enabled  — "true" / "false"  (default true if missing)
+      cron_prospect_types    — comma-separated list e.g. "dentist,salon"
+      cron_prospect_cities   — comma-separated list e.g. "Sydney,Toronto"
+      cron_prospect_max      — max leads per type/city pass (default 10)
+      cron_prospect_cursor   — JSON {"type": ..., "city": ..., "idx": ...}
+                               used to rotate through pairs across daily runs
+    """
+    try:
+        from database.client import get_setting, save_setting, save_lead, get_existing_place_ids
+        from agents.prospector import find_businesses
+
+        enabled = (get_setting("cron_prospect_enabled") or "true").lower()
+        if enabled == "false":
+            log.info("_job_prospect: disabled via settings")
+            return
+
+        types_raw  = get_setting("cron_prospect_types")  or "dentist"
+        cities_raw = get_setting("cron_prospect_cities") or "Sydney"
+        max_raw    = get_setting("cron_prospect_max")    or "10"
+        cursor_raw = get_setting("cron_prospect_cursor")
+
+        types  = [t.strip() for t in types_raw.split(",") if t.strip()]
+        cities = [c.strip() for c in cities_raw.split(",") if c.strip()]
+        max_results = int(max_raw) if str(max_raw).isdigit() else 10
+
+        # Parse cursor — tells us which (type, city) pair to run this cycle
+        try:
+            cursor = json.loads(cursor_raw) if isinstance(cursor_raw, str) else (cursor_raw or {})
+        except Exception:
+            cursor = {}
+        idx = int(cursor.get("idx", 0))
+
+        # All (type, city) pairs — rotate through one per daily run
+        pairs = [(t, c) for t in types for c in cities]
+        if not pairs:
+            return
+        idx = idx % len(pairs)
+        btype, city = pairs[idx]
+
+        log.info("_job_prospect: running %s in %s (pair %d/%d)", btype, city, idx + 1, len(pairs))
+
+        known_ids = await asyncio.to_thread(get_existing_place_ids, btype, city)
+        businesses = await asyncio.to_thread(find_businesses, btype, city, max_results, known_ids)
+
+        new_leads = 0
+        for biz in businesses:
+            lead_data = {
+                "name":               biz.get("name"),
+                "address":            biz.get("address"),
+                "place_id":           biz.get("place_id"),
+                "phone":              biz.get("phone"),
+                "website":            biz.get("website"),
+                "business_type":      btype,
+                "city":               city,
+                "status":             "new",
+                "outreach_sent":      False,
+                "pain_score":         biz.get("pain_score"),
+                "pain_signal":        biz.get("pain_signal"),
+                "pain_finding":       biz.get("pain_finding"),
+                "has_online_booking": biz.get("has_online_booking"),
+                "hours_json":         biz.get("hours_json"),
+            }
+            try:
+                result = await asyncio.to_thread(save_lead, lead_data)
+                if result:
+                    new_leads += 1
+            except Exception as exc:
+                log.warning("_job_prospect: save_lead failed for %s: %s", biz.get("name"), exc)
+
+        # Advance cursor to next pair
+        next_cursor = json.dumps({"idx": (idx + 1) % len(pairs)})
+        await asyncio.to_thread(save_setting, "cron_prospect_cursor", next_cursor)
+
+        log.info("_job_prospect: %s new leads for %s in %s", new_leads, btype, city)
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("prospect_cron", {"new_leads": new_leads, "type": btype, "city": city})
+    except Exception as exc:
+        log.error("_job_prospect failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("prospect_cron", exc)
+
+
 @app.on_event("startup")
 async def start_scheduler():
     try:
@@ -2575,7 +2661,7 @@ async def start_scheduler():
     scheduler.add_job(_job_voice_followup,   "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 11am–5pm local
                       day_of_week="mon-fri")
     scheduler.add_job(_job_observatory,      "cron", hour=1,        minute=30)     # 1:30am UTC = 7am IST
-    scheduler.add_job(_job_email_campaign,   "cron", hour="22,13",  minute=0)      # 22:00 UTC = AU 8am | 13:00 UTC = CA 9am EDT
+    scheduler.add_job(_job_email_campaign,   "cron", hour="13,15,22", minute=0)    # 13:00=CA 9am ET | 15:00=US 11am ET | 22:00=AU 8am AEST
     scheduler.add_job(_job_wa_broadcast,     "cron", hour="*",      minute=15,     # every hour Mon–Fri — timezone filter inside handles 8:30am–7pm local
                       day_of_week="mon-fri")
     scheduler.add_job(_job_click_calls,      "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 11am–5pm local
@@ -2584,6 +2670,7 @@ async def start_scheduler():
                       day_of_week="mon-fri")
     scheduler.add_job(_job_signal_weekly,    "cron", day_of_week="mon", hour=6, minute=0)  # Monday 6am UTC
     scheduler.add_job(_job_watchdog,         "cron", hour="*",          minute=45)         # :45 every hour
+    scheduler.add_job(_job_prospect,         "cron", hour=12,            minute=0)          # 12:00 UTC daily
     scheduler.start()
 
 
@@ -2764,6 +2851,77 @@ async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
         update_wa_inbox(inbox_id, {"status": "replied", "reply_sent": text})
     except Exception:
         pass  # DB update failure must not block a successfully sent message
+
+    return {"ok": True}
+
+
+# ── Email reply capture ──────────────────────────────────────────────────────
+# Route: POST /api/webhooks/email-inbound
+#
+# Receives forwarded email replies from whatever inbound parser is in use
+# (Resend inbound, Cloudflare Email Routing, or a custom forwarder).
+# Expected JSON body: { from_email, subject, body_text, to_email? }
+#
+# To activate: set up email forwarding from henry@practicedesk.live so that
+# replies are POSTed to https://<railway-url>/api/webhooks/email-inbound.
+
+@app.post("/api/webhooks/email-inbound")
+async def email_inbound_webhook(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"ok": True}
+
+    from_email = (payload.get("from_email") or "").strip().lower()
+    subject    = (payload.get("subject")    or "").strip()
+    body_text  = (payload.get("body_text")  or "")[:2000]
+
+    if not from_email:
+        return {"ok": True}
+
+    from database.client import get_client, update_lead, log_activity
+    db = get_client()
+
+    row = db.table("leads").select("id, name, business_type, status").ilike("email", from_email).limit(1).execute()
+
+    if not row.data:
+        try:
+            from utils.notifier import notify_founder
+            notify_founder(
+                kind="system_alert", severity="info",
+                component="email_reply",
+                reason=f"Email reply from unknown sender: {from_email}\nSubject: {subject}\n\n{body_text[:400]}",
+            )
+        except Exception:
+            pass
+        return {"ok": True}
+
+    lead    = row.data[0]
+    lead_id = str(lead["id"])
+    name    = lead.get("name", "")
+    btype   = lead.get("business_type", "practice")
+
+    if lead.get("status") not in ("replied", "converted", "dead"):
+        update_lead(lead_id, {"status": "replied"})
+
+    log_activity(lead_id, "email_reply_received", {
+        "from_email": from_email,
+        "subject":    subject,
+        "body":       body_text[:500],
+    })
+
+    try:
+        from utils.notifier import notify_founder
+        notify_founder(
+            kind="system_alert", severity="info",
+            component="email_reply",
+            reason=(
+                f"Email reply from {name} ({btype})\n"
+                f"From: {from_email}\nSubject: {subject}\n\n{body_text[:500]}"
+            ),
+        )
+    except Exception:
+        pass
 
     return {"ok": True}
 
@@ -2999,6 +3157,59 @@ async def content_modules():
         "markets": ["AU", "US", "CA", "IN"],
         "languages": ["en", "hi"],
     }
+
+
+# ── Content Approvals ─────────────────────────────────────────────────────────
+
+class ContentApprovalCreate(BaseModel):
+    content_type: str
+    product: str
+    module: str
+    market: str = "AU"
+    tone: str = "structured"
+    language: str = "en"
+    content: str
+    subject: str = ""
+    source: str = "content_screen"
+
+
+class ContentApprovalUpdate(BaseModel):
+    status: str | None = None
+    content: str | None = None
+    notes: str | None = None
+
+
+@app.post("/api/content/approvals", dependencies=[Depends(verify_token)])
+async def create_approval(body: ContentApprovalCreate):
+    from database.client import save_approval
+    row = save_approval({
+        "content_type": body.content_type,
+        "product": body.product,
+        "module": body.module,
+        "market": body.market,
+        "tone": body.tone,
+        "language": body.language,
+        "content": body.content,
+        "subject": body.subject or None,
+        "source": body.source,
+        "status": "pending",
+    })
+    return row
+
+
+@app.get("/api/content/approvals", dependencies=[Depends(verify_token)])
+async def list_approvals(status: str | None = None, limit: int = 100):
+    from database.client import get_approvals
+    return get_approvals(status=status, limit=limit)
+
+
+@app.patch("/api/content/approvals/{approval_id}", dependencies=[Depends(verify_token)])
+async def patch_approval(approval_id: str, body: ContentApprovalUpdate):
+    from database.client import update_approval
+    data = {k: v for k, v in body.dict().items() if v is not None}
+    if not data:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    return update_approval(approval_id, data)
 
 
 # ── Signal — Performance Feedback (Agent 1 → VP Marketing → Content Agent) ───

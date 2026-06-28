@@ -26,7 +26,7 @@ It contains everything needed to continue work without losing context.
 
 ### 2. PracticeDesk
 - **Repo:** `C:\Projects\Practice desk` (separate git)
-- **Live:** https://practicedesk.netlify.app
+- **Live:** https://practicedesk.live
 - **Market:** Australia · USA · Global
 - **Verticals:** Dentists · Salons · Accountants · Physiotherapists
 - **Stack:** Netlify (static + Node.js functions) · Supabase (PostgreSQL) · JWT auth · Anthropic Claude · Meta WhatsApp API · Vapi.ai + Twilio + Deepgram · Cal.com · Stripe (stubbed)
@@ -185,7 +185,7 @@ When leads reply to +91 120 427 9928, nothing currently catches it.
 
 Create `reply-handler/outreach-webhook.js` as a Netlify function on the **PracticeDesk Netlify site** (already deployed, Meta can reach it immediately):
 
-URL will be: `https://practicedesk.netlify.app/.netlify/functions/outreach-webhook`
+URL will be: `https://practicedesk.live/.netlify/functions/outreach-webhook`
 
 This function must:
 1. Handle Meta webhook verification (GET with `hub.challenge`)

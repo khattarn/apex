@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, ExternalLink, ChevronDown, ChevronUp, Headphones } from 'lucide-react'
 import { getCallSessions } from '../api'
 import StatusBadge from '../components/StatusBadge'
 
@@ -59,7 +59,7 @@ function groupByDay(rows) {
 
 function SessionRow({ row }) {
   const [expanded, setExpanded] = useState(false)
-  const hasDetail = row.summary || row.recording_url
+  const hasDetail = !!row.summary
 
   return (
     <>
@@ -91,29 +91,32 @@ function SessionRow({ row }) {
         <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">
           {fmtTime(row.called_at)}
         </td>
+        <td className="px-4 py-2.5 text-center">
+          {row.recording_url ? (
+            <a
+              href={row.recording_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-indigo-400 hover:text-indigo-300 transition-colors"
+              title="Listen to recording"
+            >
+              <Headphones size={14} />
+            </a>
+          ) : (
+            <span className="text-slate-700"><Headphones size={14} /></span>
+          )}
+        </td>
         <td className="px-4 py-2.5 text-slate-600 text-xs w-6">
-          {hasDetail && (expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+          {row.summary && (expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
         </td>
       </tr>
       {expanded && hasDetail && (
         <tr className="border-b border-slate-800/60 bg-slate-900/40">
-          <td colSpan={7} className="px-6 py-3">
-            {row.summary && (
-              <p className="text-[12px] text-slate-300 mb-2 leading-relaxed">{row.summary}</p>
-            )}
-            {row.recording_url && (
-              <a
-                href={row.recording_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[11px] text-indigo-400 hover:text-indigo-300"
-                onClick={e => e.stopPropagation()}
-              >
-                <ExternalLink size={11} /> Listen to recording
-              </a>
-            )}
+          <td colSpan={8} className="px-6 py-3">
+            <p className="text-[12px] text-slate-300 leading-relaxed">{row.summary}</p>
             {row.dograh_run_id && (
-              <span className="text-[10px] text-slate-600 ml-4">Run ID: {row.dograh_run_id}</span>
+              <span className="text-[10px] text-slate-600 mt-1 block">Run ID: {row.dograh_run_id}</span>
             )}
           </td>
         </tr>
@@ -151,6 +154,7 @@ function DayGroup({ day, items }) {
               <th className="text-left px-4 py-2 font-medium">Outcome</th>
               <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Status</th>
               <th className="text-left px-4 py-2 font-medium">Time</th>
+              <th className="text-center px-4 py-2 font-medium"><Headphones size={12} /></th>
               <th className="w-6" />
             </tr>
           </thead>

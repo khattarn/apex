@@ -312,6 +312,17 @@ export const generateContent = (payload) =>
 
 export const getContentModules = () => request('/api/content/modules')
 
+export const saveApproval = (data) =>
+  request('/api/content/approvals', { method: 'POST', body: JSON.stringify(data) })
+
+export const getApprovals = (status) => {
+  const qs = status ? `?status=${status}` : ''
+  return request(`/api/content/approvals${qs}`)
+}
+
+export const patchApproval = (id, data) =>
+  request(`/api/content/approvals/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
 // ── Agent 11: Affiliates ──────────────────────────────────────────────────────
 
 export const getAffiliates = (params = {}) => {

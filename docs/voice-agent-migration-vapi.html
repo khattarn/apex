@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Agent Migration — Dograh → Vapi | PracticeDesk Dev Handover</title>
+<style>
+  :root {
+    --navy: #0d1b3e;
+    --navy-mid: #162550;
+    --navy-light: #1e3566;
+    --gold: #c9a84c;
+    --gold-light: #e8c878;
+    --white: #f8f9fa;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --code-bg: #0a1428;
+    --blue: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--navy); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.65; padding: 40px 20px; }
+  .container { max-width: 1020px; margin: 0 auto; }
+  header { border-bottom: 2px solid var(--gold); padding-bottom: 24px; margin-bottom: 40px; }
+  header h1 { font-size: 1.9rem; color: var(--gold); font-weight: 700; margin-bottom: 6px; }
+  header .meta { color: var(--muted); font-size: 0.88rem; }
+  header .meta span { color: var(--gold-light); }
+  section { margin-bottom: 44px; }
+  h2 { font-size: 1.25rem; color: var(--gold-light); font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--navy-light); }
+  h3 { font-size: 0.98rem; color: var(--gold); font-weight: 600; margin: 18px 0 10px; }
+  p { margin-bottom: 12px; color: var(--text); font-size: 0.92rem; }
+  .card { background: var(--navy-mid); border: 1px solid var(--navy-light); border-radius: 10px; padding: 18px 22px; margin-bottom: 16px; }
+  .card-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; font-weight: 600; }
+  .kv { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 7px; gap: 16px; }
+  .kv .k { color: var(--muted); font-size: 0.83rem; flex-shrink: 0; }
+  .kv .v { color: var(--white); font-size: 0.83rem; font-family: 'Courier New', monospace; text-align: right; word-break: break-all; }
+  .kv .v.hi { color: var(--gold-light); }
+  .kv .v.ok { color: var(--success); }
+  .kv .v.warn { color: var(--warning); }
+  pre, code { font-family: 'Courier New', monospace; }
+  pre { background: var(--code-bg); border: 1px solid var(--navy-light); border-radius: 8px; padding: 16px; overflow-x: auto; color: #a8d8a8; margin-bottom: 16px; font-size: 0.8rem; line-height: 1.5; }
+  code { background: var(--code-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 2px 6px; color: #a8d8a8; font-size: 0.79rem; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .badge-live { background: rgba(52,211,153,0.12); color: var(--success); border: 1px solid var(--success); }
+  .badge-retired { background: rgba(248,113,113,0.12); color: var(--danger); border: 1px solid var(--danger); }
+  .badge-india { background: rgba(251,191,36,0.12); color: var(--warning); border: 1px solid var(--warning); }
+  .badge-unchanged { background: rgba(96,165,250,0.12); color: var(--blue); border: 1px solid var(--blue); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.83rem; margin-bottom: 16px; }
+  th { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--gold); color: var(--gold-light); font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--navy-light); color: var(--text); vertical-align: top; }
+  td code { font-size: 0.77rem; }
+  tr:last-child td { border-bottom: none; }
+  .alert { border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; font-size: 0.86rem; }
+  .alert-warn { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.3); color: var(--warning); }
+  .alert-ok { background: rgba(52,211,153,0.07); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
+  .alert-danger { background: rgba(248,113,113,0.07); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin: 14px 0; }
+  .flow-step { background: var(--navy-light); border: 1px solid var(--gold); border-radius: 6px; padding: 7px 12px; font-size: 0.79rem; text-align: center; min-width: 110px; }
+  .flow-arrow { color: var(--gold); font-size: 1.1rem; padding: 0 7px; flex-shrink: 0; }
+  .tier { border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; }
+  .tier-1 { background: rgba(201,168,76,0.05); border: 1px solid rgba(201,168,76,0.25); }
+  .tier-2 { background: rgba(52,211,153,0.05); border: 1px solid rgba(52,211,153,0.25); }
+  .tier-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-bottom: 8px; }
+  .tier-1 .tier-label { color: var(--gold); }
+  .tier-2 .tier-label { color: var(--success); }
+  footer { border-top: 1px solid var(--navy-light); padding-top: 18px; margin-top: 40px; color: var(--muted); font-size: 0.79rem; }
+  .section-number { display: inline-block; width: 26px; height: 26px; background: var(--gold); color: var(--navy); border-radius: 50%; text-align: center; line-height: 26px; font-size: 0.8rem; font-weight: 700; margin-right: 8px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Voice Agent Migration — Dograh → Vapi</h1>
+  <div class="meta">
+    PracticeDesk Dev Team Handover &nbsp;·&nbsp;
+    <span>Completed: 2026-06-27</span> &nbsp;·&nbsp;
+    Prepared by: Neeraj Khattar &nbsp;·&nbsp;
+    Railway deploy: <span>5e64ed7</span>
+  </div>
+</header>
+
+<!-- EXECUTIVE SUMMARY -->
+<section>
+  <h2><span class="section-number">1</span> What Changed and Why</h2>
+  <p>All US/Canada voice agents have been migrated from <strong>Dograh + Cloudonix/Twilio</strong> to <strong>Vapi.ai</strong>. Indian operations (Priya) remain on Dograh + Vobiz and are <strong>not affected</strong> by this change.</p>
+
+  <div class="alert-danger alert">
+    <strong>Why Dograh was retired for US/CA:</strong> Dograh's inbound webhook (config 598 / Cloudonix) was silently broken — all inbound calls returned an immediate hangup because the webhook requires a live Cloudonix SIP session. HTTP-only invocations always returned <code>&lt;Response&gt;&lt;Hangup/&gt;</code>. The Twilio outbound number (+13187706725) was also blocked with error 21216 (compliance hold). Both issues had no near-term fix.
+  </div>
+
+  <div class="alert-ok alert">
+    <strong>Result:</strong> All four US/CA agents (Henry, Sophie, Claire, Emma) are now live on Vapi with confirmed inbound and outbound calls tested end-to-end.
+  </div>
+</section>
+
+<!-- AGENT ARCHITECTURE -->
+<section>
+  <h2><span class="section-number">2</span> Two-Tier Agent Architecture</h2>
+  <p>This is a critical distinction — the two tiers use different LLM prompts, different phone numbers, and must never be mixed.</p>
+
+  <div class="tier tier-1">
+    <div class="tier-label">Tier 1 — PracticeDesk Platform Agents</div>
+    <p style="font-size:0.86rem">Generic prompts. Serve the PracticeDesk SaaS product itself — for prospects and leads, not for any individual client's patients. Context (practice name, type, city) is injected per call via <code>variableValues</code>.</p>
+    <strong style="color:var(--gold);font-size:0.86rem">Agents: Henry (inbound) · Sophie (outbound sales)</strong>
+  </div>
+
+  <div class="tier tier-2">
+    <div class="tier-label">Tier 2 — Individual Pro-Client Agents (Bright Smile Dental demo)</div>
+    <p style="font-size:0.86rem">Fully hardcoded for one specific practice. Contains clinic name, doctor name, hours, fees, recall scripts etc. For Bright Smile Dental's existing patients — not for sales.</p>
+    <strong style="color:var(--success);font-size:0.86rem">Agents: Claire (inbound receptionist) · Emma (outbound patient care)</strong>
+  </div>
+</section>
+
+<!-- ALL FOUR AGENTS -->
+<section>
+  <h2><span class="section-number">3</span> All Four Agents — Current Configuration</h2>
+
+  <h3>Henry — PracticeDesk Inbound Sales <span class="badge badge-live">LIVE</span></h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Vapi Config</div>
+      <div class="kv"><span class="k">Assistant ID</span><span class="v hi">23a9f4e7-917d-4f59-ba88-ced02e2349ba</span></div>
+      <div class="kv"><span class="k">Env var</span><span class="v">VAPI_HENRY_ASSISTANT_ID</span></div>
+      <div class="kv"><span class="k">Voice</span><span class="v">Vapi "Elliot" (male)</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v">OpenAI gpt-4o-mini</span></div>
+      <div class="kv"><span class="k">Max duration</span><span class="v">5 min</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Phone Number</div>
+      <div class="kv"><span class="k">Number</span><span class="v hi">+1 (312) 940-8233</span></div>
+      <div class="kv"><span class="k">Vapi phone ID</span><span class="v">50d7061b-ac77-4a4f-b2d5-7430df39b9d5</span></div>
+      <div class="kv"><span class="k">Env var</span><span class="v">VAPI_PLATFORM_PHONE_ID</span></div>
+      <div class="kv"><span class="k">Provider</span><span class="v ok">Vapi-owned (no SIP trunk needed)</span></div>
+      <div class="kv"><span class="k">Inbound</span><span class="v ok">Henry assigned directly to number</span></div>
+    </div>
+  </div>
+  <p style="font-size:0.85rem">Henry answers all inbound calls to +13129408233. Goal: qualify interest and book a 15-minute PracticeDesk demo at <code>cal.com/neeraj-khattar-3zszap/practicedesk-demo</code>. Handles dentists, salons, physiotherapists, accountants.</p>
+
+  <h3>Sophie — PracticeDesk Outbound Sales <span class="badge badge-live">LIVE</span></h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Vapi Config</div>
+      <div class="kv"><span class="k">Assistant ID</span><span class="v hi">bfecad5e-dce4-469f-8570-d44efc49de15</span></div>
+      <div class="kv"><span class="k">Env var</span><span class="v">VAPI_SOPHIE_ASSISTANT_ID</span></div>
+      <div class="kv"><span class="k">Voice</span><span class="v">Vapi "Leah" (female)</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v">OpenAI gpt-4o-mini</span></div>
+      <div class="kv"><span class="k">Max duration</span><span class="v">5.5 min (330s)</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Outbound Caller ID</div>
+      <div class="kv"><span class="k">Shows as</span><span class="v hi">+1 (312) 940-8233</span></div>
+      <div class="kv"><span class="k">Phone ID used</span><span class="v">VAPI_PLATFORM_PHONE_ID (same number)</span></div>
+      <div class="kv"><span class="k">Previously</span><span class="v warn">+13187706725 (Twilio — BLOCKED)</span></div>
+      <div class="kv"><span class="k">Triggered by</span><span class="v">place_sophie_call() in vapi_caller.py</span></div>
+    </div>
+  </div>
+  <p style="font-size:0.85rem">Sophie places cold outbound calls to prospect dental/salon/accountant practices. Uses a 7-phase playbook. Variables injected per call: <code>practice_name</code>, <code>practice_type</code>, <code>city</code>, <code>opener</code>, <code>insight</code>, <code>pain_question</code> (sourced from <code>assets/copy.yaml</code>).</p>
+
+  <h3>Claire — Bright Smile Dental Inbound Receptionist <span class="badge badge-live">LIVE</span></h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Vapi Config</div>
+      <div class="kv"><span class="k">Assistant ID</span><span class="v hi">47df3cc1-529f-4d09-b9d2-df7818812772</span></div>
+      <div class="kv"><span class="k">Env var</span><span class="v">VAPI_CLAIRE_ASSISTANT_ID</span></div>
+      <div class="kv"><span class="k">Voice</span><span class="v">Vapi "Layla" (female)</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v">OpenAI gpt-4o-mini</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Phone Number (Ontario, CA)</div>
+      <div class="kv"><span class="k">Number</span><span class="v hi">+1 (289) 514-1951</span></div>
+      <div class="kv"><span class="k">Provider</span><span class="v">SignalWire BYO SIP</span></div>
+      <div class="kv"><span class="k">Inbound phone ID</span><span class="v">13ccacf7-961d-42fb-a2df-b5440ca8af9e</span></div>
+      <div class="kv"><span class="k">Inbound credential</span><span class="v">bfbf497d-25ef-4670-a10f-cbd3d25ce0f5</span></div>
+    </div>
+  </div>
+  <p style="font-size:0.85rem">Claire answers all inbound calls to +12895141951 (Bright Smile Dental's Ontario number). Handles appointment enquiries, scheduling questions, and general reception for the demo practice. Inbound routing goes through a Railway TwiML webhook — see Section 5.</p>
+
+  <h3>Emma — Bright Smile Dental Patient Care <span class="badge badge-live">LIVE</span></h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Vapi Config</div>
+      <div class="kv"><span class="k">Assistant ID</span><span class="v hi">82e848d2-a520-499a-ac32-40d103e41efd</span></div>
+      <div class="kv"><span class="k">Env var</span><span class="v">VAPI_EMMA_ASSISTANT_ID</span></div>
+      <div class="kv"><span class="k">Voice</span><span class="v">Vapi "Emma" (female)</span></div>
+      <div class="kv"><span class="k">Model</span><span class="v">OpenAI gpt-4o-mini</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Outbound</div>
+      <div class="kv"><span class="k">Shows as</span><span class="v hi">+1 (289) 514-1951</span></div>
+      <div class="kv"><span class="k">Outbound phone ID</span><span class="v">9bff5610-ae74-4921-ad83-55d108a2b0ee</span></div>
+      <div class="kv"><span class="k">Triggered by</span><span class="v">place_emma_call() in vapi_caller.py</span></div>
+      <div class="kv"><span class="k">API endpoint</span><span class="v">POST /api/emma/call</span></div>
+    </div>
+  </div>
+  <p style="font-size:0.85rem">Emma places outbound calls to Bright Smile Dental's existing patients. Four call types: <code>appointment_reminder</code>, <code>six_month_recall</code>, <code>post_treatment_checkin</code>, <code>no_show_followup</code>. Variables: <code>call_type</code>, <code>patient_name</code>, <code>appointment_time</code>.</p>
+
+  <h3>Priya — India Inbound <span class="badge badge-india">Dograh + Vobiz — UNCHANGED</span></h3>
+  <div class="card">
+    <div class="card-label">No changes — retained on Dograh for all India operations</div>
+    <div class="kv"><span class="k">Platform</span><span class="v">Dograh workflow 6243 / UUID 8d7b2b07-709a-4925-bb1f-3ecad4408476</span></div>
+    <div class="kv"><span class="k">Number</span><span class="v">+91 9262171423 (Vobiz)</span></div>
+    <div class="kv"><span class="k">Telephony config</span><span class="v">477 (Vobiz India SIP)</span></div>
+  </div>
+</section>
+
+<!-- CALL FLOWS -->
+<section>
+  <h2><span class="section-number">4</span> Call Flows</h2>
+
+  <h3>Henry — Inbound (simple, Vapi-native)</h3>
+  <div class="flow">
+    <div class="flow-step">Caller dials<br><strong>+13129408233</strong></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Vapi receives<br>call directly</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Henry assistant<br>answers</div>
+  </div>
+  <p style="font-size:0.84rem">No webhook, no SIP bridge — Vapi-owned number routes directly to the assigned assistant.</p>
+
+  <h3>Sophie — Outbound (API-triggered)</h3>
+  <div class="flow">
+    <div class="flow-step">server.py calls<br>place_sophie_call()</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">POST /call<br>to Vapi API</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Vapi dials<br>prospect via PSTN</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Sophie speaks<br>to practice</div>
+  </div>
+
+  <h3>Claire — Inbound (SignalWire BYO SIP)</h3>
+  <div class="flow">
+    <div class="flow-step">Caller dials<br><strong>+12895141951</strong></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">SignalWire<br>receives PSTN</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Fetches voice_url<br>(Railway TwiML)</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">TwiML returns<br>&lt;Dial&gt;&lt;Sip&gt;</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Claire<br>answers</div>
+  </div>
+
+  <h3>Emma — Outbound (API-triggered, SignalWire SIP trunk)</h3>
+  <div class="flow">
+    <div class="flow-step">POST /api/emma/call<br>(Railway)</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">place_emma_call()<br>→ Vapi API</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Vapi uses<br>SignalWire SIP trunk</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Emma calls<br>patient</div>
+  </div>
+</section>
+
+<!-- SIGNALWIRE SETUP (dental only) -->
+<section>
+  <h2><span class="section-number">5</span> SignalWire Setup (Dental Agents Only)</h2>
+  <p>Henry and Sophie use a Vapi-native number — no SignalWire involvement. Claire and Emma use SignalWire BYO SIP because +12895141951 is a SignalWire number.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">SignalWire Account</div>
+      <div class="kv"><span class="k">Space</span><span class="v">uniqe-corporation.signalwire.com</span></div>
+      <div class="kv"><span class="k">Project ID</span><span class="v">0310c438-1b8f-42da-9026-34c2f9ee6702</span></div>
+      <div class="kv"><span class="k">SIP Domain App</span><span class="v hi">uniqe-corporation-vapi-dental<br>.dapp.signalwire.com</span></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Inbound TwiML Endpoint (Railway)</div>
+      <div class="kv"><span class="k">Route</span><span class="v">GET|POST /api/signalwire/henry-inbound-swml</span></div>
+      <div class="kv"><span class="k">Returns</span><span class="v">TwiML XML with &lt;Dial&gt;&lt;Sip&gt;</span></div>
+      <div class="kv"><span class="k">SIP URI delivered</span><span class="v">sip:+12895141951@bfbf497d<br>...sip.vapi.ai</span></div>
+    </div>
+  </div>
+
+  <div class="alert-warn alert">
+    <strong>Critical:</strong> The SignalWire phone number's <code>voice_url</code> must point to the Railway TwiML endpoint. Returning SWML JSON to a <code>voice_url</code> webhook silently fails — calls connect then drop at 0-1 seconds. Always use TwiML <code>&lt;Dial&gt;&lt;Sip&gt;</code>.
+  </div>
+
+  <h3>Vapi BYO Credentials (dental)</h3>
+  <table>
+    <tr><th>Type</th><th>ID</th><th>Purpose</th></tr>
+    <tr><td>Inbound (IP whitelist)</td><td><code>bfbf497d-25ef-4670-a10f-cbd3d25ce0f5</code></td><td>Accepts SIP from SignalWire IPs → Claire</td></tr>
+    <tr><td>Outbound (SIP auth)</td><td>Linked to <code>9bff5610</code> phone ID</td><td>Emma dials out via SignalWire SIP domain</td></tr>
+  </table>
+</section>
+
+<!-- CODE CHANGES -->
+<section>
+  <h2><span class="section-number">6</span> Code Changes (Git commit 5e64ed7)</h2>
+
+  <h3>outreach-agent/agents/vapi_caller.py</h3>
+  <p>Single file for all Vapi outbound calls. Two functions:</p>
+  <pre>place_emma_call(phone, call_type, patient_name, appointment_time)
+    → uses VAPI_EMMA_ASSISTANT_ID + VAPI_DENTAL_OUTBOUND_PHONE_ID
+
+place_sophie_call(phone, business_name, business_type, city, opener, insight, pain_question, lead_id)
+    → uses VAPI_SOPHIE_ASSISTANT_ID + VAPI_PLATFORM_PHONE_ID</pre>
+
+  <h3>outreach-agent/server.py — Updated endpoints</h3>
+  <table>
+    <tr><th>Endpoint / Function</th><th>Was</th><th>Now</th></tr>
+    <tr><td><code>POST /api/leads/{id}/call</code></td><td>dograh_caller.place_outbound_call()</td><td>vapi_caller.place_sophie_call()</td></tr>
+    <tr><td><code>POST /api/dial</code></td><td>dograh_caller.place_outbound_call()</td><td>vapi_caller.place_sophie_call()</td></tr>
+    <tr><td><code>_job_voice_followup()</code></td><td>dograh_caller.place_outbound_call()</td><td>vapi_caller.place_sophie_call()</td></tr>
+    <tr><td><code>_job_scheduled_callbacks()</code></td><td>dograh_caller.place_outbound_call()</td><td>vapi_caller.place_sophie_call()</td></tr>
+    <tr><td><code>POST /api/cron/voice-followup</code></td><td>dograh_caller.place_outbound_call()</td><td>vapi_caller.place_sophie_call()</td></tr>
+    <tr><td><code>POST /api/emma/call</code></td><td>dograh_caller.place_emma_call()</td><td>vapi_caller.place_emma_call()</td></tr>
+    <tr><td><code>GET|POST /api/signalwire/henry-inbound-swml</code></td><td><em>(new)</em></td><td>Returns TwiML for Claire inbound routing</td></tr>
+  </table>
+
+  <h3>Response field changes</h3>
+  <p>Dograh returned <code>workflow_run_id</code>. Vapi returns <code>id</code>. All activity log entries now use <code>vapi_call_id</code> instead of <code>dograh_run_id</code>. Any frontend code reading <code>workflow_run_id</code> from call responses should be updated to read <code>call_id</code>.</p>
+</section>
+
+<!-- ENV VARS -->
+<section>
+  <h2><span class="section-number">7</span> Environment Variables — Full Reference</h2>
+  <div class="card">
+    <div class="card-label">Railway + .env — Current state</div>
+    <pre># ── Vapi ──────────────────────────────────────────────────────────────────────
+VAPI_API_KEY=1908bdb6-968b-4f6a-ab9e-75ab32137cb2
+
+# Platform agents (Henry inbound / Sophie outbound)
+VAPI_HENRY_ASSISTANT_ID=23a9f4e7-917d-4f59-ba88-ced02e2349ba
+VAPI_SOPHIE_ASSISTANT_ID=bfecad5e-dce4-469f-8570-d44efc49de15
+VAPI_PLATFORM_PHONE_ID=50d7061b-ac77-4a4f-b2d5-7430df39b9d5     # +13129408233
+
+# Dental client agents (Claire inbound / Emma outbound)
+VAPI_CLAIRE_ASSISTANT_ID=47df3cc1-529f-4d09-b9d2-df7818812772
+VAPI_EMMA_ASSISTANT_ID=82e848d2-a520-499a-ac32-40d103e41efd
+VAPI_DENTAL_INBOUND_PHONE_ID=13ccacf7-961d-42fb-a2df-b5440ca8af9e
+VAPI_DENTAL_OUTBOUND_PHONE_ID=9bff5610-ae74-4921-ad83-55d108a2b0ee
+VAPI_INBOUND_CREDENTIAL_ID=bfbf497d-25ef-4670-a10f-cbd3d25ce0f5
+VAPI_DENTAL_PHONE_NUMBER=+12895141951
+
+# ── SignalWire (dental number only) ───────────────────────────────────────────
+SIGNALWIRE_PROJECT_ID=0310c438-1b8f-42da-9026-34c2f9ee6702
+SIGNALWIRE_TOKEN=PTd7bea86f00c9dd169181da2b7f17e3c1aab0370a35c183ca
+SIGNALWIRE_SPACE=uniqe-corporation.signalwire.com
+
+# ── Dograh (India / Priya only — do not remove) ───────────────────────────────
+DOGRAH_API_KEY=dgr_DkBIEM-eJGWeFbagJsLVpc61WoI3l6jEllT3GuCkGBA
+DOGRAH_WORKFLOW_UUID_PRIYA=8d7b2b07-709a-4925-bb1f-3ecad4408476
+DOGRAH_INDIA_TELEPHONY_CONFIG_ID=477
+DOGRAH_PRIYA_WORKFLOW_ID=6243</pre>
+  </div>
+  <div class="alert-warn alert">
+    <strong>Railway:</strong> The three new Vapi vars (<code>VAPI_HENRY_ASSISTANT_ID</code>, <code>VAPI_SOPHIE_ASSISTANT_ID</code>, <code>VAPI_PLATFORM_PHONE_ID</code>) and the renamed <code>VAPI_CLAIRE_ASSISTANT_ID</code> must be set in Railway environment variables. The old <code>DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID=598</code> and <code>DOGRAH_WORKFLOW_UUID_HENRY/SOPHIE</code> can be removed from Railway.
+  </div>
+</section>
+
+<!-- VOICE SELECTION -->
+<section>
+  <h2><span class="section-number">8</span> Voice Selection Notes</h2>
+  <table>
+    <tr><th>Agent</th><th>Voice</th><th>Provider</th><th>Gender</th></tr>
+    <tr><td>Henry</td><td>Elliot</td><td>Vapi</td><td>Male</td></tr>
+    <tr><td>Sophie</td><td>Leah</td><td>Vapi</td><td>Female</td></tr>
+    <tr><td>Claire</td><td>Layla</td><td>Vapi</td><td>Female</td></tr>
+    <tr><td>Emma</td><td>Emma</td><td>Vapi</td><td>Female</td></tr>
+  </table>
+  <p style="font-size:0.84rem">To change a voice: go to <strong>app.vapi.ai → Assistants → [agent] → Voice tab</strong>. Only pick voices from the <strong>Vapi Voice Library</strong> — they have play buttons for preview. OpenAI and Azure voices have no preview buttons in the Vapi interface and Azure voices sound noticeably robotic.</p>
+</section>
+
+<!-- WHAT STILL USES DOGRAH -->
+<section>
+  <h2><span class="section-number">9</span> What Still Uses Dograh</h2>
+  <table>
+    <tr><th>Agent</th><th>Platform</th><th>Why retained</th></tr>
+    <tr><td>Priya (India inbound)</td><td>Dograh + Vobiz config 477</td><td>Vobiz SIP is India-specific; SignalWire India calling not enabled</td></tr>
+  </table>
+  <p style="font-size:0.84rem">All other Dograh workflows (Henry 6000, Sophie 3a93c3b2, Claire 707d72ad, Emma f4d6a6ba) are now inactive. The Dograh API key and Priya's workflow vars must remain in the environment for India operations.</p>
+</section>
+
+<!-- TEST RESULTS -->
+<section>
+  <h2><span class="section-number">10</span> Test Results</h2>
+  <table>
+    <tr><th>Test</th><th>Agent</th><th>Result</th><th>Notes</th></tr>
+    <tr>
+      <td>Inbound call to +12895141951</td>
+      <td>Claire</td>
+      <td style="color:var(--success)">✓ PASS</td>
+      <td>Call connected, Claire answered with Layla voice</td>
+    </tr>
+    <tr>
+      <td>Outbound to +14168931395 (Canada)</td>
+      <td>Emma</td>
+      <td style="color:var(--success)">✓ PASS</td>
+      <td>Called Mehak, six_month_recall script ran correctly, voice quality acceptable</td>
+    </tr>
+    <tr>
+      <td>Outbound to +12086884760 (US)</td>
+      <td>Emma</td>
+      <td style="color:var(--success)">✓ PASS</td>
+      <td>Call queued and phone rang (no answer expected)</td>
+    </tr>
+    <tr>
+      <td>Inbound call to +13129408233</td>
+      <td>Henry</td>
+      <td style="color:var(--warning)">⏳ PENDING</td>
+      <td>Not yet tested — Elliot voice assigned, assistant wired to number</td>
+    </tr>
+    <tr>
+      <td>Outbound via Sophie</td>
+      <td>Sophie</td>
+      <td style="color:var(--warning)">⏳ PENDING</td>
+      <td>Not yet tested — code deployed, assistant created</td>
+    </tr>
+    <tr>
+      <td>India outbound via SignalWire</td>
+      <td>Emma</td>
+      <td style="color:var(--danger)">✗ BLOCKED</td>
+      <td>SIP 480 — SignalWire international (+91) calling not enabled on account</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ACTION ITEMS FOR DEV TEAM -->
+<section>
+  <h2><span class="section-number">11</span> Action Items for Dev Team</h2>
+  <table>
+    <tr><th>#</th><th>Action</th><th>Who</th><th>Priority</th></tr>
+    <tr>
+      <td>1</td>
+      <td>Set 3 new Railway env vars: <code>VAPI_HENRY_ASSISTANT_ID</code>, <code>VAPI_SOPHIE_ASSISTANT_ID</code>, <code>VAPI_PLATFORM_PHONE_ID</code></td>
+      <td>Dev / DevOps</td>
+      <td style="color:var(--danger)">High — required for Sophie outbound to work on Railway</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Rename Railway var <code>VAPI_HENRY_ASSISTANT_ID</code> → <code>VAPI_CLAIRE_ASSISTANT_ID</code> (old value was Claire's ID)</td>
+      <td>Dev / DevOps</td>
+      <td style="color:var(--danger)">High</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Update any frontend code reading <code>workflow_run_id</code> from call API responses to read <code>call_id</code> instead</td>
+      <td>Frontend dev</td>
+      <td style="color:var(--warning)">Medium</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Test Henry inbound: call +1 (312) 940-8233 and confirm Elliot voice answers</td>
+      <td>QA</td>
+      <td style="color:var(--warning)">Medium</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Test Sophie outbound: trigger <code>POST /api/leads/{id}/call</code> on a test lead and confirm call placed</td>
+      <td>QA</td>
+      <td style="color:var(--warning)">Medium</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Enable India international calling on SignalWire account (Settings → Calling) to unblock Emma → +91 outbound</td>
+      <td>Founder / SignalWire admin</td>
+      <td style="color:var(--muted)">Low — India outbound not currently in use</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Review Henry and Sophie voice via app.vapi.ai and swap if preferred (Elliot / Leah are defaults)</td>
+      <td>Founder</td>
+      <td style="color:var(--muted)">Low</td>
+    </tr>
+  </table>
+</section>
+
+<footer>
+  PracticeDesk · Apex Internal · Neeraj Khattar · khattarn3@yahoo.com<br>
+  Railway: serene-passion-production-cd82.up.railway.app · Vapi org: 943cd2f9-53b7-4a08-9daa-2573b025c67c · SignalWire: uniqe-corporation.signalwire.com<br>
+  Git commit: 5e64ed7 — master branch
+</footer>
+
+</div>
+</body>
+</html>

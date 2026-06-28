@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bright Smile Dental — Demo Agent Configuration</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0f1e; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; }
+  .page { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { text-align: center; padding: 48px 0 40px; border-bottom: 1px solid #1e3a5f; margin-bottom: 48px; }
+  .hero-badge { display: inline-block; background: #1e3a5f; color: #c9a84c; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+  .hero h1 { font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .hero p { color: #94a3b8; font-size: 15px; }
+  .hero .meta { margin-top: 24px; display: flex; justify-content: center; gap: 32px; flex-wrap: wrap; }
+  .hero .meta-item { text-align: center; }
+  .hero .meta-item .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+  .hero .meta-item .value { font-size: 13px; color: #c9a84c; font-weight: 600; margin-top: 2px; }
+
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #c9a84c; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid #1e3a5f; }
+
+  .agent-card { background: #0d1729; border: 1px solid #1e3a5f; border-radius: 12px; margin-bottom: 40px; overflow: hidden; }
+  .agent-header { background: #111e35; padding: 20px 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #1e3a5f; }
+  .agent-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .henry .agent-avatar { background: #1e3a5f; }
+  .emma .agent-avatar { background: #2d1f4e; }
+  .agent-meta h2 { font-size: 18px; font-weight: 700; color: #fff; }
+  .agent-meta .sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .agent-badge { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; }
+  .badge-inbound  { background: #1e3a5f; color: #60a5fa; }
+  .badge-outbound { background: #1f3d2d; color: #34d399; }
+  .badge-new      { background: #3d2a0a; color: #f59e0b; }
+  .uuid { font-size: 10px; font-family: monospace; color: #475569; margin-top: 4px; }
+
+  .agent-body { padding: 24px; }
+  .agent-section { margin-bottom: 28px; }
+  .agent-section:last-child { margin-bottom: 0; }
+  .field-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #c9a84c; margin-bottom: 10px; }
+
+  .config-grid { display: grid; grid-template-columns: 150px 1fr; gap: 8px; margin-bottom: 16px; }
+  .config-key { font-size: 12px; color: #64748b; }
+  .config-val { font-size: 12px; color: #e2e8f0; font-weight: 500; }
+  .config-val.mono { font-family: monospace; color: #c9a84c; }
+
+  .prompt-box { background: #060d1a; border: 1px solid #1a2d4a; border-radius: 8px; padding: 20px; font-size: 13px; font-family: 'Consolas', 'Courier New', monospace; white-space: pre-wrap; line-height: 1.75; color: #cbd5e1; }
+  .prompt-box .comment { color: #475569; }
+  .prompt-box .section-head { color: #c9a84c; font-weight: 700; }
+  .prompt-box .rule { color: #f87171; }
+
+  .wa-bubble { background: #0a2218; border: 1px solid #134430; border-radius: 12px; padding: 16px 20px; font-size: 13px; line-height: 1.75; font-family: system-ui; }
+  .wa-bubble strong { color: #c9a84c; }
+
+  .email-preview { background: #060d1a; border: 1px solid #1a2d4a; border-radius: 8px; overflow: hidden; }
+  .email-header { background: #0d1729; padding: 14px 20px; border-bottom: 1px solid #1a2d4a; }
+  .email-field { display: flex; gap: 12px; font-size: 12px; margin-bottom: 4px; }
+  .email-field:last-child { margin-bottom: 0; }
+  .email-field-label { color: #475569; width: 50px; flex-shrink: 0; }
+  .email-field-value { color: #94a3b8; }
+  .email-body { padding: 20px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; font-family: 'Courier New', monospace; color: #cbd5e1; }
+
+  .divider { height: 1px; background: #1e3a5f; margin: 32px 0; }
+
+  .checklist { list-style: none; }
+  .checklist li { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; color: #94a3b8; margin-bottom: 10px; }
+  .checklist li::before { content: "□"; color: #c9a84c; font-size: 16px; line-height: 1; flex-shrink: 0; }
+  .checklist li strong { color: #e2e8f0; }
+
+  .info-box  { background: #0d1729; border: 1px solid #1e3a5f; border-radius: 8px; padding: 16px 20px; font-size: 13px; color: #93c5fd; margin-bottom: 16px; }
+  .info-box strong { color: #bfdbfe; }
+  .warn-box  { background: #1c1200; border: 1px solid #4d3000; border-radius: 8px; padding: 16px 20px; font-size: 13px; color: #fbbf24; margin-bottom: 16px; }
+  .highlight-box { background: #0d1e10; border: 1px solid #1f4d2a; border-radius: 8px; padding: 16px 20px; font-size: 13px; color: #86efac; margin-bottom: 16px; }
+  .highlight-box strong { color: #bbf7d0; }
+
+  .footer { text-align: center; padding-top: 40px; border-top: 1px solid #1e3a5f; color: #334155; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">PracticeDesk · Demo Configuration</div>
+    <h1>Bright Smile Dental</h1>
+    <p>Two voice agents + WhatsApp + email — complete end-to-end demo</p>
+    <div class="meta">
+      <div class="meta-item"><div class="label">Practice</div><div class="value">Bright Smile Dental, Toronto</div></div>
+      <div class="meta-item"><div class="label">Dentist</div><div class="value">Dr. Sarah Chen</div></div>
+      <div class="meta-item"><div class="label">Demo phone</div><div class="value">+1 208-441-4485</div></div>
+      <div class="meta-item"><div class="label">WhatsApp</div><div class="value">+1 385-363-3720</div></div>
+      <div class="meta-item"><div class="label">Email from</div><div class="value">henry@practicedesk.live</div></div>
+    </div>
+  </div>
+
+  <!-- SETUP OVERVIEW -->
+  <div class="section-title">Why Two Agents</div>
+  <div style="background: #0d1729; border: 1px solid #1e3a5f; border-radius: 10px; padding: 20px 24px; margin-bottom: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div>
+      <div style="font-size: 13px; font-weight: 700; color: #60a5fa; margin-bottom: 6px;">📞 Henry — Inbound</div>
+      <div style="font-size: 13px; color: #94a3b8; line-height: 1.6;">Answers every call to the practice. Books appointments, handles FAQs, manages emergencies. The phone never goes unanswered — even when Dr. Chen is with a patient.</div>
+    </div>
+    <div>
+      <div style="font-size: 13px; font-weight: 700; color: #34d399; margin-bottom: 6px;">💛 Emma — Outbound</div>
+      <div style="font-size: 13px; color: #94a3b8; line-height: 1.6;">Calls existing patients proactively. 24h appointment reminders, 6-month recall, post-treatment check-ins, no-show follow-up. This is where dentists make money — patient retention.</div>
+    </div>
+  </div>
+
+  <div class="section-title">Setup Checklist</div>
+  <div class="info-box">
+    <strong>These are brand new Dograh workflows — nothing to do with the existing Henry/Sophie/Priya outreach pipeline agents.</strong> Create 2 separate workflows in the Dograh dashboard (app.dograh.com), then paste the UUIDs into <code>.env</code>.
+  </div>
+  <ul class="checklist">
+    <li><strong>Henry (Dental)</strong> — create NEW workflow in Dograh → name "Henry — Bright Smile Dental" → Inbound → telephony 598 → paste system prompt below → copy UUID → set <code style="font-size:11px;color:#c9a84c">DOGRAH_WORKFLOW_UUID_DENTAL_HENRY</code></li>
+    <li><strong>Emma (Dental)</strong> — create NEW workflow in Dograh → name "Emma — Bright Smile Dental" → Outbound → telephony 598 → paste system prompt below → copy UUID → set <code style="font-size:11px;color:#c9a84c">DOGRAH_WORKFLOW_UUID_DENTAL_EMMA</code></li>
+    <li>Submit WhatsApp message templates to Meta (use messages below) — approval takes ~24h</li>
+    <li>Test Henry by calling +1 208-441-4485 from your personal phone</li>
+    <li>Test Emma via <code style="font-size:11px;color:#c9a84c">POST /api/emma/call</code> with call_type=appointment_reminder to your own number</li>
+  </ul>
+
+  <div class="divider"></div>
+
+  <!-- ═══ HENRY ═══ -->
+  <div class="section-title">Agent 1 of 2 — Inbound</div>
+  <div class="agent-card henry">
+    <div class="agent-header">
+      <div class="agent-avatar">📞</div>
+      <div class="agent-meta">
+        <h2>Henry — Inbound Receptionist</h2>
+        <div class="sub">Answers every call · Books appointments · Handles emergencies</div>
+      </div>
+      <div class="agent-badge">
+        <span class="badge badge-inbound">Inbound</span>
+        <span class="badge badge-new">Create new</span>
+        <div class="uuid">UUID assigned after creation → DOGRAH_WORKFLOW_UUID_DENTAL_HENRY</div>
+      </div>
+    </div>
+
+    <div class="agent-body">
+
+      <div class="agent-section">
+        <div class="field-label">Dograh Configuration</div>
+        <div class="config-grid">
+          <div class="config-key">Workflow name</div><div class="config-val">Henry — Bright Smile Dental</div>
+          <div class="config-key">Type</div><div class="config-val">Inbound</div>
+          <div class="config-key">Voice</div><div class="config-val">Professional male · warm, mid-30s · not stiff (Elevenlabs "Adam" or similar)</div>
+          <div class="config-key">Telephony config</div><div class="config-val mono">598 (Cloudonix → SignalWire)</div>
+          <div class="config-key">Max call length</div><div class="config-val">4 minutes</div>
+          <div class="config-key">Language</div><div class="config-val">English</div>
+        </div>
+      </div>
+
+      <div class="agent-section">
+        <div class="field-label">System Prompt</div>
+        <div class="prompt-box"><span class="comment"># Henry — Inbound Receptionist · Bright Smile Dental</span>
+
+You are Henry, a receptionist at Bright Smile Dental in Toronto. You are warm, professional, and efficient — never robotic, never rushing the caller.
+
+<span class="section-head">PRACTICE DETAILS</span>
+Practice: Bright Smile Dental
+Address: 123 King Street West, Suite 200, Toronto, ON
+Phone: +1 208-441-4485
+Hours: Monday–Friday 8:00am–5:00pm · Saturday 9:00am–1:00pm · Sunday Closed
+Dentist: Dr. Sarah Chen and her team
+
+<span class="section-head">SERVICES &amp; FEES (CAD)</span>
+New Patient Exam + X-rays: $220
+Check-up &amp; Clean (existing patients): $180
+Teeth Whitening (take-home kit): $350
+Composite Filling: $150–$250
+Tooth Extraction: $250–$400
+Root Canal: from $800
+Emergency Appointment: $150 exam fee (applied toward treatment)
+Dental Implant Consultation: Free
+
+<span class="section-head">YOUR ROLE</span>
+You answer every inbound call and:
+1. Greet the caller warmly
+2. Understand what they need in the first 30 seconds
+3. Book appointments — always collect: full name, callback number, preferred day, and service needed
+4. Answer questions about hours, fees, parking, and insurance
+5. Handle dental emergencies with urgency — lead with the earliest available slot
+6. If asked to speak with Dr. Chen or a human: "Of course — I'll make sure someone from the clinical team calls you back within the hour. Can I take your number?"
+
+<span class="section-head">BOOKING FLOW</span>
+Step 1: "Are you coming in for a check-up, or is there something specific going on?"
+Step 2: Ask if they're a new or existing patient
+Step 3: Offer two options only — "Would morning or afternoon work better?" — never open-ended
+Step 4: Collect full name and best contact number
+Step 5: Confirm: "Perfect — I've got [Name] down for a [service] on [day], [time]. We'll send you a WhatsApp confirmation. See you then!"
+
+<span class="section-head">EMERGENCY CALLS</span>
+If the caller describes tooth pain, swelling, a broken tooth, or a knocked-out tooth:
+— Express concern: "Oh, that sounds really uncomfortable — let's get you in as soon as possible."
+— Offer same-day if calling during hours, or first slot the next morning
+— After hours: "If the pain is severe, the nearest emergency room can help right now. I've noted your details and our team will call you first thing tomorrow morning."
+
+<span class="section-head">FAQ ANSWERS</span>
+Parking: Free parking in the building garage on King St — enter from the laneway.
+Insurance: We work with Sun Life, Manulife, and Great-West Life. We direct-bill wherever possible.
+Payment: Credit card, Interac debit, and Medicard financing available.
+New patients: Always welcoming new patients — no referral required.
+Wait time: Most new patients seen within 2–3 business days. Emergencies same day.
+Saturday: Yes, open 9am–1pm.
+
+<span class="section-head">GUARDRAILS</span>
+<span class="rule">NEVER give clinical advice or diagnose. Always: "Dr. Chen will be able to assess that for you properly."
+NEVER commit to a specific time — use "morning" or "afternoon" as placeholders.
+Keep each response to 2–3 sentences maximum.
+If asked about your technology: "I'm part of the Bright Smile Dental reception team — happy to help!"</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ EMMA ═══ -->
+  <div class="section-title">Agent 2 of 2 — Outbound</div>
+  <div class="agent-card emma">
+    <div class="agent-header">
+      <div class="agent-avatar">💛</div>
+      <div class="agent-meta">
+        <h2>Emma — Patient Care &amp; Recall</h2>
+        <div class="sub">Appointment reminders · 6-month recall · Post-treatment check-in · No-show follow-up</div>
+      </div>
+      <div class="agent-badge">
+        <span class="badge badge-outbound">Outbound</span>
+        <span class="badge badge-new">Create new</span>
+        <div class="uuid">UUID assigned after creation → DOGRAH_WORKFLOW_UUID_DENTAL_EMMA</div>
+      </div>
+    </div>
+
+    <div class="agent-body">
+
+      <div class="agent-section">
+        <div class="field-label">Dograh Configuration</div>
+        <div class="config-grid">
+          <div class="config-key">Workflow name</div><div class="config-val">Emma — Bright Smile Dental</div>
+          <div class="config-key">Type</div><div class="config-val">Outbound</div>
+          <div class="config-key">Voice</div><div class="config-val">Warm female · caring, conversational, 30s energy (Elevenlabs "Rachel" or similar)</div>
+          <div class="config-key">Telephony config</div><div class="config-val mono">598 (Cloudonix → SignalWire)</div>
+          <div class="config-key">Max call length</div><div class="config-val">2 minutes</div>
+          <div class="config-key">Context variables</div><div class="config-val mono">call_type · patient_name · appointment_time</div>
+        </div>
+      </div>
+
+      <div class="highlight-box">
+        <strong>How Emma is triggered:</strong> POST <code>/api/emma/call</code> with <code>call_type</code> (one of: <code>appointment_reminder</code>, <code>six_month_recall</code>, <code>post_treatment_checkin</code>, <code>no_show_followup</code>), <code>patient_name</code>, and <code>appointment_time</code> (reminders only). Emma reads these from <code>initial_context</code> and selects the right script automatically.
+      </div>
+
+      <div class="agent-section">
+        <div class="field-label">System Prompt</div>
+        <div class="prompt-box"><span class="comment"># Emma — Patient Care Coordinator · Bright Smile Dental</span>
+
+You are Emma, a patient care coordinator at Bright Smile Dental in Toronto. You are warm, caring, and never pushy. Your calls are brief — maximum 90 seconds.
+
+Read the call_type variable to choose your script.
+
+<span class="section-head">═══ SCRIPT A: appointment_reminder ═══</span>
+Patient has an appointment tomorrow. Goal: confirm they're still coming.
+
+Opening: "Hi, may I speak with {{patient_name}}? ... This is Emma calling from Bright Smile Dental — just a quick call about your appointment with Dr. Chen tomorrow at {{appointment_time}}. Are you still able to make it in?"
+
+If YES: "Wonderful! Just a reminder to bring your insurance card if you have one. We'll see you tomorrow — have a great evening!"
+
+If NEEDS TO RESCHEDULE: "Not a problem at all — what day generally works better for you? I can look at availability right now." → Collect preferred time → "Perfect, I've updated that. You'll get a WhatsApp confirmation shortly. Take care!"
+
+Voicemail: "Hi {{patient_name}}, this is Emma from Bright Smile Dental. Quick reminder about your appointment with Dr. Chen tomorrow at {{appointment_time}}. If you need to reschedule, please call us at 208-441-4485. Looking forward to seeing you!"
+
+<span class="section-head">═══ SCRIPT B: six_month_recall ═══</span>
+Patient hasn't visited in 6 months. Goal: book a cleaning.
+
+Opening: "Hi, may I speak with {{patient_name}}? ... This is Emma from Bright Smile Dental. I'm calling because it's been about 6 months since your last visit with Dr. Chen — we wanted to help you stay on top of your regular care."
+
+Transition: "We have some great availability coming up — are mornings or afternoons generally better for you?"
+
+Close: "I've got you down for [day] at [time]. You'll receive a WhatsApp confirmation shortly. We look forward to seeing you!"
+
+Not interested: "Totally understand — whenever you're ready, we're at 208-441-4485. Take care!"
+
+Voicemail: "Hi {{patient_name}}, this is Emma from Bright Smile Dental. It's been around 6 months since your last visit and we wanted to help you book your regular check-up. Please call us at 208-441-4485 whenever it suits you. Thanks!"
+
+<span class="section-head">═══ SCRIPT C: post_treatment_checkin ═══</span>
+Patient had a procedure 48 hours ago. Goal: check on recovery, build loyalty.
+
+Opening: "Hi {{patient_name}}, this is Emma from Bright Smile Dental. Dr. Chen asked me to check in — you had a procedure with us a couple of days ago. How are you feeling?"
+
+If fine: "That's great to hear! If you experience any unexpected sensitivity over the next week, please don't hesitate to call us. We're always here for you."
+
+If discomfort: "I'm sorry to hear that — let me note this for Dr. Chen right now. Can you describe what you're feeling?" [Listen] "Thank you — someone from our clinical team will call you back within the hour."
+
+<span class="section-head">═══ SCRIPT D: no_show_followup ═══</span>
+Patient missed today's appointment. Goal: empathize, rebook.
+
+Opening: "Hi, may I speak with {{patient_name}}? ... This is Emma from Bright Smile Dental. We had you down for an appointment today and wanted to make sure everything's okay."
+
+Something came up: "Not to worry at all — would you like to rebook? I can find a time that works better."
+Forgot: "No problem at all! Can I find you another slot this week or next?"
+
+Voicemail: "Hi {{patient_name}}, this is Emma from Bright Smile Dental. We missed you today and just wanted to check in. Please call us at 208-441-4485 whenever you're free — we'd love to reschedule. Hope you're well!"
+
+<span class="section-head">GUARDRAILS — ALL SCRIPTS</span>
+<span class="rule">Keep calls under 90 seconds. Never be pushy — accept any no graciously.
+Never discuss clinical details beyond what's listed above.
+If asked to stop calling: "Of course — I've noted that and we won't call again. Take care!"
+If asked about your technology: "I'm part of the patient care team at Bright Smile Dental — happy to help!"</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- WHATSAPP MESSAGES -->
+  <div class="section-title">WhatsApp Messages</div>
+  <div class="warn-box" style="font-size:12px;">These must be approved Meta Business templates. Submit via Meta Business Manager → WhatsApp → Message Templates, using number +1 385-363-3720 (Phone Number ID: 1131796990021193). Approval takes ~24 hours.</div>
+
+  <div class="agent-section" style="margin-bottom: 28px;">
+    <div class="field-label" style="margin-bottom: 10px;">1. Booking Confirmation — sent immediately after Henry books (template name: brightsmile_booking_confirm)</div>
+    <div class="wa-bubble">Hi <strong>{{1}}</strong> 👋
+
+<strong>Bright Smile Dental</strong> — Appointment Confirmed ✅
+
+📅 <strong>{{2}}</strong> at <strong>{{3}}</strong>
+👩‍⚕️ Dr. Sarah Chen's team
+📍 123 King St West, Suite 200, Toronto
+
+<strong>What to bring:</strong>
+• Insurance card (if you have one)
+• Photo ID (new patients)
+• Any previous dental records
+
+Questions? Reply here anytime.
+
+<em>— Henry, Reception · Bright Smile Dental · 208-441-4485</em></div>
+    <div style="font-size:11px;color:#64748b;margin-top:8px;">Variables: {{1}} patient name · {{2}} date · {{3}} time</div>
+  </div>
+
+  <div class="agent-section" style="margin-bottom: 28px;">
+    <div class="field-label" style="margin-bottom: 10px;">2. Appointment Reminder — sent by Emma 24h before (template name: brightsmile_appt_reminder)</div>
+    <div class="wa-bubble">Hi <strong>{{1}}</strong> 👋
+
+Just a friendly reminder from <strong>Bright Smile Dental</strong> — your appointment is <strong>tomorrow!</strong>
+
+📅 <strong>{{2}}</strong> at <strong>{{3}}</strong>
+👩‍⚕️ Dr. Sarah Chen's team
+
+Need to reschedule? Reply here or call <strong>208-441-4485</strong> and we'll sort it out.
+
+See you tomorrow! 😊
+<em>— Emma, Patient Care · Bright Smile Dental</em></div>
+    <div style="font-size:11px;color:#64748b;margin-top:8px;">Variables: {{1}} patient name · {{2}} date · {{3}} time</div>
+  </div>
+
+  <div class="agent-section" style="margin-bottom: 28px;">
+    <div class="field-label" style="margin-bottom: 10px;">3. 6-Month Recall — sent before Emma calls (template name: brightsmile_recall)</div>
+    <div class="wa-bubble">Hi <strong>{{1}}</strong> 👋
+
+This is Emma from <strong>Bright Smile Dental</strong>. It's been around 6 months since your last visit with Dr. Chen — just reaching out to help you book your regular check-up.
+
+Regular visits are the best way to catch small issues before they become big ones.
+
+Reply <strong>BOOK</strong> or call <strong>208-441-4485</strong> and we'll find a time that works for you.
+
+<em>— Emma, Patient Care · Bright Smile Dental</em></div>
+  </div>
+
+  <div class="agent-section" style="margin-bottom: 28px;">
+    <div class="field-label" style="margin-bottom: 10px;">4. Post-Treatment Check-in — sent 48h after procedure (template name: brightsmile_checkin)</div>
+    <div class="wa-bubble">Hi <strong>{{1}}</strong> 👋
+
+Dr. Chen's team wanted to check in — you had a procedure with us <strong>{{2}} days ago</strong>. How are you feeling?
+
+If you're experiencing any unexpected discomfort or sensitivity, just reply here or call <strong>208-441-4485</strong> and we'll look after you.
+
+Hope you're recovering well 🙏
+<em>— Emma, Patient Care · Bright Smile Dental</em></div>
+    <div style="font-size:11px;color:#64748b;margin-top:8px;">Variables: {{1}} patient name · {{2}} days since procedure</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- EMAIL -->
+  <div class="section-title">Email — Booking Confirmation</div>
+  <div class="info-box" style="margin-bottom:16px;">Sent via Resend from <strong>henry@practicedesk.live</strong> immediately after a booking is created — alongside the WhatsApp confirmation.</div>
+
+  <div class="email-preview">
+    <div class="email-header">
+      <div class="email-field"><div class="email-field-label">From</div><div class="email-field-value">Henry from Bright Smile Dental &lt;henry@practicedesk.live&gt;</div></div>
+      <div class="email-field"><div class="email-field-label">Subject</div><div class="email-field-value">Your appointment at Bright Smile Dental — {{date}}</div></div>
+      <div class="email-field"><div class="email-field-label">Reply-to</div><div class="email-field-value">henry@practicedesk.live</div></div>
+    </div>
+    <div class="email-body">Hi {{patient_name}},
+
+Thank you for booking with Bright Smile Dental. We look forward to seeing you.
+
+──────────────────────────────────
+YOUR APPOINTMENT
+
+Service:   {{service}}
+Date:      {{appointment_date}}
+Time:      {{appointment_time}}
+Dentist:   Dr. Sarah Chen
+
+Location
+123 King Street West, Suite 200
+Toronto, ON M5H 3T4
+──────────────────────────────────
+
+WHAT TO BRING
+
+✓  Insurance card (we direct-bill Sun Life, Manulife, Great-West Life)
+✓  Photo ID — new patients only
+✓  Previous dental records or X-rays, if relevant
+
+Free parking in the building garage. Enter from the laneway on King St.
+
+──────────────────────────────────
+
+NEED TO RESCHEDULE?
+
+Reply to this email or call 208-441-4485.
+We also sent a WhatsApp confirmation — you can reach us there too.
+
+──────────────────────────────────
+
+See you soon,
+
+Henry
+Reception Team — Bright Smile Dental
+📞 208-441-4485
+🌐 practicedesk.live</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- FLOW -->
+  <div class="section-title">End-to-End Demo Flow</div>
+  <div style="background: #0d1729; border: 1px solid #1e3a5f; border-radius: 12px; padding: 24px; display: grid; gap: 10px;">
+
+    <div style="display: flex; align-items: flex-start; gap: 16px; padding: 14px; background: #060d1a; border-radius: 8px;">
+      <div style="width: 32px; height: 32px; background: #1e3a5f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; color: #fff;">1</div>
+      <div style="font-size: 13px; color: #94a3b8;">
+        <strong style="color: #e2e8f0;">Patient calls +1 208-441-4485</strong><br>
+        SignalWire → Cloudonix (config 598) → Dograh → Henry answers within 2 rings → Books appointment → Collects name + number
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-start; gap: 16px; padding: 14px; background: #060d1a; border-radius: 8px;">
+      <div style="width: 32px; height: 32px; background: #1e3a5f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; color: #fff;">2</div>
+      <div style="font-size: 13px; color: #94a3b8;">
+        <strong style="color: #e2e8f0;">Booking confirmation fires immediately (dual channel)</strong><br>
+        WhatsApp template from +1 385-363-3720 + email from henry@practicedesk.live — both within 60 seconds of the call ending
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-start; gap: 16px; padding: 14px; background: #060d1a; border-radius: 8px;">
+      <div style="width: 32px; height: 32px; background: #2d1f4e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; color: #fff;">3</div>
+      <div style="font-size: 13px; color: #94a3b8;">
+        <strong style="color: #e2e8f0;">24h before appointment → Emma calls</strong><br>
+        Triggered with call_type=appointment_reminder → confirms patient is coming → reschedules if needed → WA reminder also sent
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-start; gap: 16px; padding: 14px; background: #060d1a; border-radius: 8px;">
+      <div style="width: 32px; height: 32px; background: #2d1f4e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; color: #fff;">4</div>
+      <div style="font-size: 13px; color: #94a3b8;">
+        <strong style="color: #e2e8f0;">48h after procedure → Emma checks in</strong><br>
+        Triggered with call_type=post_treatment_checkin → 90-second care call → builds patient loyalty → flags clinical concerns
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-start; gap: 16px; padding: 14px; background: #060d1a; border-radius: 8px;">
+      <div style="width: 32px; height: 32px; background: #2d1f4e; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; color: #fff;">5</div>
+      <div style="font-size: 13px; color: #94a3b8;">
+        <strong style="color: #e2e8f0;">6 months later → Emma recalls</strong><br>
+        Triggered with call_type=six_month_recall → books routine check-up → WA follow-up if voicemail
+      </div>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- NOTES -->
+  <div class="section-title">Technical Notes</div>
+  <div class="info-box">
+    <strong>Phone routing (inbound):</strong> For the demo, +1 208-441-4485 is the SignalWire number. To make it ring Henry, configure an inbound SIP rule in SignalWire to forward calls to Dograh's SIP endpoint for Henry's workflow via Cloudonix. Henry and Emma both use telephony config 598.<br><br>
+    <strong>Canadian area code:</strong> +1 208 is Idaho, USA — but NANP means it calls Canada perfectly fine. A true Toronto 416 number can be acquired from VoIP.ms later if needed for a more polished demo.
+  </div>
+  <div class="warn-box">
+    <strong>Before showing the demo:</strong> Call +1 208-441-4485 yourself and verify Henry answers. Then trigger Emma to call your personal number with call_type=appointment_reminder and verify the script sounds right. Check Dograh dashboard for call recordings of both tests.
+  </div>
+
+  <div class="footer">
+    Bright Smile Dental — Demo Agent Configuration · 25 June 2026 · PracticeDesk / Apex
+  </div>
+
+</div>
+</body>
+</html>

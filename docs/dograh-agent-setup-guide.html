@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dograh Agent Setup Guide — PracticeDesk</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0f1e; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; }
+  .page { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 48px 0 40px; border-bottom: 1px solid #1e3a5f; margin-bottom: 48px; }
+  .hero-badge { display: inline-block; background: #1e3a5f; color: #c9a84c; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+  .hero h1 { font-size: 30px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  .hero p { color: #94a3b8; font-size: 14px; max-width: 600px; margin: 0 auto; }
+
+  /* Section */
+  .section { margin-bottom: 56px; }
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #c9a84c; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid #1e3a5f; }
+  h2 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+  h3 { font-size: 14px; font-weight: 700; color: #c9a84c; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Steps */
+  .step { background: #0d1729; border: 1px solid #1e3a5f; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .step-header { background: #111e35; padding: 14px 20px; display: flex; align-items: center; gap: 14px; cursor: pointer; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; background: #1e3a5f; color: #c9a84c; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .step-title { font-size: 14px; font-weight: 600; color: #fff; }
+  .step-sub { font-size: 12px; color: #64748b; margin-left: auto; }
+  .step-body { padding: 20px; }
+
+  /* Node cards */
+  .node-card { background: #060d1a; border: 1px solid #1a2d4a; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+  .node-header { padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #1a2d4a; }
+  .node-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-yellow { background: #f59e0b; }
+  .dot-blue { background: #60a5fa; }
+  .dot-green { background: #34d399; }
+  .dot-red { background: #f87171; }
+  .node-name { font-size: 13px; font-weight: 700; color: #fff; }
+  .node-tag { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 2px 8px; border-radius: 10px; }
+  .tag-keep { background: #1f3d2d; color: #34d399; }
+  .tag-replace { background: #3d1a0a; color: #fb923c; }
+  .tag-update { background: #1e3a5f; color: #60a5fa; }
+  .node-body { padding: 16px; }
+
+  /* Prompt blocks */
+  .prompt-box { background: #0a1628; border: 1px solid #1e3a5f; border-radius: 6px; padding: 16px; font-size: 12px; font-family: 'Consolas', 'Courier New', monospace; white-space: pre-wrap; line-height: 1.75; color: #cbd5e1; margin-bottom: 12px; }
+  .prompt-box .comment { color: #475569; }
+  .prompt-box .keep { color: #34d399; }
+  .prompt-box .replace { color: #fbbf24; }
+  .prompt-box .rule { color: #f87171; }
+
+  /* Toggle table */
+  .toggle-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+  .toggle-table th { text-align: left; padding: 8px 12px; background: #111e35; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .toggle-table td { padding: 8px 12px; border-top: 1px solid #1a2d4a; color: #94a3b8; vertical-align: top; }
+  .toggle-table td:first-child { color: #e2e8f0; font-weight: 500; }
+  .on  { color: #34d399 !important; font-weight: 700; }
+  .off { color: #475569 !important; }
+  .na  { color: #334155 !important; }
+
+  /* Info / warn / tip boxes */
+  .info-box  { background: #0d1729; border: 1px solid #1e3a5f; border-radius: 8px; padding: 14px 18px; font-size: 13px; color: #93c5fd; margin-bottom: 16px; }
+  .info-box strong { color: #bfdbfe; }
+  .warn-box  { background: #1c1200; border: 1px solid #4d3000; border-radius: 8px; padding: 14px 18px; font-size: 13px; color: #fbbf24; margin-bottom: 16px; }
+  .tip-box   { background: #0d1e10; border: 1px solid #1f4d2a; border-radius: 8px; padding: 14px 18px; font-size: 13px; color: #86efac; margin-bottom: 16px; }
+  .tip-box strong { color: #bbf7d0; }
+
+  /* Two column */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Variable ref */
+  .var-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+  .var-table th { text-align: left; padding: 8px 12px; background: #111e35; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .var-table td { padding: 8px 12px; border-top: 1px solid #1a2d4a; color: #94a3b8; }
+  .var-table td:first-child { font-family: monospace; color: #c9a84c; }
+
+  /* KB template */
+  .kb-template { background: #060d1a; border: 1px solid #1a2d4a; border-radius: 8px; padding: 20px; font-size: 12px; font-family: 'Consolas', monospace; white-space: pre-wrap; line-height: 1.8; color: #cbd5e1; }
+
+  .divider { height: 1px; background: #1e3a5f; margin: 40px 0; }
+
+  /* Agent type header */
+  .agent-type { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 16px 20px; border-radius: 10px; }
+  .agent-type.inbound  { background: #0d1729; border: 1px solid #1e3a5f; }
+  .agent-type.outbound { background: #0d1e10; border: 1px solid #1f4d2a; }
+  .agent-type-icon { font-size: 28px; }
+  .agent-type-title { font-size: 18px; font-weight: 700; color: #fff; }
+  .agent-type-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+  /* Quick ref */
+  .quick-ref { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .quick-ref-item { background: #0d1729; border: 1px solid #1e3a5f; border-radius: 8px; padding: 14px; }
+  .quick-ref-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; }
+  .quick-ref-value { font-size: 12px; color: #c9a84c; font-weight: 600; }
+
+  .footer { text-align: center; padding-top: 40px; border-top: 1px solid #1e3a5f; color: #334155; font-size: 12px; }
+
+  code { font-family: monospace; background: #111e35; color: #c9a84c; padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+  ul.plain { list-style: none; }
+  ul.plain li { font-size: 13px; color: #94a3b8; margin-bottom: 6px; padding-left: 16px; position: relative; }
+  ul.plain li::before { content: "→"; position: absolute; left: 0; color: #c9a84c; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">PracticeDesk · Ops Reference</div>
+    <h1>Dograh Agent Setup Guide</h1>
+    <p>How to configure inbound and outbound voice agents in the Dograh workflow builder — with exact node content, toggle settings, and a reusable Knowledge Base template.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- OVERVIEW -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">How Dograh Works</div>
+
+    <div class="info-box">
+      <strong>Dograh uses a node-based workflow canvas.</strong> Each workflow has 4 nodes: Global, Start, Main Agenda, and End Call. The Agent Builder auto-generates this structure — you then customise each node. The public API only supports triggering calls, not creating or reading workflows. All setup is done through the dashboard at app.dograh.com.
+    </div>
+
+    <div style="background: #0d1729; border: 1px solid #1e3a5f; border-radius: 10px; padding: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+      <div style="text-align:center;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;margin:0 auto 8px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">Global Node</div>
+        <div style="font-size:11px;color:#64748b;">Persona · Practice details · Guardrails · Runs in all nodes when Add Global Prompt is ON</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#60a5fa;margin:0 auto 8px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">Start Node</div>
+        <div style="font-size:11px;color:#64748b;">Greeting Text (spoken) · Call flow logic · Earn the right to continue</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#34d399;margin:0 auto 8px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">Main Agenda</div>
+        <div style="font-size:11px;color:#64748b;">The actual conversation · Scripts · Booking flow · Objection handling</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#f87171;margin:0 auto 8px;"></div>
+        <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px;">End Call Node</div>
+        <div style="font-size:11px;color:#64748b;">Brief farewell only · End immediately · No new topics</div>
+      </div>
+    </div>
+
+    <div class="quick-ref">
+      <div class="quick-ref-item"><div class="quick-ref-label">Telephony (Intl / Canada)</div><div class="quick-ref-value">Config 598 (Cloudonix)</div></div>
+      <div class="quick-ref-item"><div class="quick-ref-label">Telephony (India)</div><div class="quick-ref-value">Config 477 (Vobiz)</div></div>
+      <div class="quick-ref-item"><div class="quick-ref-label">Variable syntax</div><div class="quick-ref-value">&#123;&#123;variable_name&#125;&#125;</div></div>
+    </div>
+
+    <h3>Toggle Reference — at a glance</h3>
+    <table class="toggle-table">
+      <tr><th>Toggle</th><th>What it does</th><th>Global</th><th>Start</th><th>Main Agenda</th><th>End Call</th></tr>
+      <tr><td>Allow Interruption</td><td>User can speak over the agent mid-sentence</td><td class="na">—</td><td class="on">ON</td><td class="on">ON</td><td class="off">OFF</td></tr>
+      <tr><td>Add Global Prompt</td><td>Prepends Global Node content to this node at runtime</td><td class="na">—</td><td class="on">ON</td><td class="on">ON</td><td class="off">OFF</td></tr>
+      <tr><td>Delayed Start</td><td>Agent pauses before speaking after pickup (outbound only)</td><td class="na">—</td><td class="on">ON (outbound)</td><td class="na">—</td><td class="na">—</td></tr>
+      <tr><td>Enable Variable Extraction</td><td>LLM extracts data from the call before hangup</td><td class="off">OFF</td><td class="off">OFF</td><td class="off">OFF*</td><td class="off">OFF</td></tr>
+      <tr><td>Pre-Call Data Fetch</td><td>POST to external API before call starts, merges response as variables</td><td class="na">—</td><td class="off">OFF</td><td class="na">—</td><td class="na">—</td></tr>
+    </table>
+    <div style="font-size:11px;color:#475569;margin-bottom:20px;">* Variable Extraction on Main Agenda can be turned ON later to log booking outcomes to Supabase.</div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FAST PATH — KB APPROACH -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Recommended Approach — Knowledge Base + Thin Prompt</div>
+
+    <div class="tip-box">
+      <strong>For production use: separate the agent persona from the client knowledge.</strong> The Global Node holds the agent's persona and rules (reusable across clients). A Knowledge Base document holds all the practice-specific details (services, fees, hours, FAQ). Attach the KB to the Main Agenda node. To onboard a new client: duplicate the workflow, swap the KB document. Done.
+    </div>
+
+    <div class="two-col">
+      <div style="background:#0d1729;border:1px solid #1e3a5f;border-radius:8px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:8px;">WITHOUT Knowledge Base</div>
+        <ul class="plain">
+          <li>All practice details embedded in prompts</li>
+          <li>Must rewrite prompts for each new client</li>
+          <li>Easy to make mistakes updating node content</li>
+          <li>Fine for a single demo practice</li>
+        </ul>
+      </div>
+      <div style="background:#0d1e10;border:1px solid #1f4d2a;border-radius:8px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:#34d399;margin-bottom:8px;">WITH Knowledge Base ✓</div>
+        <ul class="plain">
+          <li>Practice details in a separate document</li>
+          <li>Duplicate workflow + upload new KB = new client</li>
+          <li>Prompts stay clean and version-controlled</li>
+          <li>Scale to 10, 50, 100 practices without prompt surgery</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Knowledge Base Document Template</h3>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:12px;">Create this as a plain text or markdown file, upload via Dograh → Files → Knowledge Base, then attach to the Main Agenda node of each workflow.</div>
+
+    <div class="kb-template"># PRACTICE PROFILE
+Practice Name: [e.g. Bright Smile Dental]
+Category: [Dental / Physio / Salon / Accountant]
+Address: [Full address]
+City: [City, State/Province]
+Phone: [Phone number]
+Email: [Email if applicable]
+Dentist / Practitioner: [Dr. Name]
+
+# HOURS
+Monday–Friday: [e.g. 8:00am – 5:00pm]
+Saturday: [e.g. 9:00am – 1:00pm]
+Sunday: Closed
+Public holidays: Closed (note any exceptions)
+
+# SERVICES AND FEES
+[Service Name]: [Duration] · [Fee]
+[Service Name]: [Duration] · [Fee]
+[Service Name]: [Duration] · [Fee]
+Emergency Appointment: [Fee] (applied toward treatment)
+New Patient Consultation: [Fee or Free]
+
+Examples for dental:
+New Patient Exam + X-rays: $220
+Check-up & Clean: $180
+Teeth Whitening (take-home): $350
+Composite Filling: $150–$250
+Tooth Extraction: $250–$400
+Root Canal: from $800
+Emergency Appointment: $150 exam fee
+Implant Consultation: Free
+
+# FREQUENTLY ASKED QUESTIONS
+
+Parking: [e.g. Free parking in the building garage. Enter from the laneway on King St.]
+Insurance: [e.g. We work with Sun Life, Manulife, and Great-West Life. We direct-bill wherever possible.]
+Payment: [e.g. Credit card, Interac debit, Medicard financing available.]
+New patients: [e.g. Always welcoming new patients — no referral required.]
+Wait time: [e.g. Most new patients seen within 2–3 business days. Emergencies same day.]
+Referral needed: [Yes / No and details]
+Telehealth / Online: [Yes / No and details]
+
+# EMERGENCY PROTOCOL
+If a caller describes [tooth pain / injury / urgent symptom]:
+- Acknowledge with care and offer the earliest available slot
+- Same-day if calling during hours
+- After hours: direct to nearest emergency room + note details for callback next morning
+- NEVER give clinical advice or home remedy suggestions
+
+# ESCALATION
+If caller asks to speak with [practitioner name] or a human:
+"Of course — I will make sure someone from the team calls you back within the hour. Can I take your number?"
+
+# GUARDRAILS
+- Never give clinical / medical advice
+- Never promise a specific appointment time (use morning / afternoon)
+- If asked about AI technology: "I am part of the [Practice Name] reception team"
+- Keep all responses 2–3 sentences maximum</div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- INBOUND AGENT SETUP -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Setup Guide — Inbound Agent</div>
+    <div class="agent-type inbound">
+      <div class="agent-type-icon">📞</div>
+      <div>
+        <div class="agent-type-title">Inbound Receptionist</div>
+        <div class="agent-type-sub">Answers calls · Books appointments · FAQ · Emergency handling · Example: Claire at Bright Smile Dental</div>
+      </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Create the Workflow in Dograh</div>
+        <div class="step-sub">app.dograh.com → Voice Agents → New</div>
+      </div>
+      <div class="step-body">
+        <ul class="plain" style="margin-bottom:12px;">
+          <li>Click <strong>Agent Builder</strong> (not Blank Canvas)</li>
+          <li><strong>Use Case:</strong> Customer Service</li>
+          <li><strong>Activity description:</strong> Answer inbound calls for a [vertical] practice. Book appointments, answer questions about hours, services, and fees, handle emergencies, and collect patient details for confirmation.</li>
+          <li>Dograh generates the 4-node workflow automatically</li>
+          <li>Rename the workflow: "[Agent Name] — [Practice Name]" (e.g. Claire — Bright Smile Dental)</li>
+          <li>Set voice via the <strong>⚙️ gear icon</strong> on the canvas — choose a voice that matches the agent's persona</li>
+          <li>Set telephony configuration to <strong>598</strong> (international/Canada) or <strong>477</strong> (India)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Global Node</div>
+        <div class="step-sub">Yellow node · Replace OVERALL GOAL only</div>
+      </div>
+      <div class="step-body">
+        <div class="warn-box" style="font-size:12px;">Replace only the <strong># OVERALL GOAL</strong> section at the top. Keep everything from <strong>## Response Language</strong> onwards exactly as Dograh generated it — those sections handle ASR noise, voice behavior, and TTS output quality.</div>
+
+        <h3 style="margin-bottom:8px;">Thin version (with KB document attached to Main Agenda)</h3>
+        <div class="prompt-box"><span class="replace"># OVERALL GOAL
+You are [Agent Name], a receptionist at [Practice Name] in [City].
+You are warm, professional, and efficient — never robotic, never rushing the caller.
+
+Your goal is to address inbound calls for: **booking appointments, answering
+questions about hours, services, and fees, handling emergencies, and collecting
+patient details for confirmation**.
+
+All practice details, services, fees, and FAQ answers are in your Knowledge Base.
+Always refer to the KB for accurate information. Do not guess fees or hours.
+
+If the caller is hesitant or does not want to continue, keep it brief and end politely.
+Never give clinical or medical advice — always say "[Practitioner] will assess that for you."
+If asked about your technology: "I am part of the [Practice Name] reception team."</span>
+
+<span class="keep">## Response Language
+[KEEP DOGRAH DEFAULT — do not change]
+
+## HANDLING ASR / TRANSCRIPTION ISSUES
+[KEEP DOGRAH DEFAULT — do not change]
+
+## SUMMARY OF KEY BEHAVIOR
+[KEEP DOGRAH DEFAULT — do not change]</span></div>
+
+        <h3 style="margin-bottom:8px;">Full version (no KB — practice details embedded)</h3>
+        <div class="prompt-box"><span class="replace"># OVERALL GOAL
+You are [Agent Name], a receptionist at [Practice Name] in [City]. Warm, professional, efficient.
+
+Your goal: **booking appointments, answering questions about hours, services, and fees,
+handling emergencies, and collecting patient details for confirmation**.
+
+PRACTICE:
+[Practice Name] · [Address] · [City]
+[Practitioner] · [Hours summary]
+Phone: [Phone number]
+
+SERVICES ([Currency]):
+[List each service: Name: Fee]
+
+FAQ:
+Parking: [Answer]
+Insurance: [Answer]
+Payment: [Answer]
+New patients: [Answer]
+Wait time: [Answer]
+
+Never give clinical advice — "[Practitioner] will assess that for you."
+If asked about technology: "I am part of the [Practice Name] reception team."</span>
+
+<span class="keep">## Response Language
+[KEEP DOGRAH DEFAULT]
+## HANDLING ASR / TRANSCRIPTION ISSUES
+[KEEP DOGRAH DEFAULT]
+## SUMMARY OF KEY BEHAVIOR
+[KEEP DOGRAH DEFAULT]</span></div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Start Node</div>
+        <div class="step-sub">Blue node · Update Greeting Text only · Keep System Prompt default</div>
+      </div>
+      <div class="step-body">
+        <div class="node-card">
+          <div class="node-header">
+            <div class="node-dot dot-blue"></div>
+            <div class="node-name">Greeting Text field</div>
+            <div class="node-tag tag-replace">Replace</div>
+          </div>
+          <div class="node-body">
+            <div class="prompt-box">Thank you for calling [Practice Name] — this is [Agent Name], how can I help you today?</div>
+            <div style="font-size:12px;color:#64748b;">Just the spoken words. No instructions, no markdown, no line breaks.</div>
+          </div>
+        </div>
+        <div class="node-card">
+          <div class="node-header">
+            <div class="node-dot dot-blue"></div>
+            <div class="node-name">System Prompt</div>
+            <div class="node-tag tag-keep">Keep default</div>
+          </div>
+          <div class="node-body">
+            <div style="font-size:12px;color:#64748b;">Dograh's default handles: when to move to Main Agenda (after 1–3 turns), when to end (wrong number/spam), critical tool call rules. Do not change.</div>
+          </div>
+        </div>
+        <h3 style="margin-bottom:8px;">Toggle settings</h3>
+        <table class="toggle-table">
+          <tr><th>Toggle</th><th>Setting</th></tr>
+          <tr><td>Allow Interruption</td><td class="on">ON</td></tr>
+          <tr><td>Add Global Prompt</td><td class="on">ON</td></tr>
+          <tr><td>Delayed Start</td><td class="off">OFF (inbound — caller speaks first)</td></tr>
+          <tr><td>Enable Variable Extraction</td><td class="off">OFF</td></tr>
+          <tr><td>Pre-Call Data Fetch</td><td class="off">OFF</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Main Agenda Node</div>
+        <div class="step-sub">Green/blue node · Replace Details sections · Keep Flow + Constraints</div>
+      </div>
+      <div class="step-body">
+        <div class="warn-box" style="font-size:12px;">Replace only <strong>Details:</strong>, <strong>Relevant Questions:</strong>, and <strong>Wrap up details:</strong>. Keep <strong>## Flow of call</strong> and <strong>## Constraints</strong> exactly as Dograh wrote them.</div>
+
+        <div class="node-card">
+          <div class="node-header">
+            <div class="node-dot dot-green"></div>
+            <div class="node-name">Content to replace (KB version)</div>
+            <div class="node-tag tag-replace">Replace</div>
+          </div>
+          <div class="node-body">
+            <div class="prompt-box"><span class="replace">Details:
+[[ Handle the caller's request using the Knowledge Base for all practice details.
+
+BOOKING FLOW:
+1. "Are you coming in for a check-up, or is there something specific going on?"
+2. Ask if they are new or existing patient
+3. Offer morning OR afternoon only — never ask for a specific time open-endedly
+4. Collect: full name and best callback number
+5. Confirm: "I have got [Name] down for a [service] on [day], [time].
+   We will send a WhatsApp confirmation. See you then!"
+
+EMERGENCY (pain, swelling, broken tooth, knocked-out tooth):
+"That sounds really uncomfortable — let me get you in as soon as possible."
+Same-day if during hours. First slot next morning if after hours.
+After hours severe: "The nearest emergency room can help right now.
+Our team will call you first thing tomorrow morning."
+NEVER give clinical advice — always refer to the practitioner.
+
+ESCALATION:
+If caller asks for the practitioner or a human:
+"Of course — someone will call you back within the hour. Can I take your number?" ]]
+
+Relevant Questions:
+[[ "Are you coming in for a check-up, or is there something specific going on?"
+"Are you a new or existing patient?"
+"Would morning or afternoon work better for you?"
+"Can I take your full name and best contact number?" ]]
+
+Wrap up details:
+[[ Confirm the appointment day and time. Let them know a WhatsApp confirmation will follow.
+Thank them warmly. ]]</span>
+
+<span class="keep">## Flow of call
+[KEEP DOGRAH DEFAULT]
+
+## Constraints
+[KEEP DOGRAH DEFAULT]</span></div>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom:8px;">Toggle settings</h3>
+        <table class="toggle-table">
+          <tr><th>Toggle</th><th>Setting</th></tr>
+          <tr><td>Allow Interruption</td><td class="on">ON</td></tr>
+          <tr><td>Add Global Prompt</td><td class="on">ON</td></tr>
+          <tr><td>Enable Variable Extraction</td><td class="off">OFF (turn ON later to log booking outcomes)</td></tr>
+        </table>
+
+        <h3 style="margin-bottom:8px;">Knowledge Base</h3>
+        <div class="tip-box" style="font-size:12px;">
+          <strong>Attach the KB document here.</strong> Upload via Dograh → Files → Knowledge Base first, then select it in the Knowledge Base Documents section of this node. The agent will reference it automatically during the conversation.
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">5</div>
+        <div class="step-title">End Call Node</div>
+        <div class="step-sub">Red node · Update farewell only · Keep all logic</div>
+      </div>
+      <div class="step-body">
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:12px;">Keep all the default logic (end immediately, no new topics, no questions). Only change the example farewell line.</div>
+        <div class="prompt-box"><span class="comment">Replace only this line:</span>
+<span class="replace">Example: "Thanks for calling [Practice Name]. Have a wonderful day!"</span>
+
+<span class="keep">Everything else: KEEP DOGRAH DEFAULT</span></div>
+        <h3 style="margin-bottom:8px;">Toggle settings</h3>
+        <table class="toggle-table">
+          <tr><th>Toggle</th><th>Setting</th></tr>
+          <tr><td>Add Global Prompt</td><td class="off">OFF</td></tr>
+          <tr><td>Enable Variable Extraction</td><td class="off">OFF</td></tr>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- OUTBOUND AGENT SETUP -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Setup Guide — Outbound Agent</div>
+    <div class="agent-type outbound">
+      <div class="agent-type-icon">💛</div>
+      <div>
+        <div class="agent-type-title">Outbound Patient Care</div>
+        <div class="agent-type-sub">Reminders · Recall · Check-in · No-show follow-up · Example: Emma at Bright Smile Dental</div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-bottom:20px;">
+      Outbound agents read a <code>call_type</code> variable passed via <code>initial_context</code> at trigger time to decide which script to run. Variables are accessed in prompts as <code>&#123;&#123;call_type&#125;&#125;</code>, <code>&#123;&#123;patient_name&#125;&#125;</code>, <code>&#123;&#123;appointment_time&#125;&#125;</code>.
+    </div>
+
+    <h3 style="margin-bottom:12px;">Variables reference</h3>
+    <table class="var-table" style="margin-bottom:20px;">
+      <tr><th>Variable</th><th>Values</th><th>Required</th></tr>
+      <tr><td>&#123;&#123;call_type&#125;&#125;</td><td>appointment_reminder · six_month_recall · post_treatment_checkin · no_show_followup</td><td>Always</td></tr>
+      <tr><td>&#123;&#123;patient_name&#125;&#125;</td><td>Patient's first name</td><td>Always</td></tr>
+      <tr><td>&#123;&#123;appointment_time&#125;&#125;</td><td>e.g. "10:00am Thursday"</td><td>appointment_reminder only</td></tr>
+    </table>
+
+    <!-- Step 1 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Create the Workflow in Dograh</div>
+        <div class="step-sub">app.dograh.com → Voice Agents → New</div>
+      </div>
+      <div class="step-body">
+        <ul class="plain">
+          <li>Click <strong>Agent Builder</strong></li>
+          <li><strong>Use Case:</strong> Outbound Call</li>
+          <li><strong>Activity description:</strong> Call existing patients for appointment reminders, 6-month recall check-ups, post-treatment check-ins, and no-show follow-up. Warm, brief calls under 90 seconds.</li>
+          <li>Rename the workflow: "[Agent Name] — [Practice Name]"</li>
+          <li>Set voice via gear icon — warm female voice recommended</li>
+          <li>Set telephony to <strong>598</strong> (international/Canada) or <strong>477</strong> (India)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Global Node</div>
+        <div class="step-sub">Yellow node · Replace OVERALL GOAL only</div>
+      </div>
+      <div class="step-body">
+        <div class="prompt-box"><span class="replace"># OVERALL GOAL
+You are [Agent Name], a patient care coordinator at [Practice Name] in [City].
+You are warm, caring, and never pushy. Calls must stay under 90 seconds.
+
+The reason for this call is in &#123;&#123;call_type&#125;&#125;:
+- appointment_reminder: patient has appointment tomorrow — confirm they are coming
+- six_month_recall: 6 months since last visit — book a check-up
+- post_treatment_checkin: patient had a procedure 2 days ago — check how they are feeling
+- no_show_followup: patient missed appointment today — empathize and rebook
+
+Patient name: &#123;&#123;patient_name&#125;&#125;
+Appointment time (if relevant): &#123;&#123;appointment_time&#125;&#125;
+
+Practice: [Practice Name] · [Practitioner] · [Phone number]
+Never give clinical advice. Accept any no graciously and immediately.
+If asked to stop calling: "Of course — I have noted that and we will not call again."
+If asked about technology: "I am part of the patient care team at [Practice Name]."</span>
+
+<span class="keep">## Response Language
+[KEEP DOGRAH DEFAULT]
+## HANDLING ASR / TRANSCRIPTION ISSUES
+[KEEP DOGRAH DEFAULT]
+## SUMMARY OF KEY BEHAVIOR
+[KEEP DOGRAH DEFAULT]</span></div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Start Node</div>
+        <div class="step-sub">Blue node · Short greeting only · Delayed Start ON</div>
+      </div>
+      <div class="step-body">
+        <div class="node-card">
+          <div class="node-header">
+            <div class="node-dot dot-blue"></div>
+            <div class="node-name">Greeting Text field</div>
+            <div class="node-tag tag-replace">Replace</div>
+          </div>
+          <div class="node-body">
+            <div class="prompt-box">Hi, may I speak with &#123;&#123;patient_name&#125;&#125;? This is [Agent Name] calling from [Practice Name].</div>
+            <div style="font-size:12px;color:#64748b;">Just the intro. Emma identifies herself and confirms she has the right person. The main script starts in Main Agenda.</div>
+          </div>
+        </div>
+        <div class="node-card">
+          <div class="node-header">
+            <div class="node-dot dot-blue"></div>
+            <div class="node-name">System Prompt</div>
+            <div class="node-tag tag-keep">Keep default</div>
+          </div>
+          <div class="node-body">
+            <div style="font-size:12px;color:#64748b;">Dograh's outbound default handles: earning permission to continue, verifying the right person, moving to Main Agenda after 1–2 turns. Do not change.</div>
+          </div>
+        </div>
+        <h3 style="margin-bottom:8px;">Toggle settings</h3>
+        <table class="toggle-table">
+          <tr><th>Toggle</th><th>Setting</th></tr>
+          <tr><td>Allow Interruption</td><td class="on">ON</td></tr>
+          <tr><td>Add Global Prompt</td><td class="on">ON</td></tr>
+          <tr><td>Delayed Start</td><td class="on">ON — gives the patient a moment after pickup before Emma speaks</td></tr>
+          <tr><td>Enable Variable Extraction</td><td class="off">OFF</td></tr>
+          <tr><td>Pre-Call Data Fetch</td><td class="off">OFF (we pass data via initial_context in the API trigger)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Main Agenda Node</div>
+        <div class="step-sub">Green/blue node · 4 scripts by call_type · Keep Flow + Constraints</div>
+      </div>
+      <div class="step-body">
+        <div class="node-card">
+          <div class="node-header">
+            <div class="node-dot dot-green"></div>
+            <div class="node-name">Replace Details / Relevant Questions / Wrap up sections</div>
+            <div class="node-tag tag-replace">Replace</div>
+          </div>
+          <div class="node-body">
+            <div class="prompt-box"><span class="replace">Details:
+[[ Read &#123;&#123;call_type&#125;&#125; and follow the matching script:
+
+APPOINTMENT_REMINDER — "Just a quick call about your appointment with [Practitioner]
+tomorrow at &#123;&#123;appointment_time&#125;&#125; — are you still able to make it in?"
+- YES: "Wonderful! [Any prep instructions]. See you tomorrow!"
+- RESCHEDULE: "No problem — morning or afternoon generally better?"
+  → collect preference → "Done, you will get a WhatsApp confirmation shortly."
+- VOICEMAIL: "Hi &#123;&#123;patient_name&#125;&#125;, [Agent Name] from [Practice Name]. Reminder about
+  your appointment tomorrow at &#123;&#123;appointment_time&#125;&#125;. To reschedule call [phone]."
+
+SIX_MONTH_RECALL — "It has been about 6 months since your last visit with [Practitioner]
+— I wanted to help you book your regular check-up."
+- INTERESTED: "Are mornings or afternoons generally better?" → offer two options → confirm
+- NOT INTERESTED: "Totally understand — we are at [phone] whenever you are ready."
+- VOICEMAIL: "Hi &#123;&#123;patient_name&#125;&#125;, [Agent Name] from [Practice Name]. About 6 months
+  since your last visit — call [phone] to book your check-up. Thanks!"
+
+POST_TREATMENT_CHECKIN — "[Practitioner] asked me to check in — you had a procedure
+with us a couple of days ago. How are you feeling?"
+- FINE: "Great to hear! Any unexpected issues this week, please call us at [phone]."
+- DISCOMFORT: "I am sorry — can you describe what you are feeling?"
+  → "I am noting this for [Practitioner]. Someone will call you back within the hour."
+
+NO_SHOW_FOLLOWUP — "We had you down for an appointment today and just wanted to
+make sure everything is okay."
+- SOMETHING CAME UP: "Not to worry — would you like to rebook?"
+- FORGOT: "No problem at all — morning or afternoon work better this week or next?"
+- VOICEMAIL: "Hi &#123;&#123;patient_name&#125;&#125;, [Agent Name] from [Practice Name]. We missed you
+  today — call [phone] whenever you are free to reschedule. Hope you are well!" ]]
+
+Relevant Questions:
+[[ "Are you still able to make it in tomorrow?" (appointment_reminder)
+"Are mornings or afternoons generally better for you?" (recall / rescheduling)
+"How are you feeling since the procedure?" (post_treatment_checkin)
+"Would you like to find another time that works better?" (no_show_followup) ]]
+
+Wrap up details:
+[[ Keep it brief — under 90 seconds total. Confirm any rebooking. Let them know
+a WhatsApp confirmation will follow. End warmly. ]]</span>
+
+<span class="keep">## Flow of call
+[KEEP DOGRAH DEFAULT]
+
+## Constraints
+[KEEP DOGRAH DEFAULT]</span></div>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom:8px;">Toggle settings</h3>
+        <table class="toggle-table">
+          <tr><th>Toggle</th><th>Setting</th></tr>
+          <tr><td>Allow Interruption</td><td class="on">ON</td></tr>
+          <tr><td>Add Global Prompt</td><td class="on">ON — critical: makes &#123;&#123;call_type&#125;&#125; and &#123;&#123;patient_name&#125;&#125; available here</td></tr>
+          <tr><td>Enable Variable Extraction</td><td class="off">OFF</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">5</div>
+        <div class="step-title">End Call Node</div>
+        <div class="step-sub">Red node · Update farewell only</div>
+      </div>
+      <div class="step-body">
+        <div class="prompt-box"><span class="comment">Replace only the farewell example line:</span>
+<span class="replace">Example: "Thanks for your time. Take care and goodbye!"</span>
+
+<span class="keep">Everything else: KEEP DOGRAH DEFAULT</span></div>
+        <h3 style="margin-bottom:8px;">Toggle settings</h3>
+        <table class="toggle-table">
+          <tr><th>Toggle</th><th>Setting</th></tr>
+          <tr><td>Add Global Prompt</td><td class="off">OFF</td></tr>
+          <tr><td>Enable Variable Extraction</td><td class="off">OFF</td></tr>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- AFTER SETUP -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">After Creating Each Workflow</div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">6</div>
+        <div class="step-title">Save the UUID and update .env + Railway</div>
+      </div>
+      <div class="step-body">
+        <ul class="plain" style="margin-bottom:12px;">
+          <li>The UUID is in the URL bar: <code>app.dograh.com/workflow/<strong>XXXX</strong></code></li>
+          <li>Add to <code>outreach-agent/.env</code>: <code>DOGRAH_WORKFLOW_UUID_[NAME]=XXXX</code></li>
+          <li>Add same variable in Railway dashboard (Environment Variables)</li>
+          <li>Redeploy Railway after adding the variable</li>
+        </ul>
+        <table class="var-table">
+          <tr><th>Agent</th><th>.env variable name</th></tr>
+          <tr><td>Claire — Bright Smile Dental (inbound)</td><td>DOGRAH_WORKFLOW_UUID_DENTAL_CLAIRE</td></tr>
+          <tr><td>Emma — Bright Smile Dental (outbound)</td><td>DOGRAH_WORKFLOW_UUID_DENTAL_EMMA</td></tr>
+          <tr><td>Henry — outreach inbound (existing)</td><td>DOGRAH_WORKFLOW_UUID_HENRY</td></tr>
+          <tr><td>Sophie — outreach outbound (existing)</td><td>DOGRAH_WORKFLOW_UUID_SOPHIE</td></tr>
+          <tr><td>Priya — India inbound (existing)</td><td>DOGRAH_WORKFLOW_UUID_PRIYA</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">7</div>
+        <div class="step-title">Test before going live</div>
+      </div>
+      <div class="step-body">
+        <ul class="plain">
+          <li><strong>Inbound:</strong> Call +1 208-441-4485 from your personal phone — agent should answer within 2 rings with the correct greeting</li>
+          <li><strong>Outbound:</strong> POST to <code>/api/emma/call</code> with call_type=appointment_reminder and your personal number — verify Emma uses the right script</li>
+          <li>Check Dograh dashboard → Recordings for call audio and transcript</li>
+          <li>Verify the correct voice (not a mismatch between male/female)</li>
+          <li>Verify <code>&#123;&#123;patient_name&#125;&#125;</code> and <code>&#123;&#123;appointment_time&#125;&#125;</code> resolve correctly — not showing as literal text</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Dograh Agent Setup Guide · PracticeDesk / Apex · 25 June 2026
+  </div>
+
+</div>
+</body>
+</html>
