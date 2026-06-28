@@ -167,10 +167,19 @@ def probe_dependencies() -> dict[str, dict]:
         results["supabase"] = {"ok": False, "detail": str(exc)[:150]}
 
     # ── Anthropic ─────────────────────────────────────────────────────────────
+    # Raw HTTP — avoids sdk version skew (.models was added in later releases).
+    # 200 = up + key valid; 401 = up + key wrong; 5xx / exception = down.
     try:
-        import anthropic as _ant
-        _ant.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY")).models.list()
-        results["anthropic"] = {"ok": True, "detail": ""}
+        r = _req.get(
+            "https://api.anthropic.com/v1/models",
+            headers={
+                "x-api-key":         os.getenv("ANTHROPIC_API_KEY", ""),
+                "anthropic-version": "2023-06-01",
+            },
+            timeout=8,
+        )
+        ok = r.status_code in (200, 401)
+        results["anthropic"] = {"ok": ok, "detail": f"HTTP {r.status_code}"}
     except Exception as exc:
         results["anthropic"] = {"ok": False, "detail": str(exc)[:150]}
 
@@ -206,7 +215,7 @@ def probe_dependencies() -> dict[str, dict]:
     # ── Meta WhatsApp (outreach number) ───────────────────────────────────────
     try:
         phone_id = os.getenv("OUTREACH_WA_PHONE_NUMBER_ID", "")
-        token    = os.getenv("WHATSAPP_TOKEN") or os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+        token    = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
         r = _req.get(
             f"https://graph.facebook.com/v19.0/{phone_id}",
             headers={"Authorization": f"Bearer {token}"},
