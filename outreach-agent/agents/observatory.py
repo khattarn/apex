@@ -3,7 +3,6 @@ import os
 from datetime import datetime, timezone, timedelta
 
 from database.client import get_stats, get_client
-from agents.outreach import send_whatsapp_message
 
 log = logging.getLogger(__name__)
 
@@ -174,51 +173,14 @@ def _store_digest(digest: str) -> None:
         log.warning("Observatory: could not store digest in settings: %s", exc)
 
 
-def _send_email_digest(digest: str) -> bool:
-    """Send digest via Resend as a reliable fallback to WhatsApp."""
-    resend_key = os.getenv("RESEND_API_KEY")
-    founder_email = os.getenv("FOUNDER_EMAIL", "khattarn3@yahoo.com")
-    if not resend_key:
-        return False
-    try:
-        import requests as _req
-        resp = _req.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
-            json={
-                "from":    "Apex Observatory <observatory@practicedesk.live>",
-                "to":      [founder_email],
-                "subject": f"Apex Daily — {datetime.now(timezone.utc).strftime('%d %b %Y')}",
-                "text":    digest,
-            },
-            timeout=15,
-        )
-        return resp.status_code in (200, 201)
-    except Exception as exc:
-        log.warning("Observatory: email fallback failed: %s", exc)
-        return False
-
-
 def send_observatory_digest() -> str:
     digest = build_digest()
 
     # Always persist to DB — readable from dashboard
     _store_digest(digest)
 
-    # WA delivery (best-effort — Meta 24h window means this only works if lead replied recently)
-    recipient = (
-        os.getenv("OBSERVATORY_WA_RECIPIENT")
-        or os.getenv("FOUNDER_WHATSAPP_NUMBER")
-    )
-    if recipient:
-        try:
-            send_whatsapp_message(recipient, digest)
-        except Exception as exc:
-            log.warning("Observatory: WA send failed: %s", exc)
-
-    # Email always sent regardless of WA status
-    email_ok = _send_email_digest(digest)
-    if not email_ok:
-        log.error("Observatory: email delivery failed")
+    # Dual-channel delivery: email always fires; WA via approved template (best-effort)
+    from utils.notifier import notify_founder
+    notify_founder(kind="daily_brief", body=digest)
 
     return digest

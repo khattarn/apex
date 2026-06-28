@@ -1952,6 +1952,23 @@ async def health():
     return checks
 
 
+@app.get("/health/deep")
+async def health_deep():
+    """
+    Deep dependency probe + cadence check. No auth — safe for external monitors.
+    Returns per-service status and list of overdue scheduler jobs.
+    """
+    from utils.monitoring import probe_dependencies, check_cadences
+    deps    = await asyncio.to_thread(probe_dependencies)
+    overdue = check_cadences()
+    all_ok  = all(s["ok"] for s in deps.values()) and not overdue
+    return {
+        "status":       "ok" if all_ok else "degraded",
+        "dependencies": deps,
+        "overdue_jobs": overdue,
+    }
+
+
 # ── Anthropic spend (current month) ──────────────────────────────────────────
 
 @app.get("/api/anthropic/spend")
@@ -2231,6 +2248,7 @@ async def pay_commission(commission_id: str, body: CommissionPaidRequest):
 # ── Scheduled jobs (APScheduler — runs inside the server process) ─────────────
 
 async def _job_wa_followup():
+    sent = failed = 0
     try:
         from agents.followup import generate_followup_message
         from agents.outreach import send_whatsapp_message
@@ -2243,9 +2261,13 @@ async def _job_wa_followup():
                 )
                 send_whatsapp_message(lead["phone"], msg)
                 log_activity(lead["id"], "wa_followup_sent", {"message": msg})
+                sent += 1
             except Exception as exc:
                 log.error("WA followup failed for lead %s: %s", lead.get("id"), exc)
+                failed += 1
             await asyncio.sleep(2)
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("wa_followup", {"sent": sent, "failed": failed})
     except Exception as exc:
         log.error("_job_wa_followup failed: %s", exc)
         from utils.alerter import alert_founder
@@ -2258,6 +2280,7 @@ async def _job_voice_followup():
         from agents.voice_outreach import _get_script
         from database.client import get_leads_for_voice_followup, log_activity
         leads = get_leads_for_voice_followup()
+        placed = failed = 0
         for lead in leads:
             try:
                 script = {}
@@ -2281,9 +2304,13 @@ async def _job_voice_followup():
                     "vapi_call_id": call_id,
                     "phone": lead["phone"],
                 })
+                placed += 1
             except Exception as exc:
                 log.error("Voice followup failed for lead %s: %s", lead.get("id"), exc)
+                failed += 1
             await asyncio.sleep(3)
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("voice_followup", {"placed": placed, "failed": failed})
     except Exception as exc:
         log.error("_job_voice_followup failed: %s", exc)
         from utils.alerter import alert_founder
@@ -2294,6 +2321,8 @@ async def _job_observatory():
     from agents.observatory import send_observatory_digest
     try:
         send_observatory_digest()  # stores to settings table + sends WA/email internally
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("observatory", {"digest_sent": True})
     except Exception as exc:
         log.error("Observatory job failed: %s", exc)
         from utils.alerter import alert_founder
@@ -2313,6 +2342,12 @@ async def _job_wa_broadcast():
                 "errors": result["errors"],
             })
         log.info("WA broadcast: %s", result)
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("wa_broadcast", {
+            "sent": result.get("sent", 0),
+            "skipped": result.get("skipped_outside_hours", 0),
+            "errors": result.get("errors", 0),
+        })
     except Exception as exc:
         log.error("_job_wa_broadcast failed: %s", exc)
         from utils.alerter import alert_founder
@@ -2445,6 +2480,22 @@ async def _job_email_campaign():
                 "log": f"Scheduler: Sent={sent} Skipped={skipped} Failed={failed}",
             })
         log_activity(None, "email_campaign_auto", {"sent": sent, "skipped": skipped, "failed": failed})  # lead_id=None is intentional system-level event
+
+        # Threshold alert: >30% failure rate with meaningful sample
+        total = sent + failed
+        if total > 5 and failed / total > 0.30:
+            try:
+                from utils.notifier import notify_founder
+                notify_founder(
+                    kind="system_alert", severity="warning",
+                    component="email_campaign",
+                    reason=f"🟠 {failed}/{total} emails failed ({int(failed/total*100)}%) — check Resend quota or SMTP auth.",
+                )
+            except Exception:
+                pass
+
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("email_campaign", {"sent": sent, "skipped": skipped, "failed": failed})
     except Exception as exc:
         log.error("_job_email_campaign failed: %s", exc)
         from utils.alerter import alert_founder
@@ -2461,11 +2512,26 @@ async def _job_signal_weekly():
                  report.get("scores_computed", 0),
                  report.get("dead_ends", 0),
                  report.get("targets_behind", 0))
-        send_signal_email(report)
+        email_ok = send_signal_email(report)
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("signal_weekly", {
+            "scores_computed": report.get("scores_computed", 0),
+            "dead_ends":       report.get("dead_ends", 0),
+            "email_sent":      email_ok,
+        })
     except Exception as exc:
         log.error("Signal weekly job failed: %s", exc)
         from utils.alerter import alert_founder
         alert_founder("signal_weekly", exc)
+
+
+async def _job_watchdog():
+    """Hourly watchdog — cadence check + dependency probes + tiered alerts."""
+    try:
+        from utils.monitoring import run_watchdog
+        await asyncio.to_thread(run_watchdog)
+    except Exception as exc:
+        log.error("_job_watchdog failed: %s", exc)
 
 
 @app.on_event("startup")
@@ -2484,6 +2550,7 @@ async def start_scheduler():
     scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",             # every 15 min — checks for due callbacks
                       day_of_week="mon-fri")
     scheduler.add_job(_job_signal_weekly,    "cron", day_of_week="mon", hour=6, minute=0)  # Monday 6am UTC
+    scheduler.add_job(_job_watchdog,         "cron", hour="*",          minute=45)         # :45 every hour
     scheduler.start()
 
 
