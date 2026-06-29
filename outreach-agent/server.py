@@ -2670,6 +2670,19 @@ async def _job_prospect():
         alert_founder("prospect_cron", exc)
 
 
+async def _job_email_poller():
+    """Poll info@practicedesk.live via IMAP every 15 min — process replies from known leads."""
+    try:
+        from agents.email_poller import poll_email_replies
+        from utils.monitoring import upsert_heartbeat
+        result = await asyncio.to_thread(poll_email_replies)
+        upsert_heartbeat("email_poller", result)
+        if result["processed"] > 0:
+            log.info("email_poller: %s reply(s) processed", result["processed"])
+    except Exception as exc:
+        log.error("_job_email_poller failed: %s", exc)
+
+
 @app.on_event("startup")
 async def start_scheduler():
     try:
@@ -2694,6 +2707,7 @@ async def start_scheduler():
     scheduler.add_job(_job_signal_weekly,    "cron", day_of_week="mon", hour=6, minute=0)  # Monday 6am UTC
     scheduler.add_job(_job_watchdog,         "cron", hour="*",          minute=45)         # :45 every hour
     scheduler.add_job(_job_prospect,         "cron", hour=12,            minute=0)          # 12:00 UTC daily
+    scheduler.add_job(_job_email_poller,     "cron", minute="*/15")                          # every 15 min, 7 days — IMAP poll for lead replies
     scheduler.start()
 
 
