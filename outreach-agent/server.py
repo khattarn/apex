@@ -3133,6 +3133,13 @@ async def cron_observatory(request: Request):
     return {"ok": True, "digest": digest}
 
 
+@app.post("/api/cron/prospect")
+async def cron_prospect(_: str = Depends(verify_token)):
+    """Manually trigger one prospecting run (same as the 12:00 UTC daily cron)."""
+    await _job_prospect()
+    return {"ok": True}
+
+
 @app.get("/api/webhooks/dograh/debug")
 async def dograh_webhook_debug(_=Depends(verify_token)):
     """Return the last raw payload received from Dograh (for debugging)."""
