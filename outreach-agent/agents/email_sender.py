@@ -10,7 +10,10 @@ class QuotaExceededError(RuntimeError):
 
 def send_email(to: str, subject: str, html: str) -> dict:
     api_key = os.getenv("RESEND_API_KEY")
-    from_email = os.getenv("OUTREACH_FROM_EMAIL", "Neeraj at PracticeDesk <neeraj@practicedesk.live>")
+    from_email = os.getenv("OUTREACH_FROM_EMAIL", "Henry from PracticeDesk <henry@practicedesk.live>")
+    # reply_to must match from_email so replies land in one predictable inbox.
+    # Override separately only if needed; never split from/reply-to across two addresses.
+    reply_to = os.getenv("OUTREACH_REPLY_TO", from_email)
 
     if not api_key:
         raise RuntimeError("RESEND_API_KEY is not set")
@@ -21,7 +24,7 @@ def send_email(to: str, subject: str, html: str) -> dict:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        json={"from": from_email, "to": [to], "subject": subject, "html": html, "reply_to": "info@practicedesk.live"},
+        json={"from": from_email, "to": [to], "subject": subject, "html": html, "reply_to": reply_to},
         timeout=15,
     )
 
