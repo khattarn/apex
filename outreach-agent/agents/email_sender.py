@@ -11,8 +11,9 @@ class QuotaExceededError(RuntimeError):
 def send_email(to: str, subject: str, html: str) -> dict:
     api_key = os.getenv("RESEND_API_KEY")
     from_email = os.getenv("OUTREACH_FROM_EMAIL", "Henry from PracticeDesk <info@practicedesk.live>")
-    # reply_to must match from_email so replies land in one predictable inbox.
-    # Override separately only if needed; never split from/reply-to across two addresses.
+    # reply_to points to replies.practicedesk.live (Resend inbound subdomain).
+    # When a lead replies, Resend catches it and fires email.received webhook → Railway.
+    # Falls back to from_email if OUTREACH_REPLY_TO is not set.
     reply_to = os.getenv("OUTREACH_REPLY_TO", from_email)
 
     if not api_key:

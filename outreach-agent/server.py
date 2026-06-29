@@ -2881,12 +2881,20 @@ async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
 # ── Email reply capture ──────────────────────────────────────────────────────
 # Route: POST /api/webhooks/email-inbound
 #
-# Receives forwarded email replies from whatever inbound parser is in use
-# (Resend inbound, Cloudflare Email Routing, or a custom forwarder).
-# Expected JSON body: { from_email, subject, body_text, to_email? }
+# Handles Resend inbound webhook (email.received) for replies to outgoing emails.
+# Resend fires this when a lead replies to info@replies.practicedesk.live.
 #
-# To activate: set up email forwarding from henry@practicedesk.live so that
-# replies are POSTed to https://<railway-url>/api/webhooks/email-inbound.
+# Resend webhook payload: { "type": "email.received", "data": { "email_id", "from", "subject", ... } }
+# Body is NOT included in the webhook — a second Resend API call fetches it.
+#
+# Setup (one-time, dashboard only):
+#   1. Resend dashboard → Receiving → add domain "replies.practicedesk.live"
+#      → copy the MX record values shown
+#   2. GoDaddy DNS → add MX record for "replies.practicedesk.live" using Resend's values
+#   3. Resend dashboard → Webhooks → add webhook:
+#      URL: https://serene-passion-production-cd82.up.railway.app/api/webhooks/email-inbound
+#      Event: email.received
+#   4. Railway env var OUTREACH_REPLY_TO = info@replies.practicedesk.live  ← already set
 
 @app.post("/api/webhooks/email-inbound")
 async def email_inbound_webhook(request: Request):
@@ -2895,9 +2903,33 @@ async def email_inbound_webhook(request: Request):
     except Exception:
         return {"ok": True}
 
-    from_email = (payload.get("from_email") or "").strip().lower()
-    subject    = (payload.get("subject")    or "").strip()
-    body_text  = (payload.get("body_text")  or "")[:2000]
+    # ── Parse: Resend inbound format vs legacy simple format ──────────────────
+    if payload.get("type") == "email.received":
+        data       = payload.get("data") or {}
+        from_email = (data.get("from")    or "").strip().lower()
+        subject    = (data.get("subject") or "").strip()
+        email_id   = data.get("email_id", "")
+
+        # Fetch body via Resend received-email API (body is not in the webhook)
+        body_text = ""
+        if email_id:
+            try:
+                import requests as _req
+                _rkey = os.getenv("RESEND_API_KEY", "")
+                _r = _req.get(
+                    f"https://api.resend.com/emails/received/{email_id}",
+                    headers={"Authorization": f"Bearer {_rkey}"},
+                    timeout=10,
+                )
+                if _r.ok:
+                    body_text = (_r.json().get("text") or "")[:2000]
+            except Exception:
+                pass
+    else:
+        # Legacy / manual format: { from_email, subject, body_text }
+        from_email = (payload.get("from_email") or "").strip().lower()
+        subject    = (payload.get("subject")    or "").strip()
+        body_text  = (payload.get("body_text")  or "")[:2000]
 
     if not from_email:
         return {"ok": True}
