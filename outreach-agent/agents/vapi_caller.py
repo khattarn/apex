@@ -72,12 +72,12 @@ def place_sophie_call(
     phone_number_id: str = "",
     pain_signal: str = "",
     pain_finding: str = "",
+    pricing_line: str = "Starter: $49/month · Growth: $99/month · Pro: $180/month · Setup: $180 (waived until 29 Jul 2026)",
 ) -> dict:
     """
     Trigger Sophie (PracticeDesk outbound sales) via Vapi.
     Pass phone_number_id to override the default number (e.g. use CA number for Canadian leads).
-    pain_signal / pain_finding flow into Vapi variableValues so the assistant
-    selects the matching gentle opener from the signal→opener table.
+    Pass pricing_line with the market-correct currency string — CA callers get CAD prices.
     Default caller ID: +13129408233 (Vapi free number, US/AU).
     CA caller ID: +15872090343 (SignalWire 587 Alberta).
     """
@@ -102,6 +102,7 @@ def place_sophie_call(
                 "pain_question":  pain_question,
                 "pain_signal":    pain_signal,
                 "pain_finding":   pain_finding,
+                "pricing_line":   pricing_line,
             }
         },
     }

@@ -239,9 +239,9 @@ India's Telecom Regulatory Authority requires:
 
 **Start registration immediately** — it runs in parallel with the WA agent build.
 
-### 2.3 AI Voice Agent — "Priya" (India Variant of Aria)
+### 2.3 AI Voice Agent — "Priya" (India Variant of Sophie)
 
-Create a new Vapi agent: **Priya** — Aria's India counterpart.
+Create a new Vapi agent: **Priya** — Sophie's India counterpart.
 
 | Attribute | Priya |
 |---|---|
@@ -249,7 +249,7 @@ Create a new Vapi agent: **Priya** — Aria's India counterpart.
 | Language | English with optional Hindi phrases |
 | Persona | "PracticeDesk mein aapka swagat hai" |
 | Opening | Introduction → qualifying question → demo offer |
-| Max call duration | 180 seconds (shorter than Aria — India calls need to be punchy) |
+| Max call duration | 180 seconds (shorter than Sophie — India calls need to be punchy) |
 
 **Priya's 5-Phase Script:**
 
@@ -296,7 +296,7 @@ India Click-Caller agent
 
 **New File:** `agents/india_caller.py`  
 **Modified:** `server.py` — add `/api/cron/india-voice-followup`  
-**New Vapi agent:** Priya (separate from Aria, different system prompt, Indian voice)
+**New Vapi agent:** Priya (separate from Sophie, different system prompt, Indian voice)
 
 ### 2.5 Exotel + Vapi Integration
 

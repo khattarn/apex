@@ -1,5 +1,11 @@
 import os
 
+_PRICING_USD = "Starter: $49/month · Growth: $99/month · Pro: $180/month · Setup: $180 (waived until 29 Jul 2026)"
+_PRICING_CAD = "Starter: CAD $70/month · Growth: CAD $140/month · Pro: CAD $250/month · Setup: CAD $250 (waived until 29 Jul 2026)"
+
+def _pricing_line(market: str) -> str:
+    return _PRICING_CAD if (market or "").upper() == "CA" else _PRICING_USD
+
 # ── Load copy assets ──────────────────────────────────────────────────────────
 
 _COPY_CACHE = None
@@ -123,6 +129,7 @@ no-shows in the first month. Worth a look?"
 
 Pricing if asked:
   Starter: $49/month · Growth: $99/month · Pro: $180/month
+  Setup fee: $180 — waived until 29 Jul 2026 (introductory offer — always mention this)
 
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 5 — OBJECTION HANDLING  (one round only, target: 30 seconds)
@@ -245,6 +252,7 @@ def place_outbound_call(
             phone_number_id=ca_phone_id,
             pain_signal=pain_signal,
             pain_finding=pain_finding,
+            pricing_line=_pricing_line(market),
         )
 
     from agents.dograh_caller import place_outbound_call as _dograh_call

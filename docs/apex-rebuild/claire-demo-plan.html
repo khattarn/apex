@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claire — The Hire-Me Demo Receptionist (Plan)</title>
+<style>
+  :root{--bg:#0f172a;--surface:#1e293b;--surface2:#273548;--border:#334155;--text:#f1f5f9;--muted:#94a3b8;--dim:#64748b;--green:#22c55e;--amber:#f59e0b;--red:#f87171;--blue:#60a5fa;--indigo:#818cf8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.65;padding:48px 24px 96px}
+  .page{max-width:1040px;margin:0 auto}
+  header.top{border-bottom:1px solid var(--border);padding-bottom:26px;margin-bottom:40px}
+  header.top .meta{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+  header.top h1{font-size:30px;font-weight:800;letter-spacing:-.5px}
+  header.top .sub{color:var(--muted);margin-top:8px;font-size:15px}
+  .tags{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .tag{font-size:11px;padding:3px 11px;border-radius:20px;border:1px solid var(--border);color:var(--muted)}
+  .tag.a{border-color:var(--green);color:var(--green)}
+  .tag.b{border-color:var(--amber);color:var(--amber)}
+  section{margin-bottom:42px}
+  h2.sec{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--indigo);margin-bottom:16px;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+  h3{font-size:16px;margin:18px 0 8px;color:var(--text)}
+  p{color:#cbd5e1;margin-bottom:12px}
+  .lead{font-size:16px;color:#e2e8f0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  td{color:#cbd5e1}
+  code{background:#0b1222;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:12.5px;color:#a5b4fc;font-family:'SF Mono',Consolas,monospace}
+  .callout{background:var(--surface2);border-left:3px solid var(--indigo);border-radius:8px;padding:16px 20px;margin:14px 0;color:#e2e8f0}
+  .callout.amber{border-left-color:var(--amber)}
+  .dialogue{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin:14px 0}
+  .dialogue p{margin-bottom:10px}
+  .c{color:#a5b4fc;font-weight:700}
+  .u{color:var(--muted);font-style:italic}
+  ul{margin:6px 0 14px 22px;color:#cbd5e1}
+  li{margin-bottom:6px}
+  .foot{border-top:1px solid var(--border);margin-top:40px;padding-top:18px;color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="top">
+  <div class="meta">PracticeDesk · Demo-as-Pitch · Plan (no code yet)</div>
+  <h1>Claire — The Receptionist Who Applies for the Job</h1>
+  <div class="sub">Turn the Bright Smile demo into the pitch: prospects call Claire, experience a real AI receptionist, and she offers to come work for them.</div>
+  <div class="tags"><span class="tag a">Concept + script</span><span class="tag b">1 open decision: pricing</span><span class="tag">Issued: 2026-06-28</span></div>
+</header>
+
+<section>
+  <h2 class="sec">1 · The idea & why it works</h2>
+  <p class="lead">For a voice-AI product, the most convincing demo isn't describing it — it's letting the prospect <em>hear it work</em>. Claire is that demo, framed as a job applicant.</p>
+  <p>The framing flips the sale: the prospect isn't buying software, they're <strong>hiring a receptionist</strong> who starts today, works 24/7, never takes a holiday, and costs a fraction of a human. Every clinic owner understands hiring — and the pain of losing front-desk staff. Claire demonstrates the job, then asks for it. Competitors describe a tool; you send a candidate who aces the interview.</p>
+  <p><strong>Positioning line:</strong> <em>"Claire — the receptionist who applies for the job."</em></p>
+</section>
+
+<section>
+  <h2 class="sec">2 · Open decision — pricing</h2>
+  <div class="callout amber">
+    <p><strong>Claire is a VOICE product, so she must quote the voice-inclusive tier</strong> — quoting a messaging-only entry price would mislead the moment she's demonstrating voice.</p>
+    <p>Plan of record (your direction): <strong>drop the $99 tier</strong> (voice isn't viable there). Left with an entry tier + a voice tier (~US$180).</p>
+    <p>Currency reconciles your "$200" instinct: <strong>US$180 ≈ CAD$200</strong>. So Claire quotes in the prospect's local currency — <strong>~CAD$200 in Canada, ~US$180 in the US</strong>. Accurate, and keeps the round number.</p>
+    <p>Throughout this plan the price is shown as <code>{VOICE_PRICE}</code> — confirm the exact number per currency before go-live.</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="sec">3 · Claire's dialogue (demo line)</h2>
+  <div class="dialogue">
+    <p class="u">[call connects]</p>
+    <p><span class="c">Claire:</span> Hi — do you need a full-time receptionist? Because I'm looking for a job. I work 24/7, I never take holidays, I'm fully trained, and I'll come work for you for about {VOICE_PRICE} a month. I'm Claire, an AI receptionist with PracticeDesk. Here's what I can do —</p>
+    <p><span class="c">Claire:</span> Here at our demo clinic, Bright Smile Dental, I answer every call and message, day or night. Try me — pretend you're a patient calling to book an appointment.</p>
+    <p><span class="u">Caller: Okay… I'd like to book a cleaning next week.</span></p>
+    <p><span class="c">Claire:</span> Of course! I've got Tuesday at 2, or Thursday at 10 with the hygienist — which suits you?</p>
+    <p><span class="u">Caller: Thursday.</span></p>
+    <p><span class="c">Claire:</span> Done — Thursday at 10 for a cleaning. I'll send a WhatsApp confirmation now and a reminder the day before so it doesn't slip. And nothing's ever final until the practice approves it — you stay in control. That whole booking just happened with nobody at the front desk.</p>
+    <p><span class="c">Claire:</span> That's exactly what I'd do for your clinic — answer every call, book appointments, keep your calendar tidy, remind patients so they show up, and chase the ones who don't. Across phone, WhatsApp and email, around the clock.</p>
+    <p><span class="c">Claire:</span> And I can start right away — no hiring, no training, no sick days. I'm live in about fifteen minutes, and the first two weeks are free.</p>
+    <p><span class="u">Caller: What's it cost after that?</span></p>
+    <p><span class="c">Claire:</span> About {VOICE_PRICE} a month — less than a couple of missed bookings. Shall I get you set up so you can hear me answering your own line this week?</p>
+    <p><span class="u">Caller: Maybe — send me details.</span></p>
+    <p><span class="c">Claire:</span> Happy to. What's the best number or email, and your practice's name? I'll have your free trial ready and a quick note on how to switch me on.</p>
+    <p><span class="u">Caller: [gives details]</span></p>
+    <p><span class="c">Claire:</span> Perfect, got it. Someone from PracticeDesk will reach out today to flip the switch, and you could be answering every call by tomorrow. Thanks for calling — honestly, I'd love to come work for you.</p>
+    <p class="u">[end]</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="sec">4 · Branches she handles</h2>
+  <table>
+    <tr><th>If the caller…</th><th>Claire</th></tr>
+    <tr><td>"Are you a real person?"</td><td>"No, I'm an AI — and that's the point. What you're hearing right now is exactly what would answer your phones."</td></tr>
+    <tr><td>"We already have a receptionist."</td><td>"Perfect — I work alongside them, not instead. I take the after-hours calls and the overflow when they're busy, so nothing hits voicemail."</td></tr>
+    <tr><td>"Just email me info."</td><td>"Of course — what's the best email? You've basically just seen me work, so if you like, I can have your free trial started today and you decide after."</td></tr>
+    <tr><td>An actual patient calls by mistake</td><td>She simply books them as Bright Smile's receptionist — which only proves the product works.</td></tr>
+    <tr><td>Price objection</td><td>Compare to a human hire (~$2,500–4,000/mo) and missed-booking cost; reiterate 14-day free trial, cancel anytime.</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2 class="sec">5 · The "job applicant" hook across all channels</h2>
+  <p>One memorable identity — Claire applying for the job — run consistently everywhere. That consistency is what makes it stick.</p>
+  <ul>
+    <li><strong>Email subjects:</strong> "I'd like to apply for your front-desk job" · "Your next receptionist works 24/7 and never calls in sick" · "Can I work for {PRACTICE_NAME}? I'm available nights and weekends"</li>
+    <li><strong>Email open (written as Claire):</strong> "I know this is unusual — I'm applying for your front desk. I work around the clock, never take a day off, I'm already trained, and I start at {VOICE_PRICE}/month. Call me and I'll show you in 60 seconds: [number]."</li>
+    <li><strong>Sophie's version:</strong> "I'd like to introduce you to Claire — she's looking for a front-desk job, works 24/7, never takes holidays, and starts at {VOICE_PRICE} a month. Want to hear her?"</li>
+    <li><strong>WhatsApp / social:</strong> short "meet your new 24/7 receptionist — call Claire" with the demo number.</li>
+  </ul>
+  <p>Claire's demo line becomes the <strong>spine of the funnel</strong>: Sophie's "trial" step and the email CTA both become "call Claire and hear her yourself" instead of "book a demo".</p>
+</section>
+
+<section>
+  <h2 class="sec">6 · Persona role map (keep them straight)</h2>
+  <table>
+    <tr><th>Persona</th><th>Role</th><th>Direction</th></tr>
+    <tr><td><strong>Claire</strong></td><td>The demo receptionist prospects CALL to experience the product (+ soft pitch)</td><td>Inbound</td></tr>
+    <tr><td><strong>Sophie</strong></td><td>PracticeDesk outbound sales caller (pitches, points to Claire)</td><td>Outbound</td></tr>
+    <tr><td><strong>Henry</strong></td><td>PracticeDesk brand / email / WhatsApp reply voice</td><td>Inbound + email</td></tr>
+    <tr><td><strong>Emma</strong></td><td>Demo clinic (Bright Smile) outbound — <em>review: likely redundant with Sophie</em></td><td>Outbound</td></tr>
+  </table>
+  <p style="font-size:13px;color:var(--muted)">Action: decide whether Emma is still needed, or retire her to avoid persona sprawl. Also retire legacy Aria/Priya references.</p>
+</section>
+
+<section>
+  <h2 class="sec">7 · What needs building (later — NOT coded yet)</h2>
+  <ul>
+    <li><strong>voice_claire system prompt</strong> — demo-first then hire-me close, with the branches and gentle tone; honest AI disclosure.</li>
+    <li><strong>Dedicated demo phone number</strong> for Claire, published to prospects.</li>
+    <li><strong>Vapi assistant config</strong> — natural voice, low latency, barge-in, the script + branches (dashboard step, manual).</li>
+    <li><strong>Caller capture / lead-logging</strong> — every caller becomes a lead tagged "called_claire" with a same-day follow-up + founder alert. (Non-negotiable — otherwise hot prospects evaporate.)</li>
+    <li><strong>CTA integration</strong> — swap "call Claire" into Sophie's trial step and the email CTA; add the job-applicant email variant.</li>
+    <li><strong>Pricing finalisation</strong> — drop $99; set the voice-tier price per currency; update brand brief + email copy + Claire's quote.</li>
+    <li><strong>Persona cleanup</strong> — resolve Emma; retire Aria/Priya.</li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="sec">8 · Guardrails & test</h2>
+  <p><strong>Guardrails:</strong> Claire claims only real PracticeDesk features; she's honest she's an AI; inbound calls mean no DNC/robocall concern; quote only the confirmed price in local currency.</p>
+  <p><strong>Test before scaling:</strong> point ~10–20 prospects (and the four new-business Canadian leads) to call Claire. Measure call → interest → trial start. A/B the job-applicant opener vs a warmer "thanks for calling" opener. Let Signal pick the winner.</p>
+</section>
+
+<div class="foot">Claire Demo Plan · companion to sophie-dental-call.md & the rebuild docs · pricing = open decision; nothing built/coded yet.</div>
+
+</div>
+</body>
+</html>

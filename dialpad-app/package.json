@@ -1,0 +1,44 @@
+{
+  "name": "practicedesk-dialpad",
+  "version": "1.0.0",
+  "description": "PracticeDesk sales dialpad — call USA/Canada from India",
+  "main": "main.js",
+  "scripts": {
+    "bundle": "esbuild renderer/renderer.js --bundle --outfile=renderer/bundle.js --platform=browser",
+    "start": "npm run bundle && electron .",
+    "build": "npm run bundle && electron-builder --win"
+  },
+  "dependencies": {
+    "@signalwire/js": "^4.0.0-beta.12"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "esbuild": "^0.24.0"
+  },
+  "build": {
+    "appId": "live.practicedesk.dialpad",
+    "productName": "PracticeDesk Dialpad",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/index.html",
+      "renderer/bundle.js"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

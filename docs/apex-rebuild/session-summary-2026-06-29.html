@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Session Summary · 29 June 2026</title>
+<style>
+  :root {
+    --navy: #0d1b3e;
+    --navy-mid: #1a2f5e;
+    --navy-light: #243a6f;
+    --gold: #c9a84c;
+    --gold-light: #e8c96a;
+    --white: #ffffff;
+    --off-white: #f7f6f2;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --green: #16a34a;
+    --amber: #d97706;
+    --red: #dc2626;
+    --border: #e2d9c8;
+    --teal: #0d7a79;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--off-white);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+    color: var(--white);
+    padding: 48px 64px 40px;
+    border-bottom: 4px solid var(--gold);
+  }
+  .header-meta {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .header .subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.65);
+    max-width: 700px;
+  }
+
+  /* ── TOC strip ── */
+  .toc-strip {
+    background: var(--navy-light);
+    padding: 14px 64px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .toc-strip a {
+    color: var(--gold-light);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0.85;
+  }
+  .toc-strip a:hover { opacity: 1; text-decoration: underline; }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 48px 64px;
+  }
+
+  .section { margin-bottom: 56px; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 12px; font-size: 14px; color: #344559; }
+
+  /* ── Callout ── */
+  .callout {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    color: var(--white);
+    border-left: 5px solid var(--gold);
+    border-radius: 8px;
+    padding: 18px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .callout-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .callout-body strong {
+    display: block;
+    font-size: 14px;
+    color: var(--gold-light);
+    margin-bottom: 4px;
+  }
+  .callout-body p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.80);
+    margin: 0;
+  }
+
+  /* ── Waiver banner ── */
+  .waiver-banner {
+    background: linear-gradient(90deg, var(--gold) 0%, #e8c96a 100%);
+    color: var(--navy);
+    border-radius: 8px;
+    padding: 14px 22px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* ── Tables ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--white);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+  }
+  thead tr { background: var(--navy); color: var(--white); }
+  thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+  }
+  tbody tr:nth-child(even) { background: #f9f8f5; }
+  tbody tr:hover { background: #f0ede4; }
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  td.mono { font-family: 'Courier New', monospace; font-size: 12px; }
+  td.number { text-align: right; font-family: 'Courier New', monospace; }
+
+  /* ── Badges ── */
+  .badge { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+  .badge-green  { background: #dcfce7; color: #15803d; }
+  .badge-gold   { background: #fef3c7; color: #92400e; }
+  .badge-navy   { background: var(--navy); color: var(--white); }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-teal   { background: #ccfbf1; color: #0d7a79; }
+
+  .check { color: var(--green); font-weight: 700; }
+  .dash  { color: #d1d5db; }
+
+  /* ── Plan card grid ── */
+  .plan-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+  .plan-card {
+    background: var(--white);
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .plan-card.highlight { border-color: var(--gold); }
+  .plan-card-header {
+    background: var(--navy);
+    color: var(--white);
+    padding: 18px 20px 14px;
+  }
+  .plan-card.highlight .plan-card-header {
+    background: linear-gradient(135deg, var(--navy-light) 0%, var(--navy) 100%);
+  }
+  .plan-name {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 5px;
+  }
+  .plan-price-usd { font-size: 26px; font-weight: 800; color: var(--white); line-height: 1; }
+  .plan-price-cad { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+  .plan-card-body { padding: 14px 18px 16px; }
+  .plan-feature {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; padding: 4px 0;
+    border-bottom: 1px solid #f0ede4; color: var(--text);
+  }
+  .plan-feature:last-child { border-bottom: none; }
+  .feat-check { color: var(--green); font-weight: 700; font-size: 13px; }
+  .feat-dash  { color: #d1d5db; font-size: 13px; }
+
+  /* ── File list ── */
+  .file-list { list-style: none; }
+  .file-list li {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--white);
+  }
+  .file-list li:first-child { border-radius: 8px 8px 0 0; }
+  .file-list li:last-child  { border-radius: 0 0 8px 8px; border-bottom: none; }
+  .file-list code {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--navy);
+    flex: 1;
+  }
+
+  /* ── Arch diagram ── */
+  .arch-box {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .arch-box h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+  .arch-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .arch-node {
+    background: var(--navy);
+    color: var(--white);
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .arch-node.gold { background: var(--gold); color: var(--navy); }
+  .arch-node.green { background: #15803d; }
+  .arch-node.teal { background: var(--teal); }
+  .arch-arrow { color: var(--muted); font-size: 16px; }
+  .arch-note { font-size: 12px; color: var(--muted); }
+
+  /* ── Info cards ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .info-card {
+    background: var(--white);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 18px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .info-card h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  .info-card ul { list-style: none; }
+  .info-card li {
+    font-size: 12px;
+    padding: 4px 0 4px 12px;
+    border-bottom: 1px solid #f5f3ee;
+    position: relative;
+    color: #344559;
+  }
+  .info-card li:last-child { border-bottom: none; }
+  .info-card li::before { content: '·'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+
+  /* ── Margin bars ── */
+  .margin-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+  .margin-label { width: 60px; font-weight: 600; color: var(--navy); }
+  .margin-bar { height: 14px; border-radius: 3px; background: var(--gold); }
+  .margin-pct { font-size: 12px; color: var(--muted); }
+
+  /* ── Footer ── */
+  .doc-footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 24px 40px;
+    font-size: 12px;
+    border-top: 3px solid var(--gold);
+  }
+
+  code {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    background: #f0ede4;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--navy);
+  }
+
+  .fx-note { font-size: 12px; color: var(--muted); margin-top: 8px; font-style: italic; }
+
+  @media(max-width:700px) {
+    .header { padding: 32px 20px; }
+    .toc-strip { padding: 12px 20px; }
+    .container { padding: 32px 20px; }
+    .plan-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-meta">Internal · Apex Operations · 29 June 2026</div>
+  <h1>Session Summary — 29 June 2026</h1>
+  <div class="subtitle">Aria→Sophie rename · CAD market pricing · Setup fee introductory offer · Cost-to-serve analysis · Weave competitive positioning · Mehak field guide update</div>
+</div>
+
+<!-- TOC -->
+<div class="toc-strip">
+  <a href="#s1">1 · Aria→Sophie Rename</a>
+  <a href="#s2">2 · Pricing Tiers</a>
+  <a href="#s3">3 · Cost-to-Serve</a>
+  <a href="#s4">4 · Canada Market</a>
+  <a href="#s5">5 · Weave Comparison</a>
+  <a href="#s6">6 · Vapi Architecture</a>
+  <a href="#s7">7 · Deployment Checklist</a>
+  <a href="#s8">8 · Mehak Update</a>
+</div>
+
+<div class="container">
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1 — ARIA → SOPHIE RENAME                             -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s1">
+    <div class="section-label">Section 1</div>
+    <h2>Aria → Sophie — Full Repo Rename</h2>
+
+    <div class="callout">
+      <div class="callout-icon">🔄</div>
+      <div class="callout-body">
+        <strong>Why this was done</strong>
+        <p>The voice sales persona was previously named "Aria" across code, prompts, docs, and the Vapi dashboard. It was renamed "Sophie" repo-wide to align the codebase with the canonical name used in all sales collateral and the Sophie 7-phase playbook. The Vapi dashboard was updated manually by the founder.</p>
+      </div>
+    </div>
+
+    <h3>Python backend — files changed</h3>
+    <ul class="file-list" style="margin-bottom:20px;">
+      <li>
+        <span class="badge badge-green">renamed key</span>
+        <code>outreach-agent/agents/agent_prompts.py</code>
+        <span style="font-size:12px;color:var(--muted);">voice_aria → voice_sophie; full 7-phase Sophie prompt injected</span>
+      </li>
+      <li>
+        <span class="badge badge-green">vars renamed</span>
+        <code>outreach-agent/database/client.py</code>
+        <span style="font-size:12px;color:var(--muted);">aria_called_rows/aria_called → sophie_* (dict key renamed consistently with Dashboard.jsx)</span>
+      </li>
+      <li>
+        <span class="badge badge-green">updated</span>
+        <code>outreach-agent/agents/observatory.py</code>
+        <span style="font-size:12px;color:var(--muted);">docstring + local var aria → sophie; return value updated</span>
+      </li>
+      <li>
+        <span class="badge badge-green">comment</span>
+        <code>outreach-agent/agents/cal_booking.py</code>
+        <span style="font-size:12px;color:var(--muted);">module docstring Aria's → Sophie's</span>
+      </li>
+      <li>
+        <span class="badge badge-green">comment</span>
+        <code>outreach-agent/agents/signal.py</code>
+        <span style="font-size:12px;color:var(--muted);">"Aria script" → "Sophie script"</span>
+      </li>
+      <li>
+        <span class="badge badge-green">geo</span>
+        <code>outreach-agent/knowledge/geo_profiles.py</code>
+        <span style="font-size:12px;color:var(--muted);">3 scheduling notes updated</span>
+      </li>
+      <li>
+        <span class="badge badge-navy">new file</span>
+        <code>outreach-agent/scripts/update_vapi_sophie_prompt.py</code>
+        <span style="font-size:12px;color:var(--muted);">One-off script to PATCH Vapi assistant via API; uses {{pricing_line}} variable</span>
+      </li>
+    </ul>
+
+    <h3>React dashboard — files changed</h3>
+    <ul class="file-list" style="margin-bottom:20px;">
+      <li>
+        <span class="badge badge-gold">stat card</span>
+        <code>admin-dashboard/src/views/Dashboard.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">stats.aria_called → stats.sophie_called · label "Aria Called" → "Sophie Called"</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">toast</span>
+        <code>admin-dashboard/src/App.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">"Aria is on a call" → "Sophie is on a call"</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">filters</span>
+        <code>admin-dashboard/src/views/LeadsTable.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">3 replacements — filter options + tooltip</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">job icon</span>
+        <code>admin-dashboard/src/views/LiveActivity.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">'Aria Click Calls' → 'Sophie Click Calls' + 3 other replacements</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">descriptions</span>
+        <code>admin-dashboard/src/views/Agents.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">7 description string replacements</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">assets</span>
+        <code>admin-dashboard/src/views/Assets.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">9 usedFor/notes field replacements</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">content</span>
+        <code>admin-dashboard/src/views/Content.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">3 label replacements incl. voice_guidance route label</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">mandate</span>
+        <code>admin-dashboard/src/views/Mandate.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">4 replacements incl. 'GM Care · Sophie (Dograh)' owner field</span>
+      </li>
+      <li>
+        <span class="badge badge-gold">vp</span>
+        <code>admin-dashboard/src/views/VPMarketing.jsx</code>
+        <span style="font-size:12px;color:var(--muted);">2 replacements</span>
+      </li>
+    </ul>
+
+    <h3>Docs — files changed</h3>
+    <ul class="file-list">
+      <li>
+        <span class="badge badge-teal">doc</span>
+        <code>docs/mandates/content-agent-mandate.md</code>
+        <span style="font-size:12px;color:var(--muted);">5 replacements — section header, recipient line, flow diagram</span>
+      </li>
+      <li>
+        <span class="badge badge-teal">doc</span>
+        <code>docs/INDIA-OUTREACH-PLAN.md</code>
+        <span style="font-size:12px;color:var(--muted);">4 replacements — Priya described as "India Variant of Sophie"</span>
+      </li>
+      <li>
+        <span class="badge badge-teal">doc</span>
+        <code>docs/apex-rebuild/claude-code-handoff.md</code>
+        <span style="font-size:12px;color:var(--muted);">6 replacements; Change #8 description updated</span>
+      </li>
+      <li>
+        <span class="badge badge-teal">doc</span>
+        <code>docs/apex-rebuild/sophie-dental-call.md</code>
+        <span style="font-size:12px;color:var(--muted);">"Replaces the 'Aria' scripts" → "Replaces the earlier voice-agent scripts"</span>
+      </li>
+      <li>
+        <span class="badge badge-teal">brand</span>
+        <code>outreach-agent/knowledge/brand/practicedesk-brief.md</code>
+        <span style="font-size:12px;color:var(--muted);">Aria voice script rule → Sophie; pricing section added with CAD + setup fee</span>
+      </li>
+    </ul>
+
+    <div style="margin-top:18px;" class="callout">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>Critical rename: aria_called dict key</strong>
+        <p>The key "aria_called" in client.py was consumed by Dashboard.jsx as <code>stats.aria_called</code>. Both sides were renamed simultaneously to <code>sophie_called</code> to prevent the stat card showing undefined. Always rename dict keys and their consumers together.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2 — PRICING TIERS                                     -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s2">
+    <div class="section-label">Section 2</div>
+    <h2>Pricing Tiers — USD &amp; CAD</h2>
+
+    <div class="waiver-banner">
+      <span style="font-size:18px;">★</span>
+      <span>INTRODUCTORY OFFER — Setup fee waived until 29 July 2026 &nbsp;|&nbsp; USD $180 saved · CAD $250 saved. Always mention proactively in every sales touchpoint.</span>
+    </div>
+
+    <div class="plan-grid">
+      <div class="plan-card">
+        <div class="plan-card-header">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price-usd">$49<span style="font-size:14px;font-weight:400;">/mo USD</span></div>
+          <div class="plan-price-cad">CAD $70/mo in Canada</div>
+        </div>
+        <div class="plan-card-body">
+          <div class="plan-feature"><span class="feat-check">✓</span> AI receptionist (calls) 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> WhatsApp 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Bookings dashboard + 1-click confirm</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> 14-day free trial</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Email AI responses</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Voice follow-up calls</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Multi-location</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Custom AI persona</div>
+        </div>
+      </div>
+
+      <div class="plan-card highlight">
+        <div class="plan-card-header">
+          <div class="plan-name">Growth &nbsp;<span style="background:var(--gold);color:var(--navy);font-size:9px;padding:1px 6px;border-radius:3px;font-weight:700;">POPULAR</span></div>
+          <div class="plan-price-usd">$99<span style="font-size:14px;font-weight:400;">/mo USD</span></div>
+          <div class="plan-price-cad">CAD $140/mo in Canada</div>
+        </div>
+        <div class="plan-card-body">
+          <div class="plan-feature"><span class="feat-check">✓</span> AI receptionist (calls) 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> WhatsApp 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Bookings dashboard + 1-click confirm</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> 14-day free trial</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Email AI responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Voice follow-up calls</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Multi-location</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Custom AI persona</div>
+        </div>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-card-header">
+          <div class="plan-name">Pro</div>
+          <div class="plan-price-usd">$180<span style="font-size:14px;font-weight:400;">/mo USD</span></div>
+          <div class="plan-price-cad">CAD $250/mo in Canada</div>
+        </div>
+        <div class="plan-card-body">
+          <div class="plan-feature"><span class="feat-check">✓</span> AI receptionist (calls) 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> WhatsApp 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Bookings dashboard + 1-click confirm</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> 14-day free trial</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Email AI responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Voice follow-up calls</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Multi-location</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Custom AI persona + priority support</div>
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>USD/mo</th>
+          <th>CAD/mo</th>
+          <th>Setup USD</th>
+          <th>Setup CAD</th>
+          <th>Waiver deadline</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Starter</strong></td>
+          <td class="number">$49</td>
+          <td class="number">CAD $70</td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge badge-gold">29 Jul 2026</span></td>
+        </tr>
+        <tr>
+          <td><strong>Growth</strong></td>
+          <td class="number">$99</td>
+          <td class="number">CAD $140</td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge badge-gold">29 Jul 2026</span></td>
+        </tr>
+        <tr>
+          <td><strong>Pro</strong></td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge badge-gold">29 Jul 2026</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="fx-note">Exchange rate: 1 USD = 1.42 CAD (29 Jun 2026). Exact conversions $49→$69.6, $99→$140.6, $180→$255.6 — rounded to clean SaaS price points. Setup fee CAD $250 chosen to match Pro monthly (memorable).</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3 — COST-TO-SERVE                                     -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s3">
+    <div class="section-label">Section 3</div>
+    <h2>Cost-to-Serve Analysis — Per Plan, Per Month</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cost Driver</th>
+          <th style="text-align:right;">Starter ($49)</th>
+          <th style="text-align:right;">Growth ($99)</th>
+          <th style="text-align:right;">Pro ($180)</th>
+          <th>Basis</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>AI — Claude (Haiku/Sonnet)</strong></td>
+          <td class="number">~$2.00</td>
+          <td class="number">~$4.00</td>
+          <td class="number">~$8.00</td>
+          <td>Haiku $1/$5 per MTok; Sonnet $3/$15; scales with volume</td>
+        </tr>
+        <tr>
+          <td><strong>Voice — Vapi (Sophie)</strong></td>
+          <td class="number">~$6.00</td>
+          <td class="number">~$12.00</td>
+          <td class="number">~$24.00</td>
+          <td>~$0.12/min all-in (platform + STT + TTS + telephony); ~50/100/200 min</td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp Cloud API</strong></td>
+          <td class="number">~$3.00</td>
+          <td class="number">~$6.00</td>
+          <td class="number">~$12.00</td>
+          <td>~$0.03/conversation avg; AU/US markets</td>
+        </tr>
+        <tr>
+          <td><strong>Email — Resend</strong></td>
+          <td class="number">~$0.40</td>
+          <td class="number">~$0.80</td>
+          <td class="number">~$1.60</td>
+          <td>$20/mo for 50K emails shared; allocated by volume</td>
+        </tr>
+        <tr>
+          <td><strong>Infrastructure (Railway + Supabase)</strong></td>
+          <td class="number">~$1.00</td>
+          <td class="number">~$1.00</td>
+          <td class="number">~$1.00</td>
+          <td>Fixed costs apportioned per active client</td>
+        </tr>
+        <tr style="background:#f0ede4;font-weight:700;">
+          <td><strong>Total Cost / Month</strong></td>
+          <td class="number"><strong>~$12.40</strong></td>
+          <td class="number"><strong>~$23.80</strong></td>
+          <td class="number"><strong>~$46.60</strong></td>
+          <td></td>
+        </tr>
+        <tr style="background:#dcfce7;">
+          <td><strong>Gross Margin</strong></td>
+          <td class="number"><strong>~75%</strong></td>
+          <td class="number"><strong>~76%</strong></td>
+          <td class="number"><strong>~74%</strong></td>
+          <td>Strong SaaS margins; voice is largest cost lever at scale</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-bottom:24px;">
+      <div class="margin-row">
+        <div class="margin-label">Starter</div>
+        <div class="margin-bar" style="width:75%;"></div>
+        <div class="margin-pct">75% · $36.60 gross profit/client</div>
+      </div>
+      <div class="margin-row">
+        <div class="margin-label">Growth</div>
+        <div class="margin-bar" style="width:76%;"></div>
+        <div class="margin-pct">76% · $75.20 gross profit/client</div>
+      </div>
+      <div class="margin-row">
+        <div class="margin-label">Pro</div>
+        <div class="margin-bar" style="width:74%;"></div>
+        <div class="margin-pct">74% · $133.40 gross profit/client</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="info-card">
+        <h3>Key Assumptions</h3>
+        <ul>
+          <li>Vapi $0.12/min: platform $0.05 + STT $0.03 + TTS $0.02 + telephony $0.02</li>
+          <li>Call volumes: Starter ~50 min · Growth ~100 min · Pro ~200 min/mo</li>
+          <li>WA conversations: 100 / 200 / 400 per plan per month</li>
+          <li>Claude Haiku for WA/email; Sonnet for complex reasoning flows</li>
+          <li>Infra is shared fixed cost — apportioned equally per active client</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>Scale Dynamics</h3>
+        <ul>
+          <li>Infra cost per client drops sharply after 10 clients (fixed Railway cost spreads)</li>
+          <li>Claude API stays predictable — Haiku very cheap per message</li>
+          <li>Vapi is the biggest variable cost; Sophie trained to ~3.5 min avg call</li>
+          <li>At 50 Pro clients: ~$6,700/mo gross profit from Pro alone</li>
+          <li>When setup fee is charged ($180/$250), covers ~15 months of infra per client</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4 — CANADA MARKET                                     -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s4">
+    <div class="section-label">Section 4</div>
+    <h2>Canada Market — CAD Pricing &amp; CASL Compliance</h2>
+
+    <div class="callout">
+      <div class="callout-icon">🍁</div>
+      <div class="callout-body">
+        <strong>Canada Dental Care Plan (CDCP) — Why Canada is the priority right now</strong>
+        <p>9 million previously uninsured Canadians now have dental coverage. Practices in every Canadian city are receiving an uptick in first-time patient inquiries. Email 6 in the drip sequence targets this signal specifically. The window to position PracticeDesk as "the practice that always answers" is right now.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>CAD/mo</th>
+          <th>Setup (waived)</th>
+          <th>Voice channel</th>
+          <th>WA channel</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Starter</strong></td>
+          <td class="number">CAD $70</td>
+          <td><span class="badge badge-gold">CAD $250 waived</span></td>
+          <td>Vapi + SignalWire +1 587 (AB)</td>
+          <td>Post-opt-in only (CASL)</td>
+          <td>Email-first track</td>
+        </tr>
+        <tr>
+          <td><strong>Growth</strong></td>
+          <td class="number">CAD $140</td>
+          <td><span class="badge badge-gold">CAD $250 waived</span></td>
+          <td>Vapi + SignalWire +1 587 (AB)</td>
+          <td>Post-opt-in only (CASL)</td>
+          <td>Email-first track</td>
+        </tr>
+        <tr>
+          <td><strong>Pro</strong></td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge badge-gold">CAD $250 waived</span></td>
+          <td>Vapi + SignalWire +1 587 (AB)</td>
+          <td>Post-opt-in only (CASL)</td>
+          <td>Email-first track</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-card" style="margin-top:16px;">
+      <h3>CASL Compliance Rules — Canada</h3>
+      <ul>
+        <li>Email outreach first — no cold WhatsApp in Canada</li>
+        <li>Voice via Sophie (Vapi + SignalWire +1 587 Alberta number) — max 30 calls/day</li>
+        <li>WA messages only after opt-in signal: replied to email, clicked link, booked demo</li>
+        <li>market="CA" flag in all outreach pipelines triggers CAD pricing and CASL track</li>
+        <li>Sophie's <code>pricing_line</code> variable dynamically injects CAD prices on all CA calls</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5 — WEAVE COMPARISON                                  -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s5">
+    <div class="section-label">Section 5</div>
+    <h2>Competitive Positioning — PracticeDesk vs Weave</h2>
+
+    <div class="callout">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>Context: not a direct head-to-head competitor</strong>
+        <p>Weave is a full practice management platform (phone system + reviews + payments + scheduling) targeting established multi-chair practices in the US. PracticeDesk targets smaller practices (1–3 practitioners) who want AI-first, lightweight, and fast to deploy. Use the comparison below for positioning when Weave comes up, not as a selling point.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>PracticeDesk</th>
+          <th>Weave</th>
+          <th>Advantage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Monthly price</strong></td>
+          <td>$49–$180/mo · CAD $70–$250</td>
+          <td>~$500–700+/mo (bundled)</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Setup complexity</strong></td>
+          <td>15 minutes, no hardware</td>
+          <td>Hardware shipped, IT setup, weeks</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp AI</strong></td>
+          <td>Native, 24/7 AI responses</td>
+          <td>Not available</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Voice AI (outbound sales)</strong></td>
+          <td>Sophie — AI outbound + follow-up</td>
+          <td>Not AI; human callbacks only</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>After-hours coverage</strong></td>
+          <td>24/7 across phone, WA, email</td>
+          <td>Voicemail + next-day callback</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Canada availability</strong></td>
+          <td>Live — CAD pricing, CASL-compliant</td>
+          <td>Limited; US-primary</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Contract</strong></td>
+          <td>Month-to-month, cancel any time</td>
+          <td>Annual contract typical</td>
+          <td><span class="badge badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Phone system (hardware)</strong></td>
+          <td>AI answers — no hardware needed</td>
+          <td>Full VoIP desk phones bundled</td>
+          <td><span class="badge badge-navy">Weave</span></td>
+        </tr>
+        <tr>
+          <td><strong>Reviews management</strong></td>
+          <td>Not included</td>
+          <td>Automated review requests</td>
+          <td><span class="badge badge-navy">Weave</span></td>
+        </tr>
+        <tr>
+          <td><strong>Payments</strong></td>
+          <td>Not included</td>
+          <td>In-app payment collection</td>
+          <td><span class="badge badge-navy">Weave</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-card">
+      <h3>When Weave comes up in a sales call</h3>
+      <ul>
+        <li>"Weave is for established multi-chair practices who need a phone system replacement — we're different, we sit on top of your existing setup and add AI that works after hours, on WhatsApp, and by voice."</li>
+        <li>"Weave requires hardware and an annual commitment. We're month-to-month, free trial, live the same day."</li>
+        <li>"If you're specifically trying to stop missing after-hours calls and WhatsApp bookings — that's our core. Weave doesn't do that."</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 6 — VAPI ARCHITECTURE                                 -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s6">
+    <div class="section-label">Section 6</div>
+    <h2>Vapi Architecture — Market-Aware Pricing Injection</h2>
+
+    <p>Sophie delivers the correct currency to each prospect via Vapi's <code>assistantOverrides.variableValues</code> mechanism. The Vapi system prompt uses <code>{{pricing_line}}</code> (double-brace Vapi syntax) — the value is injected per-call from Python, not hardcoded in the dashboard.</p>
+
+    <div class="arch-box">
+      <h4>Call flow — how pricing_line reaches Sophie</h4>
+      <div class="arch-row">
+        <div class="arch-node gold">market="CA"?</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">_pricing_line(market)</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node teal">CAD $70 / $140 / $250 + setup</div>
+      </div>
+      <div class="arch-row">
+        <div class="arch-node gold">market=AU/US?</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">_pricing_line(market)</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node green">$49 / $99 / $180 + setup</div>
+      </div>
+      <div class="arch-row" style="margin-top:12px;">
+        <div class="arch-node">place_sophie_call()</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">assistantOverrides.variableValues</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node teal">Vapi {{pricing_line}}</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-note">Sophie says the right price</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:20px;">Files that implement this</h3>
+    <ul class="file-list">
+      <li>
+        <span class="badge badge-green">helper</span>
+        <code>outreach-agent/agents/click_caller.py</code>
+        <span style="font-size:12px;color:var(--muted);">_PRICING_USD, _PRICING_CAD, _pricing_line(market) defined at top; CA branch passes pricing_line to place_sophie_call()</span>
+      </li>
+      <li>
+        <span class="badge badge-green">helper</span>
+        <code>outreach-agent/agents/voice_outreach.py</code>
+        <span style="font-size:12px;color:var(--muted);">Same _pricing_line() helper; place_outbound_call() passes pricing_line=_pricing_line(market) to Vapi for CA calls</span>
+      </li>
+      <li>
+        <span class="badge badge-green">param</span>
+        <code>outreach-agent/agents/vapi_caller.py</code>
+        <span style="font-size:12px;color:var(--muted);">place_sophie_call() accepts pricing_line param; injects into variableValues dict; default is USD string</span>
+      </li>
+      <li>
+        <span class="badge badge-navy">script</span>
+        <code>outreach-agent/scripts/update_vapi_sophie_prompt.py</code>
+        <span style="font-size:12px;color:var(--muted);">Canonical Sophie prompt — uses {{pricing_line}} in Phase 4 (Trial Offer); run to push prompt to Vapi dashboard</span>
+      </li>
+    </ul>
+
+    <div style="margin-top:16px;" class="callout">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>Why {{double-brace}} syntax matters</strong>
+        <p>Vapi uses <code>{{variable}}</code> for substitution. Python f-strings use <code>{variable}</code>. The Vapi prompt stored in update_vapi_sophie_prompt.py uses double-braces so they survive Python string handling unmodified and Vapi substitutes them at call time. The per-call variableValues dict is the source of truth — the Vapi dashboard is just a template with placeholders.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 7 — DEPLOYMENT CHECKLIST                              -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s7">
+    <div class="section-label">Section 7</div>
+    <h2>Pricing Deployment Checklist — All Touchpoints</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>File / Touchpoint</th>
+          <th>USD</th>
+          <th>CAD</th>
+          <th>Setup fee</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>knowledge/brand/practicedesk-brief.md</code></td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/_master_prompt.py</code></td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>docs/apex-rebuild/_master_prompt.py</code></td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>knowledge/vertical_profiles.py</code> — all CA entries + objections</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>assets/email_copy.yaml</code> — pricing_line + CAD variant</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/email_templates.py</code> — all 8 templates</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/vapi_caller.py</code> — pricing_line variableValues injection</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/click_caller.py</code> — _pricing_line() helper + CA branch</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/voice_outreach.py</code> — _pricing_line() helper</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>scripts/update_vapi_sophie_prompt.py</code> — {{pricing_line}} variable</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td>Vapi dashboard — Sophie system prompt (manual update)</td>
+          <td class="check">✓</td>
+          <td style="color:var(--muted);font-size:12px;">via var</td>
+          <td style="color:var(--muted);font-size:12px;">via var</td>
+          <td><span class="badge badge-gold">Done by founder</span></td>
+        </tr>
+        <tr>
+          <td><code>public/mehak-dental-pitch.html</code> (PracticeDesk repo)</td>
+          <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+          <td><span class="badge badge-green">Done</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 8 — MEHAK UPDATE                                      -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s8">
+    <div class="section-label">Section 8</div>
+    <h2>Mehak Field Guide — What Changed</h2>
+
+    <div class="callout">
+      <div class="callout-icon">🦷</div>
+      <div class="callout-body">
+        <strong>File: C:\Projects\Practice desk\public\mehak-dental-pitch.html</strong>
+        <p>Toronto dental outreach field guide for Mehak. Was showing incorrect USD-only pricing with wrong plan names and a missing tier. Updated to show CAD as primary currency since this is a Canada pitch, with the setup fee waiver prominently featured.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>What changed</th>
+          <th>Before</th>
+          <th>After</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Pricing table — plan names</strong></td>
+          <td>Starter · Clinic (recommended) · Enterprise</td>
+          <td>Starter · Growth (recommended) · Pro</td>
+        </tr>
+        <tr>
+          <td><strong>Pricing table — currency</strong></td>
+          <td>USD only (wrong for Toronto)</td>
+          <td>CAD as primary · USD equivalent as secondary</td>
+        </tr>
+        <tr>
+          <td><strong>Starter price</strong></td>
+          <td>US$49.99</td>
+          <td>CAD $70 (~US$49)</td>
+        </tr>
+        <tr>
+          <td><strong>Growth tier</strong></td>
+          <td>Missing entirely</td>
+          <td>CAD $140 — added with full feature list</td>
+        </tr>
+        <tr>
+          <td><strong>Pro price</strong></td>
+          <td>US$180 (labelled "Clinic")</td>
+          <td>CAD $250 (~US$180)</td>
+        </tr>
+        <tr>
+          <td><strong>Setup fee</strong></td>
+          <td>Not mentioned</td>
+          <td>CAD $250 — waived until 29 Jul 2026 (amber banner above pricing table)</td>
+        </tr>
+        <tr>
+          <td><strong>Pricing objection answer</strong></td>
+          <td>"A few hundred dollars a month" (vague)</td>
+          <td>Real CAD numbers: $70/$140/$250 + setup fee waiver script</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-card" style="margin-top:16px;">
+      <h3>Mehak's updated pricing objection script</h3>
+      <ul>
+        <li>"Plans start at CAD $70/month for Starter, CAD $140 for Growth (most clinics), CAD $250 for Pro with multi-location."</li>
+        <li>"There's normally a CAD $250 setup fee but that's waived right now until end of July — so you start with just the monthly."</li>
+        <li>"One recovered no-show appointment covers the monthly cost."</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="doc-footer">
+  Generated by Claude Code · Apex Operations · 29 June 2026
+  &nbsp;|&nbsp; Exchange rate: 1 USD = 1.42 CAD
+  &nbsp;|&nbsp; Internal use only
+</div>
+
+</body>
+</html>

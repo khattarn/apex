@@ -53,7 +53,9 @@ PRODUCT 1 - PracticeDesk
   Verticals: dentist, doctor/GP, physiotherapist, salon, accountant, lawyer.
   Markets: AU (primary), US, CA, IN (expanding).
   Pricing: 14-day free trial, live in 15 minutes, no lock-in.
-           Plans $49 / $99 / $180 per month (Starter / Growth / Pro).
+           USD plans: $49 / $99 / $180 per month (Starter / Growth / Pro).
+           CAD plans (Canada): CAD $70 / $140 / $250 per month (Starter / Growth / Pro).
+           Setup fee: $180 USD / CAD $250 — waived until 29 Jul 2026 (introductory offer, always mention).
   Personas: Henry (the front-desk / inbound + email persona, signs all PracticeDesk
             outbound) and Sophie (outbound voice). Sign off outbound as "Henry, PracticeDesk".
 

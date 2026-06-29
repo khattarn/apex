@@ -33,7 +33,9 @@
 shared:
   positioning: "an AI office assistant that handles your front desk across phone, WhatsApp and email — 24 hours a day, 7 days a week"
   signoff: "Henry, PracticeDesk"
-  pricing_line: "Plans from $49/month. 14-day free trial, live in 15 minutes, no lock-in."
+  pricing_line: "Plans from $49/month (CAD $70/month in Canada). Setup fee $180 USD / CAD $250 — waived until 29 Jul 2026. 14-day free trial, live in 15 minutes, no lock-in."
+  pricing_line_usd: "Plans from $49/month. Setup fee $180 — waived until 29 Jul 2026. 14-day free trial, live in 15 minutes, no lock-in."
+  pricing_line_cad: "Plans from CAD $70/month. Setup fee CAD $250 — waived until 29 Jul 2026. 14-day free trial, live in 15 minutes, no lock-in."
 
 verticals:
 

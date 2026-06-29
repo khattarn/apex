@@ -42,11 +42,11 @@ const AGENTS = [
     ],
   },
   {
-    num: 'Agent 5', name: 'Demo Booking', owner: 'GM Care · Aria (Dograh)',
+    num: 'Agent 5', name: 'Demo Booking', owner: 'GM Care · Sophie (Dograh)',
     status: 'live',
     bullets: [
       'Triggered on interested signal from Reply Handler',
-      'Aria books demo via Cal.com API (Event ID 5901537)',
+      'Sophie books demo via Cal.com API (Event ID 5901537)',
       'Sends confirmation WA message with Zoom link',
       'Lead status updated to "replied"',
     ],
@@ -372,8 +372,8 @@ export default function Mandate() {
               <ChannelRow icon="📞" name="Voice Follow-up (Sophie / Henry)" status="live" bullets={[
                 'Sophie outbound: 5-day WA silence → Dograh call',
                 'Henry inbound: answers calls to international number',
-                '7-phase Aria sales playbook · 330s cap',
-                'Interested → Aria books Cal.com demo automatically',
+                '7-phase Sophie sales playbook · 330s cap',
+                'Interested → Sophie books Cal.com demo automatically',
                 'Cron: 11am–5pm local Mon–Fri',
               ]} />
               <ChannelRow icon="📣" name="Social Media" status="build" bullets={[

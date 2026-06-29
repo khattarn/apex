@@ -82,7 +82,7 @@ const LAI_MODULES = [
     waHi:  '🔨 Needs commissioning — natural Hinglish, legal terms in English ok',
     email: '🔨 Needs commissioning — hallucination risk angle (ChatGPT danger for court submissions)',
     voice: '✅ Live (inbound) — opener: "Are you still paying SCC Online rates for case law?"',
-    coldCall: '🔨 Needs setup — outbound cold calling to advocates. Target: individual advocates & small law firms in IN. Script angle: SCC Online cost + hallucination risk. Priya (IN voice agent via Vobiz) to place calls. NOT Aria.',
+    coldCall: '🔨 Needs setup — outbound cold calling to advocates. Target: individual advocates & small law firms in IN. Script angle: SCC Online cost + hallucination risk. Priya (IN voice agent via Vobiz) to place calls. NOT Sophie.',
     affiliate: 'Agent 11 planned — ₹500/₹500 · target Instagram advocates 10K–100K followers',
     markets: 'IN',
     tone: 'Peer-to-peer professional. NOT "ChatGPT for lawyers." NOT "democratisation" language.',
@@ -200,7 +200,7 @@ function VerticalCard({ v, isModule = false }) {
           <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block">Email</span>{v.email}</p>
         )}
         {v.voice && (
-          <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block">Voice (Aria)</span>{v.voice}</p>
+          <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block">Voice (Sophie)</span>{v.voice}</p>
         )}
         {v.social && (
           <p className="text-xs text-slate-400"><span className="text-slate-500 w-28 inline-block">Social</span>{v.social}</p>

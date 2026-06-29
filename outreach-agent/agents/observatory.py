@@ -44,7 +44,7 @@ def _count_activities(types: list[str], start: str, end: str) -> int:
 
 
 def _get_calls_detail(start: str, end: str) -> tuple[int, int, float]:
-    """Returns (aria_calls, voice_followup_calls, total_cost)."""
+    """Returns (sophie_calls, voice_followup_calls, total_cost)."""
     db = get_client()
     try:
         rows = (
@@ -56,7 +56,7 @@ def _get_calls_detail(start: str, end: str) -> tuple[int, int, float]:
             .execute()
             .data or []
         )
-        aria = sum(1 for r in rows if r.get("type") in ("outbound_call_completed", "outbound_call_placed"))
+        sophie = sum(1 for r in rows if r.get("type") in ("outbound_call_completed", "outbound_call_placed"))
         vf   = sum(1 for r in rows if r.get("type") == "voice_followup_placed")
         cost = 0.0
         for r in rows:
@@ -64,7 +64,7 @@ def _get_calls_detail(start: str, end: str) -> tuple[int, int, float]:
             cost_info = detail.get("cost_info") or {}
             if isinstance(cost_info, dict):
                 cost += float(cost_info.get("total_cost", 0) or 0)
-        return aria, vf, round(cost, 4)
+        return sophie, vf, round(cost, 4)
     except Exception:
         return 0, 0, 0.0
 

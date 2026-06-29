@@ -260,8 +260,8 @@ export default function LeadsTable() {
           onChange={(e) => setFilter('voice_called', e.target.value)}
           className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
         >
-          <option value="">Aria calls — all</option>
-          <option value="true">Called by Aria</option>
+          <option value="">Sophie calls — all</option>
+          <option value="true">Called by Sophie</option>
           <option value="false">Not yet called</option>
         </select>
         <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
@@ -453,7 +453,7 @@ export default function LeadsTable() {
                       {lead.phone && (
                         <button
                           onClick={() => handleCall(lead)}
-                          title={calledIds.has(String(lead.id)) ? 'Called by Aria — place another call' : 'Place voice call'}
+                          title={calledIds.has(String(lead.id)) ? 'Called by Sophie — place another call' : 'Place voice call'}
                           className={`p-1.5 rounded transition-colors ${calledIds.has(String(lead.id)) ? 'text-green-400 hover:bg-slate-700' : 'text-slate-400 hover:bg-slate-700 hover:text-indigo-400'}`}
                         >
                           <Phone size={13} />

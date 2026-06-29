@@ -15,7 +15,7 @@ const ACT_CONFIG = {
   email_sent:              { icon: Mail,           color: 'text-sky-400',     label: 'Email Sent' },
   email_opened:            { icon: Eye,            color: 'text-sky-300',     label: 'Email Opened' },
   email_clicked:           { icon: MousePointer,   color: 'text-amber-400',   label: 'Email Clicked' },
-  outbound_call:           { icon: Phone,          color: 'text-violet-400',  label: 'Aria Called' },
+  outbound_call:           { icon: Phone,          color: 'text-violet-400',  label: 'Sophie Called' },
   voice_followup_placed:   { icon: Phone,          color: 'text-violet-300',  label: 'Voice Follow-up' },
   outbound_call_completed: { icon: CheckCircle,    color: 'text-green-400',   label: 'Call Completed' },
   demo_booking_sent:       { icon: Calendar,       color: 'text-amber-400',   label: 'Demo Link Sent' },
@@ -30,7 +30,7 @@ const JOB_ICON = {
   'WA Outreach':     { icon: Send,        color: 'text-indigo-400' },
   'Voice Follow-up': { icon: Phone,       color: 'text-violet-400' },
   'Email Campaign':  { icon: Mail,        color: 'text-sky-400'    },
-  'Aria Click Calls':{ icon: Zap,         color: 'text-amber-400'  },
+  'Sophie Click Calls':{ icon: Zap,         color: 'text-amber-400'  },
   'Callbacks':       { icon: AlarmClock,  color: 'text-slate-400'  },
   'Observatory':     { icon: Activity,    color: 'text-slate-400'  },
   'Signal Weekly':   { icon: TrendingUp,  color: 'text-emerald-400'},
@@ -376,8 +376,8 @@ export default function LiveActivity() {
           {[
             { day: 'Day 0',  icon: Send,         color: 'text-indigo-400',  text: 'Initial WA (auto — 8:30am–7pm local)' },
             { day: 'Day 3',  icon: RefreshCw,    color: 'text-indigo-300',  text: 'WA follow-up if no reply (auto)' },
-            { day: 'Day 5',  icon: Phone,        color: 'text-violet-400',  text: 'Aria voice call if still silent' },
-            { day: 'Email',  icon: MousePointer, color: 'text-amber-400',   text: 'Click → Aria calls next working day' },
+            { day: 'Day 5',  icon: Phone,        color: 'text-violet-400',  text: 'Sophie voice call if still silent' },
+            { day: 'Email',  icon: MousePointer, color: 'text-amber-400',   text: 'Click → Sophie calls next working day' },
             { day: 'Reply',  icon: MessageSquare,color: 'text-green-400',   text: 'Intent classified → demo booking' },
           ].map(({ day, icon: Icon, color, text }) => (
             <div key={day} className="flex items-center gap-2">

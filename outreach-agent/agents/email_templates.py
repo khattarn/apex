@@ -59,7 +59,7 @@ TEMPLATES = {
 <p>{FIRST_NAME} —</p>
 <p>Try this: call {PRACTICE_NAME}'s main number tonight after 6pm from a different phone.</p>
 <p>If it goes to voicemail — that's what your patients hear. <strong>67% of them won't leave a message.</strong> They'll call the next dentist instead.</p>
-<p>PracticeDesk answers that call. Every time. Books the appointment. Sends the confirmation. From $49/month. No staff. No setup complexity.</p>
+<p>PracticeDesk answers that call. Every time. Books the appointment. Sends the confirmation. From $49/month — and the $180 setup fee is waived until 29 July 2026. No staff. No upfront cost right now.</p>
 <p>One recovered appointment pays for three months.</p>
 <p><a href="{DEMO_LINK}" style="display:inline-block;background-color:#4f46e5;color:#ffffff;padding:11px 24px;text-decoration:none;border-radius:4px;font-size:14px;font-weight:bold;">5-minute demo →</a></p>
 <p style="font-size:13px;color:#666666;margin-top:24px;"><em>P.S. Setup takes 20 minutes. The AI answered its first call the same evening for every practice we've set up so far.</em></p>""",
@@ -81,12 +81,12 @@ TEMPLATES = {
   <li>Missed calls: near zero</li>
   <li>After-hours bookings: up significantly</li>
   <li>Front desk time spent on admin: cut in half</li>
-  <li>First month cost: $49 (Starter plan)</li>
+  <li>First month cost: $49 (Starter plan) — setup fee $180 waived until 29 Jul 2026</li>
 </ul>
 <p>The setup took 20 minutes. The AI answered the first call that same evening.</p>
 <p>If missed calls are quietly costing {PRACTICE_NAME} patients, this is the fix.</p>
 <p><a href="{DEMO_LINK}" style="display:inline-block;background-color:#4f46e5;color:#ffffff;padding:11px 24px;text-decoration:none;border-radius:4px;font-size:14px;font-weight:bold;">See the full demo →</a></p>
-<p style="font-size:13px;color:#666666;margin-top:24px;"><em>P.S. 14-day free trial. Cancel any time. Plans from $49 · $99 · $180/month.</em></p>""",
+<p style="font-size:13px;color:#666666;margin-top:24px;"><em>P.S. 14-day free trial. Cancel any time. Plans from $49 · $99 · $180/month. Setup fee $180 waived until 29 Jul 2026.</em></p>""",
     },
 
     5: {
@@ -167,7 +167,7 @@ It doesn't. The AI collects booking details and creates a pending request. You r
   <li>Sends a WhatsApp confirmation to the patient</li>
   <li>Puts the booking in your dashboard for one-click confirm</li>
 </ul>
-<p>Plans from $49 · $99 · $180/month. Still 14 days free.</p>
+<p>Plans from $49 · $99 · $180/month. Setup fee $180 waived until 29 Jul 2026. Still 14 days free.</p>
 <p>If anything's changed since we last connected — whether you're busier, growing, or just tired of missed calls — worth 10 minutes.</p>
 <p><a href="{DEMO_LINK}" style="display:inline-block;background-color:#4f46e5;color:#ffffff;padding:11px 24px;text-decoration:none;border-radius:4px;font-size:14px;font-weight:bold;">Book a demo →</a></p>
 <p style="font-size:13px;color:#666666;margin-top:24px;"><em>P.S. This is genuinely the last email I'll send. If the timing is ever right: <a href="{PRODUCT_URL}" style="color:#4f46e5;">practicedesk.live</a></em></p>""",

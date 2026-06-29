@@ -176,7 +176,9 @@ After-hours booking angle performs well: patients search at 10pm when clinics ar
 - 14-day free trial
 - Live in 15 minutes
 - No lock-in
-- Plans: $49/month Starter · $99/month Growth · $180/month Pro
+- Setup fee: $180 USD / CAD $250 — waived until 29 Jul 2026 (introductory offer — always mention)
+- USD plans: $49/month Starter · $99/month Growth · $180/month Pro
+- CAD plans (Canada): CAD $70/month Starter · CAD $140/month Growth · CAD $250/month Pro
 
 ---
 
@@ -194,4 +196,4 @@ After-hours booking angle performs well: patients search at 10pm when clinics ar
 - Do not promise features that aren't in the knowledge base
 - Do not use emoji in Meta broadcast template bodies
 - Do not make up pricing tiers
-- Do not use first-person plural ("we") in Aria voice scripts — Aria speaks in first person singular
+- Do not use first-person plural ("we") in Sophie voice scripts — Sophie speaks in first person singular

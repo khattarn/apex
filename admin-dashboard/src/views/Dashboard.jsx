@@ -55,7 +55,7 @@ export default function Dashboard() {
         <StatCard label="Clicked" value={stats.email_clicked ?? 0} icon={MousePointerClick} color="yellow" />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard label="Aria Called" value={stats.aria_called ?? 0} icon={Phone} color="blue" />
+        <StatCard label="Sophie Called" value={stats.sophie_called ?? 0} icon={Phone} color="blue" />
         <StatCard label="Replied" value={stats.replied ?? 0} icon={CornerDownRight} color="yellow" />
         <StatCard label="Converted" value={stats.converted ?? 0} icon={TrendingUp} color="green" />
       </div>

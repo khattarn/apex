@@ -87,6 +87,29 @@ def verify_token(authorization: str = Header(...)):
     return token
 
 
+# ── Manual business ingest ────────────────────────────────────────────────────
+
+class IngestBusinessRow(BaseModel):
+    name: str
+    city: str
+    vertical: str
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+@app.post("/api/ingest/new-businesses")
+async def ingest_businesses(
+    rows: list[IngestBusinessRow],
+    _: str = Depends(verify_token),
+):
+    from agents.ingest import ingest_new_businesses
+    payload = [r.model_dump() for r in rows]
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, ingest_new_businesses, payload)
+    return result
+
+
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 class PipelineRequest(BaseModel):

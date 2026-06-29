@@ -72,7 +72,7 @@ VERTICAL_PROFILES = {
             "we already have a receptionist": "Absolutely — this works alongside them. It handles the after-hours and overflow calls your receptionist can't get to. She keeps her job; you stop losing $400 every missed new patient call.",
             "dental4windows already does this": "D4W is great for records and billing, but it doesn't answer your phone at 7pm or send WA reminders automatically. That's the gap this fills.",
             "we're happy with how things are": "Completely understand. Worth knowing that practices using this recover an average of 3–5 new patients per month that would have gone elsewhere. Happy to show you the numbers with zero obligation.",
-            "too expensive": "At $99/month, one recovered new patient more than covers it. Most practices see that in the first week.",
+            "too expensive": "At $99/month, one recovered new patient more than covers it. Most practices see that in the first week. And the $180 setup fee is waived until the end of July — so right now there's no upfront cost at all.",
             "i need to think about it": "Of course. Can I send you a quick case study from a Sydney dental practice — similar size to yours — so you have something concrete to review?",
         },
 
@@ -132,7 +132,7 @@ VERTICAL_PROFILES = {
             "we already have a receptionist": "This doesn't replace her — it handles the volume she can't. After-hours calls, WA reminders, overflow. She focuses on what actually needs a human.",
             "abelDent already does this": "ABELDent handles your records and billing brilliantly. The patient communication layer — automated WA, after-hours voice, smart reminders — that's what this adds on top.",
             "casl concerns — is this compliant": "Yes — we operate on implied consent for existing patient communication and have full CASL-compliant unsubscribe built in. Happy to share our compliance documentation.",
-            "too expensive": "At $99/month CAD, recovering one lapsed patient's appointment pays for 3 months. Happy to show the math.",
+            "too expensive": "At CAD $140/month, recovering one lapsed patient's appointment pays for 3 months. Happy to show the math. And the CAD $250 setup fee is waived until end of July — no upfront cost right now.",
             "we're not sure about AI for patients": "Completely understandable. The AI handles bookings and reminders only — all clinical questions route straight to your team. Patients don't know it's AI unless you tell them.",
         },
 
@@ -200,7 +200,7 @@ VERTICAL_PROFILES = {
             "we already have weave": "Weave handles text messaging well — it doesn't do conversational voice. When your front desk is with a patient and the phone rings at 6pm, Weave can't answer it and book a new patient. That's the gap.",
             "we already have a patient communication system": "What does it do after hours when your team is gone? If a new patient calls at 7pm and hits voicemail, they're booking your competitor. This is specifically that after-hours + overflow gap.",
             "we use dentrix — does this integrate": "Yes — bookings go straight into your Dentrix schedule. No double entry, no disruption to your existing workflow.",
-            "too expensive": "At $99/month, one new patient a month more than covers it. Most practices see 3–5 additional new patients in month one from after-hours recovery alone.",
+            "too expensive": "At $99/month, one new patient a month more than covers it. Most practices see 3–5 additional new patients in month one from after-hours recovery alone. Setup is $180 but it's waived until end of July — zero upfront.",
             "not interested in more tech": "Understood. Worth knowing that 73% of new dental patients choose the first practice that responds to their inquiry. After-hours voice is the single fastest way to win that race.",
         },
 
@@ -262,7 +262,7 @@ VERTICAL_PROFILES = {
             "fresha does this": "Fresha does basic online booking. This is the layer on top — the AI that sends WA reminders to reduce no-shows, fills your last-minute cancellations automatically, and answers after-hours booking requests so you don't lose that client to the salon down the road.",
             "i don't have time for new tech": "It runs itself — you set it up once and it handles client reminders and booking requests without you doing anything. Most salon owners spend about 20 minutes setting it up.",
             "my clients prefer to call me directly": "They still can — this just means when they can't reach you, they get an instant response instead of voicemail. Especially useful for after-hours and when you're with a client.",
-            "too expensive": "At $49/month, filling one extra appointment a week pays for itself twice over.",
+            "too expensive": "At $49/month, filling one extra appointment a week pays for itself twice over. Setup is $180 but waived until end of July — nothing upfront.",
         },
 
         "best_outreach_time": "8:00am–9:30am AEST (before first clients), or 12pm–1pm",
@@ -303,12 +303,12 @@ VERTICAL_PROFILES = {
 
         "objections": {
             "we use fresha": "Fresha handles bookings when clients come to you. This handles the times they don't — after hours, when you're with a client, when they want to ask a question before booking. Different layer.",
-            "too expensive": "At $49/month CAD, filling two extra appointments a week covers it.",
+            "too expensive": "At CAD $70/month, filling two extra appointments a week covers it. And the CAD $250 setup fee is waived until end of July — nothing to pay upfront.",
         },
 
         "best_outreach_time": "Tue–Thu 8:30am–10am local",
         "channel_note": "Email primary in Canada. Do not use WA for cold outreach.",
-        "price_sensitivity": "high — $49/mo starter plan essential",
+        "price_sensitivity": "high — CAD $70/mo Starter plan essential. Setup fee CAD $250 waived until 29 Jul 2026 — always lead with this.",
         "signal_notes": "CA salons are similar to AU but email-first. Seasonal angle works well — 'prepare for your slow season now' in September/October.",
     },
 
@@ -344,7 +344,7 @@ VERTICAL_PROFILES = {
 
         "objections": {
             "we use vagaro": "Vagaro handles the booking side. This is the communication layer — automated WA and SMS reminders that reduce no-shows, plus AI that answers after-hours booking requests so you capture clients when your desk is closed.",
-            "too expensive": "At $49/month, one recovered no-show appointment per week pays for it. Most salons see a 20–30% reduction in no-shows in month one.",
+            "too expensive": "At $49/month, one recovered no-show appointment per week pays for it. Most salons see a 20–30% reduction in no-shows in month one. Setup is $180 but waived until end of July — nothing upfront.",
         },
 
         "best_outreach_time": "Tue–Thu 9am–11am local time",
@@ -458,7 +458,7 @@ VERTICAL_PROFILES = {
             "casl — is this compliant": "Yes — the system is CASL-compliant with full consent documentation and unsubscribe built in. Happy to share our compliance documentation.",
         },
 
-        "price_sensitivity": "medium — CPAs are careful. $99/mo is right for small-mid firm.",
+        "price_sensitivity": "medium — CPAs are careful. CAD $140/mo Growth plan is the right anchor in Canada. Setup fee CAD $250 waived until 29 Jul 2026 — lead with this.",
         "signal_notes": "Always use 'CPA' not 'accountant' in CA copy. CASL compliance statement in outreach email helps build trust with this audience. Never reach out during tax season.",
     },
 
@@ -494,7 +494,7 @@ VERTICAL_PROFILES = {
 
         "objections": {
             "we already use karbon/taxdome": "Karbon manages your internal workflow. This is the client-facing communication layer — the automated reminders, online booking, and document request messages your team currently sends manually. They're complementary.",
-            "too expensive": "At $99/month, saving 2 hours of admin per week at your billing rate pays for it in the first hour of month one.",
+            "too expensive": "At $99/month, saving 2 hours of admin per week at your billing rate pays for it in the first hour of month one. Setup is $180 but waived until end of July — nothing upfront.",
         },
 
         "price_sensitivity": "low-medium — US CPAs pay for tools that demonstrably save billable time",
@@ -639,7 +639,7 @@ VERTICAL_PROFILES = {
         "objections": {
             "we use webpt": "WebPT handles your clinical documentation and billing — which it does brilliantly. This is the patient-facing communication layer WebPT doesn't have: automated WA reminders, waitlist auto-fill, after-hours AI for new patient enquiries.",
             "we have front desk staff": "They still handle everything they do today. This handles the calls and messages outside business hours and the automated reminder sequence so your front desk doesn't manually call 30 patients every morning.",
-            "too expensive": "At $99/month, filling one cancelled hour per week more than covers it. Most PT practices see no-show rates drop 20–25% in month one.",
+            "too expensive": "At $99/month, filling one cancelled hour per week more than covers it. Most PT practices see no-show rates drop 20–25% in month one. Setup is $180 but waived until end of July — nothing upfront.",
         },
 
         "best_outreach_time": "Tue–Thu 10am–12pm or 2pm–4pm local",

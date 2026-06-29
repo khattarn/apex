@@ -110,7 +110,7 @@ GEO_PROFILES = {
             "AEDT": "UTC+11 (NSW, VIC, ACT, TAS — daylight saving Oct–Apr)",
             "ACST": "UTC+9:30 (SA, NT)",
             "AWST": "UTC+8 (WA — no daylight saving)",
-            "note": "Perth is 2–3 hours behind Sydney. Always resolve to local time before scheduling Aria calls.",
+            "note": "Perth is 2–3 hours behind Sydney. Always resolve to local time before scheduling Sophie calls.",
         },
 
         "competitor_awareness": "low-medium",
@@ -302,7 +302,7 @@ GEO_PROFILES = {
             },
             "voice": {
                 "law": "TCPA — Telephone Consumer Protection Act",
-                "critical": "TCPA is extremely strict for auto-dialled calls. Aria must not use predictive/auto-dialler mode for US consumer numbers. Manual dial or single-line auto-dial to business numbers is safer.",
+                "critical": "TCPA is extremely strict for auto-dialled calls. Sophie must not use predictive/auto-dialler mode for US consumer numbers. Manual dial or single-line auto-dial to business numbers is safer.",
                 "hours": "8am–9pm local time",
                 "do_not_call": "National DNC list — check before dialling consumer numbers. B2B is largely exempt.",
             },
@@ -332,7 +332,7 @@ GEO_PROFILES = {
             "CST": "UTC-6 (TX, IL, most of midwest)",
             "MST": "UTC-7 (CO, AZ — Arizona does not observe daylight saving)",
             "PST": "UTC-8 (CA, WA, OR)",
-            "note": "US spans 4 primary zones. Always resolve city before scheduling Aria calls. California is PST — 3 hours behind New York.",
+            "note": "US spans 4 primary zones. Always resolve city before scheduling Sophie calls. California is PST — 3 hours behind New York.",
         },
 
         "competitor_awareness": "very high",

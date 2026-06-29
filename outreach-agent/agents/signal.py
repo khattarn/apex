@@ -11,7 +11,7 @@ Autonomy guardrails:
   - Autonomous: A/B tests ≤20 leads/variant, auto-promote at 2× reply rate,
                 auto-kill at 0% reply after 30 sends, send-time shift ±2h,
                 objection logging, target revision within ±20%
-  - Must propose: tests >20 leads, new templates, channel changes, Aria script
+  - Must propose: tests >20 leads, new templates, channel changes, Sophie script
                   changes, geo profile changes, target revision >20%, dead-end
                   declaration (CEO packages → Neeraj approves)
 """

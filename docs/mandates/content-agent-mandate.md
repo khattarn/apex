@@ -23,7 +23,7 @@ CEO  (Neeraj — human now; AI agent later via ceo.py)
 GM Care  (human → agent later)
     ├── Agent 4: Reply Handler
     ├── Agent 5: Demo Booking
-    └── Agent 7: Voice (Aria)   ← receives voice scripts from Content Agent
+    └── Agent 7: Voice (Sophie)   ← receives voice scripts from Content Agent
 
 Agent 10: Observatory            ← performance data feeds back to Content Agent
 ```
@@ -158,16 +158,16 @@ Content Agent generates email HTML + subjects
 → deployed on next Railway push
 ```
 
-### 5d. Voice Scripts (Aria)
+### 5d. Voice Scripts (Sophie)
 **Format:** aria_opener, aria_insight, aria_pain_question per vertical — copy.yaml update
-**Recipient:** Agent 7 (Voice Follow-up / Aria) reads copy.yaml; click_caller.py uses it
+**Recipient:** Agent 7 (Voice Follow-up / Sophie) reads copy.yaml; click_caller.py uses it
 
 Flow:
 ```
 Content Agent generates opener / insight / pain_question
 → VP Marketing approves
 → update copy.yaml
-→ Aria picks up on next call (no redeploy needed)
+→ Sophie picks up on next call (no redeploy needed)
 ```
 
 **Low risk — easily reverted. VP Marketing approval sufficient.**
@@ -228,7 +228,7 @@ Content Agent performance is measured by the downstream outcome of content it ge
 | WA broadcast reply rate | >5% (AU) | Signal template_scores |
 | Email open rate | >25% | Signal funnel_metrics |
 | Email click-to-call rate | >4% | Signal funnel_metrics |
-| Aria opener → discovery rate | >60% | Signal funnel_metrics |
+| Sophie opener → discovery rate | >60% | Signal funnel_metrics |
 | Time from brief to approved content | <10 min | Admin dashboard |
 | Content freshness | No template >90 days without Signal review | Signal dead-end detection |
 

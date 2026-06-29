@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl -s https://*.railway.app/health*)"
+    ]
+  }
+}

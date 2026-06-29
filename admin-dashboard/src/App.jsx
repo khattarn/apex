@@ -33,7 +33,7 @@ function LiveCallBanner({ calls }) {
       </span>
       <span className="text-xs font-medium text-green-200">
         {calls.length === 1
-          ? `Aria is on a call — ${calls[0].direction === 'inbound' ? 'Inbound from' : 'Calling'} ${calls[0].lead_name || calls[0].phone}`
+          ? `Sophie is on a call — ${calls[0].direction === 'inbound' ? 'Inbound from' : 'Calling'} ${calls[0].lead_name || calls[0].phone}`
           : `${calls.length} active calls in progress`}
       </span>
       <span className="text-xs text-green-500 ml-auto">

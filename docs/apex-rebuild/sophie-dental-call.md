@@ -1,6 +1,6 @@
 # Sophie — Dental Cold-Call Script & Voice Notes (PracticeDesk, US/CA)
 
-*Honest pain-led outbound script for the voice agent. Replaces the "Aria" scripts and the
+*Honest pain-led outbound script for the voice agent. Replaces the earlier voice-agent scripts and the
 "pretend to be a patient" concept (see note at end). Grounded in
 knowledge/brand/practicedesk-brief.md.*
 

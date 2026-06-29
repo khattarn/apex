@@ -36,7 +36,7 @@ const PRODUCTS = {
 const CONTENT_TYPES = [
   { value: 'wa_template',    label: 'WA Broadcast Template', hint: '→ template_manager.py · Agent 3' },
   { value: 'email',          label: 'Email (subject + HTML)', hint: '→ email_templates.py' },
-  { value: 'voice_guidance', label: 'Voice Guidance (Aria)', hint: '→ copy.yaml · Agent 7' },
+  { value: 'voice_guidance', label: 'Voice Guidance (Sophie)', hint: '→ copy.yaml · Agent 7' },
   { value: 'social_post',    label: 'Social Post', hint: '→ manual publish' },
 ]
 
@@ -52,7 +52,7 @@ const MARKETS = ['AU', 'US', 'CA', 'IN']
 const ROUTING = {
   wa_template:    { label: 'Route: Agents 2 + 3', detail: 'Submit to Meta → template_manager.py → wa_broadcast cron', color: 'text-indigo-400' },
   email:          { label: 'Route: Email pipeline', detail: 'Update email_templates.py → email_personalizer → Resend', color: 'text-blue-400' },
-  voice_guidance: { label: 'Route: Agent 7 (Aria)', detail: 'Update copy.yaml → click_caller picks up on next run', color: 'text-purple-400' },
+  voice_guidance: { label: 'Route: Agent 7 (Sophie)', detail: 'Update copy.yaml → click_caller picks up on next run', color: 'text-purple-400' },
   social_post:    { label: 'Route: Manual publish', detail: 'Copy-paste to LinkedIn / Instagram', color: 'text-slate-400' },
 }
 
@@ -736,7 +736,7 @@ function GenerateTab({ onSaved }) {
               { label: 'WA broadcast', agent: 'Agent 3', color: 'text-indigo-400' },
               { label: 'WA personalised', agent: 'Agent 2', color: 'text-indigo-400' },
               { label: 'Email', agent: 'email pipeline', color: 'text-blue-400' },
-              { label: 'Voice', agent: 'Agent 7 · Aria', color: 'text-purple-400' },
+              { label: 'Voice', agent: 'Agent 7 · Sophie', color: 'text-purple-400' },
               { label: 'Follow-up copy', agent: 'Agent 6', color: 'text-teal-400' },
               { label: 'Social', agent: 'manual', color: 'text-slate-400' },
             ].map(({ label, agent, color }) => (

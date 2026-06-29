@@ -1,12 +1,12 @@
 """
-cal_booking.py — Cal.com integration for Aria's automatic demo booking.
+cal_booking.py — Cal.com integration for Sophie's automatic demo booking.
 
 Required env vars:
   CAL_API_KEY        — from cal.com/settings/developer/api-keys
   CAL_EVENT_TYPE_ID  — integer ID of the "PracticeDesk Demo" event type
                        (optional: auto-fetched if not set, but set it to avoid an API call)
 
-When Aria's book_demo tool fires:
+When Sophie's book_demo tool fires:
   1. Parse the prospect's preferred time (natural language → datetime)
   2. Fetch available Cal.com slots around that time
   3. Book the nearest available slot

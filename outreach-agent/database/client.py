@@ -268,9 +268,9 @@ def get_stats():
         if step > 0 and not paused:  in_sequence += 1
         if paused and step >= len(EMAIL_SEQUENCE): sequence_complete += 1
 
-    # Count leads Aria has called (any placement activity)
-    aria_called_rows = db.table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or []
-    aria_called = len({str(r["lead_id"]) for r in aria_called_rows})
+    # Count leads Sophie has called (any placement activity)
+    sophie_called_rows = db.table("lead_activities").select("lead_id").in_("type", ["outbound_call", "voice_followup_placed"]).execute().data or []
+    sophie_called = len({str(r["lead_id"]) for r in sophie_called_rows})
 
     return {
         "total_leads":       total,
@@ -278,7 +278,7 @@ def get_stats():
         "wa_sent":           wa_sent,
         "email_opened":      email_opened,
         "email_clicked":     email_clicked,
-        "aria_called":       aria_called,
+        "sophie_called":     sophie_called,
         "replied":           by_status.get("replied", 0),
         "converted":         by_status.get("converted", 0),
         "in_sequence":       in_sequence,

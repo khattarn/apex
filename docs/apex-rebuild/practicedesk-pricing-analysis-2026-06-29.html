@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PracticeDesk — Pricing &amp; Cost Analysis · 29 June 2026</title>
+<style>
+  :root {
+    --navy: #0d1b3e;
+    --navy-mid: #1a2f5e;
+    --navy-light: #243a6f;
+    --gold: #c9a84c;
+    --gold-light: #e8c96a;
+    --white: #ffffff;
+    --off-white: #f7f6f2;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --green: #16a34a;
+    --amber: #d97706;
+    --red: #dc2626;
+    --border: #e2d9c8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--off-white);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  .header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+    color: var(--white);
+    padding: 48px 64px 40px;
+    border-bottom: 4px solid var(--gold);
+  }
+
+  .header-meta {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+  }
+
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+
+  .header .subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.72);
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 64px;
+  }
+
+  /* Section headings */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 20px;
+  }
+
+  .section {
+    margin-bottom: 56px;
+  }
+
+  /* Alert / callout */
+  .callout {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    color: var(--white);
+    border-left: 5px solid var(--gold);
+    border-radius: 8px;
+    padding: 20px 28px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .callout-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .callout-body strong {
+    display: block;
+    font-size: 15px;
+    color: var(--gold-light);
+    margin-bottom: 4px;
+  }
+
+  .callout-body p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.82);
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: var(--white);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+
+  thead tr {
+    background: var(--navy);
+    color: var(--white);
+  }
+
+  thead th {
+    padding: 14px 18px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #f9f8f5;
+  }
+
+  tbody tr:hover {
+    background: #f0ede4;
+  }
+
+  td {
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  td.number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+  }
+
+  td.right {
+    text-align: right;
+  }
+
+  .badge-green {
+    display: inline-block;
+    background: #dcfce7;
+    color: #15803d;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .badge-gold {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .badge-navy {
+    display: inline-block;
+    background: var(--navy);
+    color: var(--white);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .check { color: var(--green); font-weight: 700; }
+  .dash  { color: var(--muted); }
+
+  /* Pricing card grid */
+  .plan-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .plan-card {
+    background: var(--white);
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .plan-card.highlight {
+    border-color: var(--gold);
+    box-shadow: 0 4px 16px rgba(201,168,76,0.2);
+  }
+
+  .plan-card-header {
+    background: var(--navy);
+    color: var(--white);
+    padding: 20px 22px 16px;
+  }
+
+  .plan-card.highlight .plan-card-header {
+    background: linear-gradient(135deg, var(--navy-light) 0%, var(--navy) 100%);
+  }
+
+  .plan-name {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 6px;
+  }
+
+  .plan-price-usd {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--white);
+    line-height: 1;
+  }
+
+  .plan-price-cad {
+    font-size: 14px;
+    color: rgba(255,255,255,0.62);
+    margin-top: 4px;
+  }
+
+  .plan-card-body {
+    padding: 18px 22px 20px;
+  }
+
+  .plan-feature {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 5px 0;
+    border-bottom: 1px solid #f0ede4;
+    color: var(--text);
+  }
+
+  .plan-feature:last-child { border-bottom: none; }
+
+  .feat-check { color: var(--green); font-weight: 700; font-size: 14px; }
+  .feat-dash  { color: #d1d5db; font-size: 14px; }
+
+  /* Setup fee waiver banner */
+  .waiver-banner {
+    background: linear-gradient(90deg, var(--gold) 0%, #e8c96a 100%);
+    color: var(--navy);
+    border-radius: 8px;
+    padding: 16px 24px;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Competitor row */
+  .comp-winner { background: #dcfce7 !important; }
+  .comp-loser  { background: #fee2e2 !important; }
+
+  /* Footer */
+  .doc-footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 24px 40px;
+    font-size: 12px;
+    border-top: 3px solid var(--gold);
+    margin-top: 0;
+  }
+
+  /* FX note */
+  .fx-note {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+    font-style: italic;
+  }
+
+  /* Two-col layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .info-card {
+    background: var(--white);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 22px 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+
+  .info-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gold);
+  }
+
+  .info-card li {
+    font-size: 13px;
+    padding: 4px 0;
+    padding-left: 12px;
+    list-style: none;
+    position: relative;
+  }
+
+  .info-card li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .margin-bar-wrap {
+    margin-top: 10px;
+  }
+
+  .margin-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+
+  .margin-label {
+    width: 60px;
+    font-weight: 600;
+    color: var(--navy);
+  }
+
+  .margin-bar {
+    height: 14px;
+    border-radius: 3px;
+    background: var(--gold);
+  }
+
+  .margin-pct {
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-meta">Internal · Apex Operations · 29 June 2026</div>
+  <h1>PracticeDesk — Pricing &amp; Cost Analysis</h1>
+  <div class="subtitle">CAD market entry · Setup fee introductory offer · Cost-to-serve margins · Competitive positioning</div>
+</div>
+
+<div class="container">
+
+  <!-- SETUP FEE WAIVER -->
+  <div class="waiver-banner">
+    <span style="font-size:20px;">★</span>
+    <span>INTRODUCTORY OFFER — Setup fee waived until 29 July 2026 &nbsp;|&nbsp; USD $180 saved · CAD $250 saved. Always mention in sales contexts.</span>
+  </div>
+
+  <!-- SECTION 1: PRICING TIERS -->
+  <div class="section">
+    <div class="section-label">Section 1</div>
+    <h2>Pricing Tiers — USD &amp; CAD</h2>
+
+    <div class="plan-grid">
+
+      <!-- STARTER -->
+      <div class="plan-card">
+        <div class="plan-card-header">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price-usd">$49<span style="font-size:16px;font-weight:400;">/mo USD</span></div>
+          <div class="plan-price-cad">CAD $70/mo in Canada</div>
+        </div>
+        <div class="plan-card-body">
+          <div class="plan-feature"><span class="feat-check">✓</span> AI receptionist — phone calls 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> WhatsApp 24/7 responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Bookings dashboard + 1-click confirm</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> 14-day free trial</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Email AI responses</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Voice follow-up calls</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Multi-location</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Custom AI persona</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Priority support</div>
+        </div>
+      </div>
+
+      <!-- GROWTH -->
+      <div class="plan-card highlight">
+        <div class="plan-card-header">
+          <div class="plan-name">Growth &nbsp;<span style="background:var(--gold);color:var(--navy);font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;">POPULAR</span></div>
+          <div class="plan-price-usd">$99<span style="font-size:16px;font-weight:400;">/mo USD</span></div>
+          <div class="plan-price-cad">CAD $140/mo in Canada</div>
+        </div>
+        <div class="plan-card-body">
+          <div class="plan-feature"><span class="feat-check">✓</span> AI receptionist — phone calls 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> WhatsApp 24/7 responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Bookings dashboard + 1-click confirm</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> 14-day free trial</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Email AI responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Voice follow-up calls</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Multi-location</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Custom AI persona</div>
+          <div class="plan-feature"><span class="feat-dash">—</span> Priority support</div>
+        </div>
+      </div>
+
+      <!-- PRO -->
+      <div class="plan-card">
+        <div class="plan-card-header">
+          <div class="plan-name">Pro</div>
+          <div class="plan-price-usd">$180<span style="font-size:16px;font-weight:400;">/mo USD</span></div>
+          <div class="plan-price-cad">CAD $250/mo in Canada</div>
+        </div>
+        <div class="plan-card-body">
+          <div class="plan-feature"><span class="feat-check">✓</span> AI receptionist — phone calls 24/7</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> WhatsApp 24/7 responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Bookings dashboard + 1-click confirm</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> 14-day free trial</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Email AI responses</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Voice follow-up calls</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Multi-location</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Custom AI persona</div>
+          <div class="plan-feature"><span class="feat-check">✓</span> Priority support</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      <div class="callout-icon">💱</div>
+      <div class="callout-body">
+        <strong>CAD Conversion — 29 June 2026</strong>
+        <p>Exchange rate: 1 USD = 1.42 CAD. Exact conversions: $49→$69.6, $99→$140.6, $180→$255.6. Rounded to clean SaaS price points: CAD $70 / $140 / $250. Setup fee $180 USD × 1.42 = $255.60 → rounded to CAD $250 (memorable, matches Pro monthly).</p>
+      </div>
+    </div>
+
+    <!-- Pricing summary table -->
+    <table>
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>USD/mo</th>
+          <th>CAD/mo</th>
+          <th>Setup USD</th>
+          <th>Setup CAD</th>
+          <th>Trial</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Starter</strong></td>
+          <td class="number">$49</td>
+          <td class="number">CAD $70</td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td>14 days free</td>
+        </tr>
+        <tr>
+          <td><strong>Growth</strong></td>
+          <td class="number">$99</td>
+          <td class="number">CAD $140</td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td>14 days free</td>
+        </tr>
+        <tr>
+          <td><strong>Pro</strong></td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td class="number">$180</td>
+          <td class="number">CAD $250</td>
+          <td>14 days free</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="fx-note">* Setup fee waived for all plans until 29 July 2026 as an introductory offer. Mention proactively in every sales touchpoint.</p>
+  </div>
+
+  <!-- SECTION 2: COST-TO-SERVE ANALYSIS -->
+  <div class="section">
+    <div class="section-label">Section 2</div>
+    <h2>Cost-to-Serve Analysis — Per Plan, Per Month</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cost Driver</th>
+          <th style="text-align:right;">Starter ($49)</th>
+          <th style="text-align:right;">Growth ($99)</th>
+          <th style="text-align:right;">Pro ($180)</th>
+          <th>Basis</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>AI — Claude (Haiku/Sonnet)</strong></td>
+          <td class="number">~$2.00</td>
+          <td class="number">~$4.00</td>
+          <td class="number">~$8.00</td>
+          <td>Haiku $1/$5 per MTok; Sonnet $3/$15; scales with conversation volume</td>
+        </tr>
+        <tr>
+          <td><strong>Voice — Vapi (Sophie)</strong></td>
+          <td class="number">~$6.00</td>
+          <td class="number">~$12.00</td>
+          <td class="number">~$24.00</td>
+          <td>~$0.12/min all-in (platform + STT + TTS + telephony); ~50 min Starter, ~100 Growth, ~200 Pro</td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp Cloud API</strong></td>
+          <td class="number">~$3.00</td>
+          <td class="number">~$6.00</td>
+          <td class="number">~$12.00</td>
+          <td>~$0.03/conversation avg; AU/US; CA not yet sending cold WA</td>
+        </tr>
+        <tr>
+          <td><strong>Email — Resend</strong></td>
+          <td class="number">~$0.40</td>
+          <td class="number">~$0.80</td>
+          <td class="number">~$1.60</td>
+          <td>$20/mo for 50K emails shared across all clients; allocated by volume</td>
+        </tr>
+        <tr>
+          <td><strong>Infrastructure (Railway + Supabase)</strong></td>
+          <td class="number">~$1.00</td>
+          <td class="number">~$1.00</td>
+          <td class="number">~$1.00</td>
+          <td>Railway ~$5/mo total; Supabase shared; apportioned per client</td>
+        </tr>
+        <tr style="background:#f0ede4;font-weight:700;">
+          <td><strong>Total Cost / Month</strong></td>
+          <td class="number"><strong>~$12.40</strong></td>
+          <td class="number"><strong>~$23.80</strong></td>
+          <td class="number"><strong>~$46.60</strong></td>
+          <td></td>
+        </tr>
+        <tr style="background:#dcfce7;">
+          <td><strong>Gross Margin</strong></td>
+          <td class="number"><strong>~75%</strong></td>
+          <td class="number"><strong>~76%</strong></td>
+          <td class="number"><strong>~74%</strong></td>
+          <td>Strong SaaS margins; voice is biggest cost lever at scale</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top: 24px;">
+      <div class="margin-bar-wrap">
+        <div class="margin-row">
+          <div class="margin-label">Starter</div>
+          <div class="margin-bar" style="width: 75%;"></div>
+          <div class="margin-pct">75% margin · $36.60 gross profit</div>
+        </div>
+        <div class="margin-row">
+          <div class="margin-label">Growth</div>
+          <div class="margin-bar" style="width: 76%;"></div>
+          <div class="margin-pct">76% margin · $75.20 gross profit</div>
+        </div>
+        <div class="margin-row">
+          <div class="margin-label">Pro</div>
+          <div class="margin-bar" style="width: 74%;"></div>
+          <div class="margin-pct">74% margin · $133.40 gross profit</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;" class="two-col">
+      <div class="info-card">
+        <h3>Key Cost Assumptions</h3>
+        <ul>
+          <li>Voice Vapi billing: ~$0.12/min all-in (platform 0.05 + STT 0.03 + TTS 0.02 + telephony 0.02)</li>
+          <li>Estimated call volume: Starter ~50 min/mo · Growth ~100 min/mo · Pro ~200 min/mo</li>
+          <li>Claude Haiku used for WA/email; Sonnet for complex flows</li>
+          <li>WA: 100 / 200 / 400 conversations per plan per month (avg)</li>
+          <li>Infra is shared and mostly fixed — apportioned equally per active client</li>
+        </ul>
+      </div>
+      <div class="info-card">
+        <h3>Scale Dynamics</h3>
+        <ul>
+          <li>Infrastructure cost per client drops sharply after 10 clients (fixed Railway cost spreads)</li>
+          <li>Claude API stays predictable — Haiku is very cheap per message</li>
+          <li>Vapi is the biggest variable cost; optimize by reducing avg call length (Sophie trained to ~3.5 min)</li>
+          <li>At 50 Pro clients: ~$6,700/mo gross profit from Pro alone</li>
+          <li>Setup fee ($180 USD / CAD $250) when charged covers ~15 months of infra cost per client</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: CANADA MARKET -->
+  <div class="section">
+    <div class="section-label">Section 3</div>
+    <h2>Canada Market — CAD Pricing Detail</h2>
+
+    <div class="callout">
+      <div class="callout-icon">🍁</div>
+      <div class="callout-body">
+        <strong>Canada Dental Care Plan (CDCP) — Market Opportunity</strong>
+        <p>9 million previously uninsured Canadians now have dental coverage. Practices in every Canadian city are receiving an uptick in first-time patient inquiries. The window to position PracticeDesk as "the practice that always answers" is right now. Email 6 (CA track) is live in the drip sequence targeting this signal.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>CAD/mo</th>
+          <th>USD Equivalent</th>
+          <th>Setup (CAD)</th>
+          <th>Setup Waived Until</th>
+          <th>Voice Channel</th>
+          <th>WA Channel</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Starter</strong></td>
+          <td class="number">CAD $70</td>
+          <td class="number">~$49 USD</td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge-gold">29 Jul 2026</span></td>
+          <td>Vapi + SignalWire (587 AB)</td>
+          <td>Post-opt-in only (CASL)</td>
+        </tr>
+        <tr>
+          <td><strong>Growth</strong></td>
+          <td class="number">CAD $140</td>
+          <td class="number">~$99 USD</td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge-gold">29 Jul 2026</span></td>
+          <td>Vapi + SignalWire (587 AB)</td>
+          <td>Post-opt-in only (CASL)</td>
+        </tr>
+        <tr>
+          <td><strong>Pro</strong></td>
+          <td class="number">CAD $250</td>
+          <td class="number">~$180 USD</td>
+          <td class="number">CAD $250</td>
+          <td><span class="badge-gold">29 Jul 2026</span></td>
+          <td>Vapi + SignalWire (587 AB)</td>
+          <td>Post-opt-in only (CASL)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:20px;" class="info-card">
+      <h3>Canada Compliance Notes (CASL)</h3>
+      <ul>
+        <li>Email outreach first — no cold WA in Canada</li>
+        <li>Voice via Sophie (Vapi + SignalWire +1 587 Alberta number) — max 30 calls/day (CASL guard)</li>
+        <li>WA messages only after opt-in signal (replied to email, clicked link, booked demo)</li>
+        <li>CA pricing applied by market= "CA" flag in all outreach pipelines</li>
+        <li>Sophie's pricing_line variable dynamically injects CAD pricing on CA calls via Vapi assistantOverrides.variableValues</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SECTION 4: COMPETITIVE POSITIONING vs WEAVE -->
+  <div class="section">
+    <div class="section-label">Section 4</div>
+    <h2>Competitive Positioning — PracticeDesk vs Weave</h2>
+
+    <div class="callout">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>Context: Not a Direct Competitor</strong>
+        <p>Weave is a full practice management platform (phone system + reviews + payments + scheduling) used by established dental/medical practices in the US. It's hardware-dependent, requires IT setup, and targets practices with 3+ staff. PracticeDesk targets smaller practices (1–3 practitioners) who want AI-first, lightweight, fast-to-deploy. The comparison below is for positioning — not head-to-head sales.</p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>PracticeDesk</th>
+          <th>Weave</th>
+          <th>Winner</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Monthly price</strong></td>
+          <td>$49–$180/mo USD</td>
+          <td>~$500–700+/mo (bundled)</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Setup complexity</strong></td>
+          <td>15 minutes, no hardware</td>
+          <td>Hardware shipped, IT setup, weeks</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp AI</strong></td>
+          <td>Native, 24/7 AI responses</td>
+          <td>Not available</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Voice AI (outbound)</strong></td>
+          <td>Sophie — AI outbound sales + follow-up</td>
+          <td>Not AI; human callbacks only</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>After-hours coverage</strong></td>
+          <td>24/7 across phone, WA, email</td>
+          <td>Voicemail + next-day callback</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Phone system</strong></td>
+          <td>AI answers — no hardware</td>
+          <td>Full VoIP desk phones bundled</td>
+          <td><span class="badge-navy">Weave</span></td>
+        </tr>
+        <tr>
+          <td><strong>Reviews management</strong></td>
+          <td>Not included</td>
+          <td>Automated review requests</td>
+          <td><span class="badge-navy">Weave</span></td>
+        </tr>
+        <tr>
+          <td><strong>Payments</strong></td>
+          <td>Not included</td>
+          <td>In-app payment collection</td>
+          <td><span class="badge-navy">Weave</span></td>
+        </tr>
+        <tr>
+          <td><strong>Canada availability</strong></td>
+          <td>Live (CAD pricing, CASL-compliant)</td>
+          <td>Limited; US-primary</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Contract</strong></td>
+          <td>Month-to-month, cancel anytime</td>
+          <td>Annual contract typical</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+        <tr>
+          <td><strong>Trial</strong></td>
+          <td>14-day free, no card</td>
+          <td>Demo call required</td>
+          <td><span class="badge-green">PracticeDesk</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:24px;" class="info-card">
+      <h3>Sales Positioning Script (when Weave comes up)</h3>
+      <ul>
+        <li>"Weave is a great system for established multi-chair practices who need a phone infrastructure replacement. We're different — we sit on top of your existing setup and add AI that works after hours, on WhatsApp, and over voice. Setup is 15 minutes and you don't need IT."</li>
+        <li>"Weave requires hardware and annual commitment. We're month-to-month, free trial, live the same day."</li>
+        <li>"If you're looking specifically to not miss after-hours calls and WhatsApp bookings — that's our core. Weave doesn't do that."</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SECTION 5: WHERE PRICING IS DEPLOYED -->
+  <div class="section">
+    <div class="section-label">Section 5</div>
+    <h2>Pricing Deployment Checklist — All Touchpoints</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>File / Touchpoint</th>
+          <th>USD Pricing</th>
+          <th>CAD Pricing</th>
+          <th>Setup Fee</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>knowledge/brand/practicedesk-brief.md</code></td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/_master_prompt.py</code></td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>docs/apex-rebuild/_master_prompt.py</code></td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>knowledge/vertical_profiles.py</code> (CA entries)</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>assets/email_copy.yaml</code> (pricing_line / CAD variant)</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/email_templates.py</code> (all 8 templates)</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/vapi_caller.py</code> — pricing_line variable injection</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/click_caller.py</code> — _pricing_line() helper</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>agents/voice_outreach.py</code> — _pricing_line() helper</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td><code>scripts/update_vapi_sophie_prompt.py</code> — {{pricing_line}} variable</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td><span class="badge-green">Done</span></td>
+        </tr>
+        <tr>
+          <td>Vapi dashboard — Sophie system prompt (manual)</td>
+          <td class="check">✓</td>
+          <td class="dash">via var</td>
+          <td class="dash">via var</td>
+          <td><span class="badge-gold">Manual (done by founder)</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="fx-note" style="margin-top:12px;">* Vapi delivers CAD pricing per-call via assistantOverrides.variableValues → pricing_line. The Vapi dashboard system prompt uses {{pricing_line}} substitution.</p>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="doc-footer">
+  Generated by Claude Code · Apex Operations · 29 June 2026 · Exchange rate: 1 USD = 1.42 CAD
+  &nbsp;|&nbsp; For internal use only — not customer-facing
+</div>
+
+</body>
+</html>

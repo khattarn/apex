@@ -67,7 +67,7 @@ These are **assets**, in `docs/apex-rebuild/`. Your job is to wire them in — d
 **Do this:**
 1. Copy both `docs/apex-rebuild/_master_prompt.py` and `docs/apex-rebuild/agent_prompts.py` into `outreach-agent/agents/`. Wire every Claude call as `system=compose(get_prompt("<agent>"))` — `compose()` prepends the master prompt and the per-agent brief sits beneath it. Specifics:
    - Agents with their own rich prompt (`content_agent`, `vp_marketing`) have a `None` entry in `AGENT_PROMPTS` — keep their existing `_SYSTEM_PROMPT` and wrap it: `system=compose(_SYSTEM_PROMPT)`.
-   - Thin agents (`reply_handler`, `personalizer`, `followup`, `demo_booking`, `observatory`, `affiliate`, voice/Aria, `signal`) use `system=compose(get_prompt("<agent>"))`.
+   - Thin agents (`reply_handler`, `personalizer`, `followup`, `demo_booking`, `observatory`, `affiliate`, voice/Sophie, `signal`) use `system=compose(get_prompt("<agent>"))`.
    - The intent classifier (`reply_handler_intent`, a ~10-token call) uses `MASTER_PROMPT_LITE` directly — do NOT prepend the full master prompt there.
    - The `ceo` brief powers the daily growth-operator loop; wire it when that agent is built (Change #4/CEO work).
 2. Add a lightweight **pre-send guardrail** used by the email + WA send paths: a function that asserts the rendered copy matches the lead's vertical (cheap string/heuristic check: non-dental lead must not contain dental-only tokens; product/brand line present; positioning not "WhatsApp chatbot"). On failure: do not send, log + raise to the monitoring layer (Change #4).
@@ -114,7 +114,7 @@ These are **assets**, in `docs/apex-rebuild/`. Your job is to wire them in — d
 **Do this:**
 1. **Re-rank channels for US/CA/AU** (do NOT touch India/LegalAidAI, where WA-first is correct):
    - **Email = primary engine** (Changes #1–#2 already make it vertical-correct).
-   - **Aria voice = engagement-triggered follow-up**, not cold-first. Trigger a voice-call task when a lead opens/clicks (use the existing tracking pixel/click events) rather than blasting `_job_wa_broadcast` / `_job_voice_followup` cold at scale.
+   - **Sophie voice = engagement-triggered follow-up**, not cold-first. Trigger a voice-call task when a lead opens/clicks (use the existing tracking pixel/click events) rather than blasting `_job_wa_broadcast` / `_job_voice_followup` cold at scale.
    - **WhatsApp = post-opt-in only** in these markets. Demote cold WA broadcast for US/CA/AU leads; keep WA for leads who have replied/opted in (reply_handler, demo booking). Gate `_job_wa_broadcast` by market + opt-in status.
 2. **Separate Canada (CASL) track** in `_job_email_campaign`:
    - Canada leads: lower daily cap, send only to scraped **published** business emails (already validated by `email_scraper`), respect implied-consent windows (EBR ~2 years / inquiry ~6 months), guarantee a working unsubscribe. Do not fold Canada into the same high-volume queue as AU/US.
@@ -148,21 +148,21 @@ These are **assets**, in `docs/apex-rebuild/`. Your job is to wire them in — d
    - **Add an email-reply path:** today only WhatsApp inbound is auto-handled. Either route inbound email replies to Henry (`reply_handler.generate_reply`) via an inbound-email webhook, or at minimum alert the founder on every email reply so it gets a fast human response. Do not let email replies sit unanswered.
 5. **Daily founder read-out:** ensure the Observatory/CEO digest reports the sprint funnel each morning — prospected, emailed, replies, demos, trial starts — so rates can be recalibrated after ~3 days.
 
-**Acceptance:** ~300 new deduped leads/day appear; ~150 emails/day send to US/CA dentists; ~50 Aria calls/day place in-window; every email reply triggers a response or an alert; the morning digest shows the funnel.
+**Acceptance:** ~300 new deduped leads/day appear; ~150 emails/day send to US/CA dentists; ~50 Sophie calls/day place in-window; every email reply triggers a response or an alert; the morning digest shows the funnel.
 
 ---
 
 ## Change #8 — Fix the voice persona (Sophie everywhere) + naturalness  🟠
 
-**Why:** the agent was renamed Sophie in the call plumbing (`place_sophie_call`, `VAPI_SOPHIE_ASSISTANT_ID`) but prospects still HEAR "Aria" — the spoken strings were never changed. Also reported as too robotic.
+**Why:** the agent was named Sophie in the call plumbing (`place_sophie_call`, `VAPI_SOPHIE_ASSISTANT_ID`) but the spoken strings and all UI references have now been updated to match. Also reported as too robotic.
 
 **Do this:**
-1. Replace every spoken/persona "Aria" with "Sophie": hardcoded "Hi, this is Aria…" strings in `click_caller.py` (~8 lines), the `_SYSTEM_PROMPT` in `click_caller.py`, the `aria_opener`/`aria_insight`/`aria_pain_question` keys in `assets/copy.yaml` (rename to `sophie_*` or just update values), references in `content_agent.py`, `agent_prompts.py` (`voice_aria`), and the brand brief. **Critically: update the Vapi assistant config in the Vapi dashboard** (`VAPI_SOPHIE_ASSISTANT_ID`) — its greeting/system prompt is where the spoken name actually comes from on live calls.
+1. ✅ Done: all spoken/persona strings, system prompts (`voice_sophie` key in `agent_prompts.py`), UI labels, docs, and knowledge-base files have been updated to Sophie. **Remaining:** update the Vapi assistant config in the Vapi dashboard (`VAPI_SOPHIE_ASSISTANT_ID`) — its greeting/system prompt is where the spoken name actually comes from on live calls (manual step in Vapi UI).
 2. Load the new dental script from `docs/apex-rebuild/sophie-dental-call.md` into the voice config / `copy.yaml` for dentists.
 3. Voice naturalness (Vapi dashboard): natural TTS voice, low latency, enable barge-in/interruption, 1–2 sentence turns. (Details in `sophie-dental-call.md`.)
 4. Compliance flag: revisit the brand brief's "never reveal AI unless asked" rule against AI-voice disclosure law (FCC/TCPA in US, per-market). Sophie should not deny being AI if asked.
 
-**Acceptance:** a live test call introduces as Sophie (not Aria) and uses the new script; no "Aria" remains in spoken strings or copy.yaml voice fields.
+**Acceptance:** a live test call introduces as Sophie and uses the new script; no stale persona names remain in spoken strings or copy.yaml voice fields.
 
 ---
 
@@ -232,6 +232,47 @@ unit-tested): `docs/apex-rebuild/enrichment.py`.
 each with `pain_score`/`pain_signal`/`pain_finding`; no `place_id` is detailed twice (reuses
 `known_place_ids`); the cursor rotates through the city list run over run; founder changes the
 focus vertical/cities via `settings` only.
+
+---
+
+## Change #11 — Job-ad scout (SerpAPI Google Jobs → ingestion → job_ad_frontdesk)  🟢
+
+**Why:** clinics actively hiring a receptionist are the warmest leads. Automate finding them daily
+instead of screenshotting Indeed by hand. Indeed has no public API and scraping is fragile/ToS;
+SerpAPI's Google Jobs engine returns clean JSON.
+
+**Prereq:** SerpAPI account + `SERPAPI_KEY`. Free tier ~100–250 searches/mo; paid from ~$25/1,000.
+All engines share one quota, so budget the daily search count.
+
+**Do this:**
+1. Add `SERPAPI_KEY` to Railway env + `.env`. Copy `docs/apex-rebuild/serpapi_client.py` into
+   `outreach-agent/agents/` (or `utils/`). It's written + unit-tested and provides:
+   `search_jobs(query, location, gl=...)`, `is_recent(posted_at, max_days)`,
+   `to_ingest_rows(jobs, vertical, city)`, `JOBAD_QUERIES`, and `calls_made()` for quota logging.
+2. **`_job_jobad_scout` cron (daily):** for each target city × `JOBAD_QUERIES[vertical]`, call
+   `serpapi_client.search_jobs(query, city, gl="ca"/"us")`, filter with `is_recent(...)`, then
+   `to_ingest_rows(...)` to get deduped `{name, city, vertical}` rows.
+3. **Feed each row into the ingestion path** (reuse the name+city → Places Find Place → Details →
+   dedupe by `place_id` → `save_lead` helper; build it if not present). Set
+   `source="job_ad_serpapi"`, `pain_signal="job_ad_frontdesk"`,
+   `pain_finding="actively hiring a front-desk receptionist"`. Scrape email as usual.
+4. **Quota guard:** cap searches/day, log SerpAPI usage, and alert (via notify_founder) when nearing
+   the monthly limit so you don't overrun the plan.
+5. **Outreach for these leads** uses the job-ad override copy in `docs/apex-rebuild/job-ad-outreach.md`
+   — the 3-email "application" sequence + Sophie's hiring voice opener. Phone-first; Canada on the
+   lighter CASL email cadence.
+
+**Narrative requirements (bake into the copy + Sophie's prompt):**
+- Frame the AI as a **great addition to a human receptionist** — covers after-hours/overflow, makes
+  the new hire better — NOT just "instead of hiring".
+- Sophie opens in the **second person**: "I saw **you're** hiring…" (not the practice name).
+- Sophie must **offer to answer any questions** they have, and offer to route them to Claire's demo
+  line to hear it live.
+
+**Acceptance:** the daily scout adds enriched `job_ad_frontdesk` leads from the target cities; no
+`place_id` is detailed twice; SerpAPI usage is logged and under the cap; these leads receive the
+application email sequence + Sophie's hiring opener (alongside-not-replacement framing, second-person,
+offers to answer questions).
 
 ---
 
