@@ -98,8 +98,7 @@ def place_sophie_call(
     if not phone_number_id:
         phone_number_id = os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
 
-    if not phone.startswith("+"):
-        phone = f"+{phone.lstrip('0')}"
+    phone = _to_e164(phone)
 
     server_url = os.getenv(
         "RAILWAY_PUBLIC_DOMAIN",
