@@ -3075,11 +3075,16 @@ async def cron_click_calls(request: Request):
     Outbound voice campaign to leads who clicked an email link but have not yet
     been called. Respects 11 AM–5 PM in the lead's local timezone.
     Schedule on Railway: every hour, Mon–Fri.
+    Accepts either CRON_SECRET or admin JWT.
     """
     cron_secret = os.getenv("CRON_SECRET", "")
-    if cron_secret:
-        auth = request.headers.get("Authorization", "")
-        if auth.removeprefix("Bearer ").strip() != cron_secret:
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.removeprefix("Bearer ").strip()
+    if cron_secret and token != cron_secret:
+        # Fall back to admin JWT check
+        try:
+            verify_token(token)
+        except Exception:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     from agents.click_caller import run_click_campaign
