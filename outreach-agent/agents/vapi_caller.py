@@ -8,6 +8,20 @@ log = logging.getLogger(__name__)
 VAPI_BASE = "https://api.vapi.ai"
 
 
+def _to_e164(phone: str) -> str:
+    """Normalize any phone format to E.164. Handles (xxx) xxx-xxxx, +1xxx, bare 10-digit, etc."""
+    digits = "".join(c for c in phone if c.isdigit())
+    if phone.strip().startswith("+"):
+        return f"+{digits}"
+    if len(digits) == 10:          # bare NANP: (504) 482-1000
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    if len(digits) >= 11 and not digits.startswith("1"):
+        return f"+{digits}"        # international without +
+    return f"+{digits}"
+
+
 def _headers() -> dict:
     api_key = os.getenv("VAPI_API_KEY", "")
     if not api_key:
@@ -29,8 +43,7 @@ def place_emma_call(
     assistant_id   = os.getenv("VAPI_EMMA_ASSISTANT_ID",   "82e848d2-a520-499a-ac32-40d103e41efd")
     phone_number_id = os.getenv("VAPI_DENTAL_OUTBOUND_PHONE_ID", "9bff5610-ae74-4921-ad83-55d108a2b0ee")
 
-    if not phone.startswith("+"):
-        phone = f"+{phone.lstrip('0')}"
+    phone = _to_e164(phone)
 
     payload = {
         "assistantId": assistant_id,

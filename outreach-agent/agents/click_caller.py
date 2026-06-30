@@ -329,48 +329,63 @@ STYLE RULES
 """
 
 
+def _is_india(phone: str, market: str = "") -> bool:
+    if market.upper() == "IN":
+        return True
+    digits = "".join(c for c in phone if c.isdigit())
+    return (
+        (digits.startswith("91") and len(digits) == 12) or
+        digits.startswith("0091") or
+        (len(digits) == 10 and digits[0] in "6789")
+    )
+
+
 def place_click_call(lead: dict) -> dict:
     """Trigger an outbound call for an email-clicked lead.
-    Canadian leads use Vapi + SignalWire (+15872090343). All others use Dograh.
+    CA  → Vapi + SignalWire Alberta (+15872090343).
+    US/AU/UK → Vapi free number (+13129408233).
+    India → Dograh + Vobiz (only remaining Dograh path).
     """
     from utils.timezone import is_canadian
+    from agents.vapi_caller import place_sophie_call
     phone = lead.get("phone", "")
     if not phone:
         raise RuntimeError(f"Lead {lead.get('id')} has no phone number")
 
-    city = lead.get("city", "")
-    market = lead.get("market", "")
+    city       = lead.get("city", "")
+    market     = lead.get("market", "")
     business_type = lead.get("business_type", "")
     business_name = lead.get("name", "")
-    lead_id = str(lead.get("id", ""))
+    lead_id    = str(lead.get("id", ""))
 
-    if is_canadian(city, market):
-        from agents.vapi_caller import place_sophie_call
-        script = _get_script(business_type)
-        ca_phone_id = os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
-        return place_sophie_call(
-            phone=phone,
-            business_name=business_name,
-            business_type=business_type,
-            city=city,
-            opener=script.get("firstMessage", ""),
-            insight=script.get("insight", ""),
-            pain_question=script.get("pain_question", ""),
-            lead_id=lead_id,
-            phone_number_id=ca_phone_id,
-            pain_signal=lead.get("pain_signal", ""),
-            pain_finding=lead.get("pain_finding", ""),
-            pricing_line=_pricing_line(market),
+    # India: still on Dograh + Vobiz
+    if _is_india(phone, market):
+        from agents.dograh_caller import place_outbound_call as _dograh_call
+        return _dograh_call(
+            phone=phone, business_type=business_type,
+            business_name=business_name, lead_id=lead_id,
+            city=city, trigger="email_click",
         )
 
-    from agents.dograh_caller import place_outbound_call as _dograh_call
-    return _dograh_call(
+    script = _get_script(business_type)
+    phone_number_id = (
+        os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
+        if is_canadian(city, market)
+        else os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
+    )
+    return place_sophie_call(
         phone=phone,
-        business_type=business_type,
         business_name=business_name,
-        lead_id=lead_id,
+        business_type=business_type,
         city=city,
-        trigger="email_click",
+        opener=script.get("firstMessage", ""),
+        insight=script.get("insight", ""),
+        pain_question=script.get("pain_question", ""),
+        lead_id=lead_id,
+        phone_number_id=phone_number_id,
+        pain_signal=lead.get("pain_signal", ""),
+        pain_finding=lead.get("pain_finding", ""),
+        pricing_line=_pricing_line(market),
     )
 
 
