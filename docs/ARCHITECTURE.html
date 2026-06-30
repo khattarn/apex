@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apex — System Architecture</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      padding: 40px 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 2rem; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
+    .subtitle { color: #94a3b8; font-size: 0.95rem; margin-bottom: 48px; }
+    .gold { color: #f59e0b; }
+
+    h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .section { margin-bottom: 52px; }
+
+    /* Cards */
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+    }
+    .card-sub {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    /* Grid */
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (max-width: 700px) {
+      .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .badge-live   { background: #064e3b; color: #34d399; }
+    .badge-fixed  { background: #1e3a5f; color: #60a5fa; }
+    .badge-plan   { background: #292524; color: #a8a29e; }
+    .badge-issue  { background: #450a0a; color: #f87171; }
+
+    /* Flow diagram */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    .flow-step {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+    .flow-arrow {
+      color: #475569;
+      font-size: 1.1rem;
+      padding: 0 6px;
+    }
+
+    /* Routing table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th {
+      background: #0f172a;
+      color: #64748b;
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    td {
+      padding: 10px 14px;
+      border-top: 1px solid #1e293b;
+      color: #cbd5e1;
+      vertical-align: top;
+    }
+    tr:hover td { background: #1a2333; }
+
+    /* Fix log */
+    .fix-entry {
+      display: flex;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .fix-entry:last-child { border-bottom: none; }
+    .fix-date {
+      font-size: 0.75rem;
+      color: #475569;
+      white-space: nowrap;
+      min-width: 90px;
+      padding-top: 2px;
+    }
+    .fix-title { font-size: 0.9rem; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+    .fix-body  { font-size: 0.82rem; color: #94a3b8; line-height: 1.6; }
+    .fix-files { font-size: 0.75rem; color: #475569; margin-top: 4px; font-family: 'Menlo','Consolas',monospace; }
+
+    code {
+      font-family: 'Menlo','Consolas',monospace;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.8rem;
+      color: #a5b4fc;
+    }
+
+    .env-row { display: flex; gap: 8px; align-items: baseline; margin: 4px 0; font-size: 0.82rem; }
+    .env-key { color: #a5b4fc; font-family: monospace; min-width: 260px; }
+    .env-val { color: #6ee7b7; font-family: monospace; }
+
+    .warn { background: #1c1008; border: 1px solid #78350f; border-radius: 8px; padding: 12px 16px;
+            font-size: 0.82rem; color: #fbbf24; margin-top: 12px; }
+  </style>
+</head>
+<body>
+
+<h1>Apex <span class="gold">—</span> System Architecture</h1>
+<p class="subtitle">Internal multi-agent platform · Promotes and sells PracticeDesk + LegalAidAI · Last updated 2026-06-30</p>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>What Apex Is</h2>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Purpose</div>
+      <div class="card-sub">Founder-only operations tool. Not customer-facing. Automates prospecting, outreach, and follow-up for PracticeDesk and LegalAidAI.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Hosting</div>
+      <div class="card-sub">
+        <strong>Backend:</strong> FastAPI on Railway<br>
+        <code>serene-passion-production-cd82.up.railway.app</code><br><br>
+        <strong>Dashboard:</strong> React/Vite on Netlify<br>
+        <code>mpex.netlify.app</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Repo</div>
+      <div class="card-sub">
+        <code>C:\Projects\apex</code><br>
+        <code>outreach-agent/</code> — FastAPI backend<br>
+        <code>admin-dashboard/</code> — React frontend
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Outreach Pipeline</h2>
+  <div class="flow">
+    <div class="flow-step">🔍 Prospect<br><small>Google Maps API</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">✉️ Email Sequence<br><small>6-step drip, Resend</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">📞 Voice Call<br><small>Sophie / Vapi</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">💬 WA Follow-up<br><small>Henry / Meta</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">📅 Demo Booked<br><small>Cal.com</small></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-title">Email Sequence — 6-step drip <span class="badge badge-live">LIVE</span></div>
+    <div class="card-sub">
+      Day 0 / 3 / 6 / 9 / 12 / 30 · Mon–Fri 8:30am–7pm local · From: <code>henry@practicedesk.live</code><br>
+      Reply-to: <code>info@practicedesk.live</code> (GoDaddy Titan inbox) · Tracking: open pixel + click pixel → Railway<br>
+      Send windows: CA 9am ET · US 11am ET · AU 8am AEST (13:00/15:00/22:00 UTC)
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Voice Priority Queue — click-calls cron <span class="badge badge-live">LIVE</span></div>
+    <div class="card-sub">
+      Fires hourly Mon–Fri. Ranked: clicked &gt; opened &gt; emailed &gt; never-contacted, then by pain_score.<br>
+      Cap: <code>voice_dial_cap</code> setting (default 50). Window: 11am–5pm local time.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Auto-Prospecting cron <span class="badge badge-live">LIVE</span></div>
+    <div class="card-sub">
+      Daily 12:00 UTC. Synonym-based, city cursor rotates. Config via 5 settings keys in Supabase.<br>
+      Deduplication by <code>place_id</code> (Google Maps unique ID).
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Voice / Telephony Routing <span class="badge badge-fixed">FIXED 2026-06-30</span></h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Market</th>
+        <th>Platform</th>
+        <th>Phone Number</th>
+        <th>Vapi Phone ID</th>
+        <th>Agent</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Canada</strong></td>
+        <td>Vapi + SignalWire (Alberta)</td>
+        <td>+1 587-209-0343</td>
+        <td><code>a513803a-5229-4ac1-881d-6c89ae708738</code></td>
+        <td>Sophie</td>
+      </tr>
+      <tr>
+        <td><strong>USA</strong></td>
+        <td>Vapi free number</td>
+        <td>+1 312-940-8233</td>
+        <td><code>50d7061b-ac77-4a4f-b2d5-7430df39b9d5</code></td>
+        <td>Sophie</td>
+      </tr>
+      <tr>
+        <td><strong>Australia / UK</strong></td>
+        <td>Vapi free number</td>
+        <td>+1 312-940-8233</td>
+        <td><code>50d7061b-ac77-4a4f-b2d5-7430df39b9d5</code></td>
+        <td>Sophie</td>
+      </tr>
+      <tr>
+        <td><strong>India</strong></td>
+        <td>Dograh + Vobiz trunk</td>
+        <td>+91 9262171423</td>
+        <td>n/a (Dograh workflow 6243)</td>
+        <td>Priya</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    ⚠️ Dograh config 598 is RETIRED. It was the old US/CA/AU path. All US/CA/AU calls now go through Vapi. India is the only remaining Dograh path.
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-title">Sophie — Vapi Assistant</div>
+    <div class="card-sub">
+      Assistant ID: <code>bfecad5e-dce4-469f-8570-d44efc49de15</code><br>
+      7-phase playbook: open → discover → insight pitch → trial offer → objections → 3-close → exit<br>
+      Max call length: 5 minutes. Pricing injected per-call (USD vs CAD based on market).
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">E.164 Phone Normalisation</div>
+    <div class="card-sub">
+      All DB phone numbers in format <code>(xxx) xxx-xxxx</code> are normalised to E.164 before Vapi call.<br>
+      Function: <code>_to_e164()</code> in <code>outreach-agent/agents/vapi_caller.py</code><br>
+      10-digit NANP → <code>+1xxxxxxxxxx</code> · Already-prefixed <code>+</code> → unchanged · 11-digit starting 1 → <code>+xxxxxxxxxx</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Call Recording &amp; Webhook <span class="badge badge-fixed">FIXED 2026-06-30</span></h2>
+
+  <div class="card">
+    <div class="card-title">Vapi End-of-Call Webhook</div>
+    <div class="card-sub">
+      Endpoint: <code>POST /api/webhooks/vapi</code> on Railway<br>
+      Event type handled: <code>end-of-call-report</code> only. All other event types return 200 and are ignored.<br><br>
+      <strong>Outbound (Sophie):</strong> updates lead status → <code>replied</code>, logs <code>outbound_call_completed</code> with ended_reason, recording_url, summary, transcript.<br>
+      <strong>Inbound (Henry):</strong> phone-lookup match → logs <code>inbound_call</code>.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚠️ Critical: serverUrl must be top-level in Vapi call payload</div>
+    <div class="card-sub">
+      <code>serverUrl</code> must be a <strong>top-level field</strong> in the Vapi call creation JSON — NOT inside <code>assistantOverrides</code>.<br>
+      Placing it inside <code>assistantOverrides</code> is silently ignored by Vapi and end-of-call webhooks will never fire.<br><br>
+      Correct structure in <code>vapi_caller.py → place_sophie_call()</code>:<br>
+      <code>"serverUrl": "...",</code> &nbsp;←&nbsp; top-level<br>
+      <code>"metadata": &#123;"lead_id": lead_id&#125;,</code><br>
+      <code>"assistantOverrides": &#123; "variableValues": &#123;...&#125; &#125;</code>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">lead_id in metadata</div>
+    <div class="card-sub">
+      Each Sophie call includes <code>"metadata": &#123;"lead_id": "..."&#125;</code> in the Vapi payload.<br>
+      The webhook handler reads <code>call.metadata.lead_id</code> to identify the lead without a phone lookup.<br>
+      Fallback: phone-based lookup via <code>_find_lead_by_phone()</code> if metadata is missing.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Email Reply Capture <span class="badge badge-live">LIVE</span></h2>
+
+  <div class="card">
+    <div class="card-title">IMAP Poller — GoDaddy Titan</div>
+    <div class="card-sub">
+      Polls <code>info@practicedesk.live</code> via IMAP every 15 minutes, 7 days a week.<br>
+      File: <code>outreach-agent/agents/email_poller.py</code><br><br>
+      <strong>Logic:</strong> Fetches UNSEEN emails → matches <code>From:</code> address against leads table → if matched: status → <code>replied</code>, logs <code>email_reply_received</code>, notifies founder via WA + email, marks message Seen.<br>
+      Unknown senders left UNSEEN so they stay visible in Titan inbox.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Reply routing</div>
+    <div class="card-sub">
+      Outgoing emails set <code>Reply-To: info@practicedesk.live</code> (Railway env var <code>OUTREACH_REPLY_TO</code>).<br>
+      GoDaddy Titan hosts this inbox at <code>imap.secureserver.net:993</code>.<br>
+      Credentials: <code>GODADDY_EMAIL_ADDRESS</code> + <code>GODADDY_EMAIL_PASSWORD</code> (both set in Railway).
+    </div>
+  </div>
+
+  <div class="warn">
+    Note: The <code>/api/webhooks/email-inbound</code> Resend webhook endpoint also exists but is NOT active — Resend's free plan only allows 1 domain and can't add the receiving subdomain. The IMAP poller is the active path.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Inbound WA Replies</h2>
+
+  <div class="card">
+    <div class="card-title">WhatsApp Outreach Number <span class="badge badge-live">LIVE</span></div>
+    <div class="card-sub">
+      Number: <code>+1 385-363-3720</code> · Phone Number ID: <code>1131796990021193</code> (Railway: <code>OUTREACH_WA_PHONE_NUMBER_ID</code>)<br>
+      Replies to this number hit Meta's webhook → <code>POST /api/inbox/wa</code> on Railway.<br>
+      Handler: classifies intent (interested / question / not_interested) via Claude Haiku → auto-responds or books demo.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Scheduled Jobs (APScheduler on Railway)</h2>
+
+  <table>
+    <thead>
+      <tr><th>Job</th><th>Schedule</th><th>What it does</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>_job_prospect</code></td>
+        <td>Daily 12:00 UTC</td>
+        <td>Auto-prospect new leads via Google Maps · synonym-based · city cursor rotates</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td><code>_job_email_sequence</code></td>
+        <td>Hourly (CA 13:00 / US 15:00 / AU 22:00 UTC)</td>
+        <td>Advance leads through 6-step drip · timezone-aware windows</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td><code>_job_click_calls</code></td>
+        <td>Hourly Mon–Fri</td>
+        <td>Voice priority queue · ranked by email engagement + pain_score · cap 50/day</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td><code>_job_voice_followup</code></td>
+        <td>Hourly Mon–Fri</td>
+        <td>5-day silence → Sophie voice follow-up call · US/CA only</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td><code>_job_wa_followup</code></td>
+        <td>Daily</td>
+        <td>3-day silence → WA follow-up message via Henry</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td><code>_job_email_poller</code></td>
+        <td>Every 15 min</td>
+        <td>IMAP poll of info@practicedesk.live · captures lead email replies</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td><code>_job_watchdog</code></td>
+        <td>Hourly :45</td>
+        <td>Checks agent_health heartbeats · alerts founder if any job missed</td>
+        <td><span class="badge badge-live">LIVE</span></td>
+      </tr>
+      <tr>
+        <td>Observatory daily brief</td>
+        <td>Daily 7am IST</td>
+        <td>Spend + leads digest → founder WhatsApp</td>
+        <td><span class="badge badge-plan">PLANNED</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Supabase Tables (Apex scope)</h2>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><code>leads</code></div>
+      <div class="card-sub">id, name, address, place_id (unique), phone, email, website, business_type, city, market, status, outreach_sent, outreach_message, outreach_date, notes, email_sent, email_opened, email_clicked, email_opened_at, email_clicked_at, email_last_sent_at, email_sequence_step, pain_score, pain_signal, pain_finding, voice_called, created_at</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><code>lead_activities</code></div>
+      <div class="card-sub">id, lead_id, type, detail (jsonb), created_at<br><br>
+        Key types: <code>outbound_call</code> · <code>outbound_call_completed</code> · <code>inbound_call</code> · <code>email_sent</code> · <code>email_opened</code> · <code>email_clicked</code> · <code>email_reply_received</code> · <code>wa_outreach_sent</code> · <code>callback_scheduled</code> · <code>demo_booked</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><code>campaign_runs</code></div>
+      <div class="card-sub">id, business_type, city, max_prospects, mode, prospects_found, new_leads, messages_sent, log, created_at</div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:12px;">
+    <div class="card">
+      <div class="card-title"><code>settings</code></div>
+      <div class="card-sub">key (PK), value, updated_at<br>
+        Keys: <code>whatsapp_prompt_template</code> · <code>voice_dial_cap</code> · <code>prospect_business_types</code> · <code>prospect_cities</code> · <code>prospect_max_per_run</code> · <code>prospect_city_cursor</code> · <code>prospect_enabled</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><code>agent_health</code></div>
+      <div class="card-sub">job (PK), last_ping, last_result (jsonb), status<br>
+        Upserted by each cron job on every run. Watchdog reads this every hour to detect missed jobs.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Railway Environment Variables</h2>
+
+  <div class="card">
+    <div class="env-row"><span class="env-key">ANTHROPIC_API_KEY</span><span class="env-val">sk-ant-…</span></div>
+    <div class="env-row"><span class="env-key">SUPABASE_URL</span><span class="env-val">https://…supabase.co</span></div>
+    <div class="env-row"><span class="env-key">SUPABASE_KEY</span><span class="env-val">eyJ…</span></div>
+    <div class="env-row"><span class="env-key">GOOGLE_MAPS_API_KEY</span><span class="env-val">AIza…</span></div>
+    <div class="env-row"><span class="env-key">VAPI_API_KEY</span><span class="env-val">…</span></div>
+    <div class="env-row"><span class="env-key">VAPI_SOPHIE_ASSISTANT_ID</span><span class="env-val">bfecad5e-dce4-469f-8570-d44efc49de15</span></div>
+    <div class="env-row"><span class="env-key">VAPI_PLATFORM_PHONE_ID</span><span class="env-val">50d7061b-ac77-4a4f-b2d5-7430df39b9d5 (US/AU)</span></div>
+    <div class="env-row"><span class="env-key">VAPI_CA_PHONE_NUMBER_ID</span><span class="env-val">a513803a-5229-4ac1-881d-6c89ae708738 (CA)</span></div>
+    <div class="env-row"><span class="env-key">OUTREACH_WA_PHONE_NUMBER_ID</span><span class="env-val">1131796990021193</span></div>
+    <div class="env-row"><span class="env-key">WHATSAPP_TOKEN</span><span class="env-val">…</span></div>
+    <div class="env-row"><span class="env-key">OUTREACH_FROM_EMAIL</span><span class="env-val">Henry from PracticeDesk</span></div>
+    <div class="env-row"><span class="env-key">OUTREACH_REPLY_TO</span><span class="env-val">info@practicedesk.live</span></div>
+    <div class="env-row"><span class="env-key">RESEND_API_KEY</span><span class="env-val">re_…</span></div>
+    <div class="env-row"><span class="env-key">GODADDY_EMAIL_ADDRESS</span><span class="env-val">info@practicedesk.live</span></div>
+    <div class="env-row"><span class="env-key">GODADDY_EMAIL_PASSWORD</span><span class="env-val">…</span></div>
+    <div class="env-row"><span class="env-key">FOUNDER_WHATSAPP_NUMBER</span><span class="env-val">+919810982019</span></div>
+    <div class="env-row"><span class="env-key">CAL_API_KEY</span><span class="env-val">cal_live_…</span></div>
+    <div class="env-row"><span class="env-key">DOGRAH_API_KEY</span><span class="env-val">… (India only)</span></div>
+    <div class="env-row"><span class="env-key">JWT_SECRET</span><span class="env-val">…</span></div>
+    <div class="env-row"><span class="env-key">CRON_SECRET</span><span class="env-val">…</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Fix Log — Problems Solved</h2>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-30</div>
+    <div>
+      <div class="fix-title">Vapi serverUrl must be top-level — not inside assistantOverrides</div>
+      <div class="fix-body">
+        Sophie's end-of-call-report webhook never fired because <code>serverUrl</code> was nested inside <code>assistantOverrides</code>, which Vapi silently ignores. Moved it to the top-level of the call creation payload.
+        After this fix: every Sophie call generates an <code>outbound_call_completed</code> activity with ended_reason, recording_url, summary, and transcript. Lead status auto-updates to <code>replied</code>.
+      </div>
+      <div class="fix-files">outreach-agent/agents/vapi_caller.py → place_sophie_call()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-30</div>
+    <div>
+      <div class="fix-title">Exit Dograh for US / CA / AU calls</div>
+      <div class="fix-body">
+        US, Canada, and Australia calls were being routed through Dograh config 598 (now retired/broken).
+        Rewrote call routing in both <code>click_caller.py</code> and <code>voice_outreach.py</code>:
+        India → Dograh+Vobiz (only remaining Dograh path), CA → Vapi SignalWire Alberta, US/AU/UK → Vapi free number.
+        Added <code>_is_india()</code> helper to detect Indian phones by number pattern or market field.
+      </div>
+      <div class="fix-files">outreach-agent/agents/click_caller.py · outreach-agent/agents/voice_outreach.py</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-30</div>
+    <div>
+      <div class="fix-title">E.164 phone normalisation for US numbers</div>
+      <div class="fix-body">
+        US phone numbers stored as <code>(504) 482-1000</code> were being sent to Vapi as <code>+(504) 482-1000</code> (invalid).
+        Added <code>_to_e164()</code> normaliser in <code>vapi_caller.py</code> that handles all common formats:
+        10-digit NANP, 11-digit with leading 1, already E.164, and international numbers.
+      </div>
+      <div class="fix-files">outreach-agent/agents/vapi_caller.py → _to_e164()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-30</div>
+    <div>
+      <div class="fix-title">None market field crash in is_canadian() and _is_india()</div>
+      <div class="fix-body">
+        Many leads have <code>market = NULL</code> in Supabase. Both <code>is_canadian()</code> and <code>_is_india()</code> were calling <code>market.upper()</code> directly, crashing on None.
+        Fixed both to use <code>(market or "").upper()</code>.
+      </div>
+      <div class="fix-files">outreach-agent/utils/timezone.py · outreach-agent/agents/click_caller.py · outreach-agent/agents/voice_outreach.py</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-30</div>
+    <div>
+      <div class="fix-title">Email reply capture confirmed live via IMAP</div>
+      <div class="fix-body">
+        IMAP poller (<code>email_poller.py</code>) connects to GoDaddy Titan (<code>imap.secureserver.net:993</code>) every 15 minutes.
+        Outgoing email <code>Reply-To</code> is <code>info@practicedesk.live</code> (same inbox).
+        Credentials verified working. Resend inbound webhook is NOT used (free plan = 1 domain limit).
+      </div>
+      <div class="fix-files">outreach-agent/agents/email_poller.py · Railway env: GODADDY_EMAIL_PASSWORD</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-30</div>
+    <div>
+      <div class="fix-title">Vapi webhook outbound vs inbound branch fix</div>
+      <div class="fix-body">
+        The <code>/api/webhooks/vapi</code> handler was logging all completed calls as inbound. Fixed by branching on
+        <code>call.type == "outboundPhoneCall"</code> vs <code>"inboundPhoneCall"</code>.
+        Outbound Sophie calls now read <code>lead_id</code> from <code>call.metadata</code> (injected at call creation); inbound Henry calls use phone lookup.
+      </div>
+      <div class="fix-files">outreach-agent/server.py → vapi_webhook()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-06-28</div>
+    <div>
+      <div class="fix-title">Sophie renamed from Aria · pain score enrichment · auto-prospecting</div>
+      <div class="fix-body">
+        Aria renamed to Sophie (PracticeDesk sales agent). Pain score enrichment added (8 signals, Supabase migration run).
+        Auto-prospecting cron added (daily 12:00 UTC). Voice priority queue added (ranked by engagement + pain_score).
+        Agent health monitoring + watchdog alerts added.
+      </div>
+      <div class="fix-files">Changes #4–#10 batch · outreach-agent/agents/ · outreach-agent/database/client.py</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Known Open Issues</h2>
+
+  <div class="card">
+    <div class="card-title">Vapi concurrency limit — 10 concurrent calls <span class="badge badge-issue">ISSUE</span></div>
+    <div class="card-sub">
+      The hourly cron fires all queued leads simultaneously. When more than 10 calls try to start at the same time, Vapi returns "Over Concurrency Limit".
+      The calls that hit the limit are not retried — they're logged as errors in that cron run and will be picked up next hour.
+      Mitigation: stagger calls with a small delay, or reduce batch size below 10.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Dograh India — Vobiz "from number not owned" error <span class="badge badge-issue">ISSUE</span></div>
+    <div class="card-sub">
+      India outbound calls via Dograh fail with: <em>"from number 91919262171423 is not owned by this account"</em>.
+      The Vobiz trunk may have been unlinked from the Dograh account. Investigate in the Dograh dashboard — the +91 9262171423 number needs to be re-associated with the Vobiz trunk.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Railway: no auto-deploy from GitHub <span class="badge badge-issue">ISSUE</span></div>
+    <div class="card-sub">
+      Railway does not auto-deploy when code is pushed to GitHub. Every deploy requires manually running:
+      <code>cd outreach-agent && railway up --service apex</code>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Twilio outbound blocked (US/CA) <span class="badge badge-issue">ISSUE</span></div>
+    <div class="card-sub">
+      Twilio account in compliance review. Error 21216 blocks all outbound calls from Twilio.
+      The Twilio browser dialpad tab is disabled. Workaround: Vapi+SignalWire handles all US/CA outbound calls.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2>Deploy Procedure</h2>
+
+  <div class="card">
+    <div class="card-title">Backend (Railway)</div>
+    <div class="card-sub">
+      <code>cd c:\Projects\apex\outreach-agent</code><br>
+      <code>railway up --service apex</code><br><br>
+      Railway does NOT auto-deploy from GitHub. Must run this command after every code change.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Frontend (Netlify)</div>
+    <div class="card-sub">
+      <code>cd c:\Projects\apex\admin-dashboard</code><br>
+      <code>npm run build</code> → publish <code>dist/</code> to Netlify (<code>mpex.netlify.app</code>)<br>
+      Or push to GitHub and trigger Netlify rebuild via dashboard.
+    </div>
+  </div>
+</div>
+
+<p style="color:#334155; font-size:0.78rem; margin-top:40px; text-align:center;">
+  Apex Architecture · Generated 2026-06-30 · <code>docs/ARCHITECTURE.html</code>
+</p>
+
+</body>
+</html>
