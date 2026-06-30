@@ -86,12 +86,12 @@ function CityBreakdown({ title, total, byCity }) {
   const entries = Object.entries(byCity || {}).slice(0, 10)
   return (
     <div className="mt-2">
-      <p className="text-xs text-slate-500 mb-1">{title} <span className="text-slate-400 font-medium">{total}</span></p>
+      <p className="text-xs text-white mb-1">{title} <span className="text-white font-medium">{total}</span></p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
         {entries.map(([city, count]) => (
           <div key={city} className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-slate-500 truncate">{city}</span>
-            <span className="text-slate-400 tabular-nums shrink-0">{count}</span>
+            <span className="text-white truncate">{city}</span>
+            <span className="text-white tabular-nums shrink-0">{count}</span>
           </div>
         ))}
       </div>
@@ -120,7 +120,7 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={14} className={hot ? cfg.color : 'text-slate-600'} />
-          <span className={`text-sm font-medium truncate ${hot ? 'text-slate-100' : 'text-slate-400'}`}>
+          <span className="text-sm font-medium truncate text-white">
             {job}
           </span>
           {hot && (
@@ -135,7 +135,7 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
           <span className={`text-lg font-bold tabular-nums ${
             imminent ? 'text-green-400 animate-pulse' :
             urgent   ? 'text-amber-400' :
-            hot      ? 'text-white' : 'text-slate-500'
+            'text-white'
           }`}>
             {label}
           </span>
@@ -145,9 +145,9 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
       {/* Times row */}
       <div className="mt-2 flex items-center gap-3 flex-wrap">
         {['UTC', 'Australia/Sydney', 'America/Toronto'].map((tz, i) => (
-          <span key={tz} className="text-xs text-slate-500">
-            <span className="text-slate-600">{['UTC', 'AEST', 'EDT'][i]}</span>{' '}
-            <span className={hot ? 'text-slate-300' : 'text-slate-500'}>
+          <span key={tz} className="text-xs text-white">
+            <span className="text-white">{['UTC', 'AEST', 'EDT'][i]}</span>{' '}
+            <span className="text-white">
               {fmtTime(next_run, tz)} {fmtDate(next_run, tz) !== 'today' ? `(${fmtDate(next_run, tz)})` : ''}
             </span>
           </span>
@@ -157,14 +157,14 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
       {/* Upcoming runs (for high-frequency jobs) */}
       {multi && (
         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs text-slate-600">Next:</span>
+          <span className="text-xs text-white">Next:</span>
           {next_runs.slice(0, 6).map((t, i) => {
             const { label: lbl, urgent: u } = countdown(t)
             return (
               <span key={i} className={`text-xs px-1.5 py-0.5 rounded border ${
                 i === 0
-                  ? 'bg-slate-700/60 border-slate-600/60 text-slate-300'
-                  : 'bg-slate-800/40 border-slate-700/20 text-slate-600'
+                  ? 'bg-slate-700/60 border-slate-600/60 text-white'
+                  : 'bg-slate-800/40 border-slate-700/20 text-white'
               }`}>
                 {lbl}
               </span>
@@ -175,11 +175,11 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
 
       {/* Footer */}
       <div className="mt-2.5 flex items-center justify-between gap-2">
-        <p className="text-xs text-slate-600 leading-relaxed flex-1">{description}</p>
+        <p className="text-xs text-white leading-relaxed flex-1">{description}</p>
         <div className="shrink-0 text-right">
-          <p className="text-xs text-slate-600">{frequency}</p>
+          <p className="text-xs text-white">{frequency}</p>
           {last_ran && (
-            <p className="text-xs text-slate-700 mt-0.5">last: {timeAgo(last_ran)}</p>
+            <p className="text-xs text-white mt-0.5">last: {timeAgo(last_ran)}</p>
           )}
         </div>
       </div>
@@ -197,7 +197,7 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
         <div className="mt-3 border-t border-slate-700/30 pt-2.5">
           <button
             onClick={() => setShowLeads(v => !v)}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-white hover:text-slate-200 transition-colors"
           >
             <span className={`transition-transform ${showLeads ? 'rotate-90' : ''}`}>▸</span>
             {showLeads ? 'Hide' : 'Show'} {leads.length} lead{leads.length !== 1 ? 's' : ''}
@@ -213,8 +213,8 @@ function ScheduleCard({ job, next_run, next_runs, queue, leads,
                   : 'text-amber-500/70'
                 return (
                   <div key={l.id} className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-300 truncate flex-1">{l.name}</span>
-                    <span className="text-slate-600 shrink-0">{l.city}</span>
+                    <span className="text-white truncate flex-1">{l.name}</span>
+                    <span className="text-white shrink-0">{l.city}</span>
                     <span className={`shrink-0 ${statusColor}`}>{s}</span>
                   </div>
                 )
@@ -319,7 +319,7 @@ export default function LiveActivity() {
           )}
           <button
             onClick={refresh}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-white hover:text-slate-200 transition-colors"
           >
             <RefreshCw size={12} />
             Refresh
