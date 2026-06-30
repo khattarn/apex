@@ -224,10 +224,11 @@ def _is_india(phone: str, market: str = "") -> bool:
     if (market or "").upper() == "IN":
         return True
     digits = "".join(c for c in phone if c.isdigit())
+    # Only unambiguous India indicators — never the bare-10-digit check which
+    # catches most NANP area codes (613, 647, 604, 713…) and misroutes them to Dograh.
     return (
         (digits.startswith("91") and len(digits) == 12) or
-        digits.startswith("0091") or
-        (len(digits) == 10 and digits[0] in "6789")
+        digits.startswith("0091")
     )
 
 
