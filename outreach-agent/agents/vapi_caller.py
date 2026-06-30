@@ -111,9 +111,9 @@ def place_sophie_call(
         "assistantId": assistant_id,
         "phoneNumberId": phone_number_id,
         "customer": {"number": phone},
+        "serverUrl": f"{server_url}/api/webhooks/vapi",
         "metadata": {"lead_id": lead_id},
         "assistantOverrides": {
-            "serverUrl": f"{server_url}/api/webhooks/vapi",
             "variableValues": {
                 "practice_name":  business_name,
                 "practice_type":  business_type,
