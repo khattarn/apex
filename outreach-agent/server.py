@@ -616,26 +616,48 @@ async def vapi_webhook(request: Request):
     if event_type != "end-of-call-report":
         return {"ok": True}
 
-    call        = payload.get("call", {})
-    artifact    = payload.get("artifact", {})
-    caller      = call.get("customer", {}).get("number", "")
-    ended_reason = call.get("endedReason", "")
+    call          = payload.get("call", {})
+    artifact      = payload.get("artifact", {})
+    ended_reason  = call.get("endedReason", "")
     recording_url = artifact.get("recordingUrl", "")
     summary       = (artifact.get("summary") or "")[:500]
     transcript    = (artifact.get("transcript") or "")[:1000]
+    call_type     = call.get("type", "")  # "outboundPhoneCall" | "inboundPhoneCall"
+    customer_phone = call.get("customer", {}).get("number", "")
 
-    lead = _find_lead_by_phone(caller)
-    if not lead:
+    from database.client import update_lead, log_activity
+
+    # ── Outbound Sophie call ──────────────────────────────────────────────────
+    if call_type == "outboundPhoneCall":
+        lead_id = (call.get("metadata") or {}).get("lead_id", "")
+        if not lead_id:
+            lead = _find_lead_by_phone(customer_phone)
+            lead_id = str(lead["id"]) if lead else ""
+        if not lead_id:
+            return {"ok": True}
+        update_lead(lead_id, {
+            "status": "replied",
+            "notes": f"Sophie call completed. Ended: {ended_reason}. Recording: {recording_url}",
+        })
+        log_activity(lead_id, "outbound_call_completed", {
+            "ended_reason":  ended_reason,
+            "recording_url": recording_url,
+            "summary":       summary,
+            "transcript":    transcript,
+        })
         return {"ok": True}
 
+    # ── Inbound Henry call ────────────────────────────────────────────────────
+    lead = _find_lead_by_phone(customer_phone)
+    if not lead:
+        return {"ok": True}
     lead_id = str(lead["id"])
-    from database.client import update_lead, log_activity
     update_lead(lead_id, {
         "status": "replied",
         "notes": f"Inbound call via Henry. Ended: {ended_reason}. Recording: {recording_url}",
     })
     log_activity(lead_id, "inbound_call", {
-        "caller":        caller,
+        "caller":        customer_phone,
         "ended_reason":  ended_reason,
         "recording_url": recording_url,
         "summary":       summary,

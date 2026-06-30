@@ -88,11 +88,20 @@ def place_sophie_call(
     if not phone.startswith("+"):
         phone = f"+{phone.lstrip('0')}"
 
+    server_url = os.getenv(
+        "RAILWAY_PUBLIC_DOMAIN",
+        "https://serene-passion-production-cd82.up.railway.app",
+    )
+    if not server_url.startswith("http"):
+        server_url = f"https://{server_url}"
+
     payload = {
         "assistantId": assistant_id,
         "phoneNumberId": phone_number_id,
         "customer": {"number": phone},
+        "metadata": {"lead_id": lead_id},
         "assistantOverrides": {
+            "serverUrl": f"{server_url}/api/webhooks/vapi",
             "variableValues": {
                 "practice_name":  business_name,
                 "practice_type":  business_type,
@@ -103,7 +112,7 @@ def place_sophie_call(
                 "pain_signal":    pain_signal,
                 "pain_finding":   pain_finding,
                 "pricing_line":   pricing_line,
-            }
+            },
         },
     }
 
