@@ -1698,7 +1698,7 @@ async def activity_live():
     click_pending = len(click_pending_ids)
     click_leads: list[dict] = []
     if click_pending_ids:
-        raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).execute().data or []
+        raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).not_.is_("phone", "null").neq("phone", "").execute().data or []
         for r in raw:
             city = r.get("city", "")
             tz_name = CITY_TZ.get(city, "")
