@@ -81,7 +81,7 @@ CA_CITIES = {
 
 
 def is_canadian(city: str, market: str = "") -> bool:
-    return market.upper() == "CA" or city in CA_CITIES
+    return (market or "").upper() == "CA" or city in CA_CITIES
 
 # Email: Mon–Fri, 8:30 AM – 7 PM local
 EMAIL_SEND_DAYS = {0, 1, 2, 3, 4}
