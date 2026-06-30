@@ -36,6 +36,9 @@ function ClockCard({ label, short, zone, flag, color }) {
   const dateStr = now.toLocaleDateString('en-US', {
     timeZone: zone, weekday: 'short', month: 'short', day: 'numeric',
   })
+  const tzAbbr = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' })
+    .formatToParts(now)
+    .find(p => p.type === 'timeZoneName')?.value ?? ''
 
   const parts = timeStr.split(':')
   const hm   = `${parts[0] ?? ''}:${parts[1] ?? ''}`
@@ -53,7 +56,9 @@ function ClockCard({ label, short, zone, flag, color }) {
         <span className={`font-mono text-xs leading-none ${p.accent} ml-0.5 hidden sm:inline`}>:{sec}</span>
         <span className={`font-mono text-xs font-semibold text-white/80 ml-0.5`}>{ampm}</span>
       </div>
-      <p className="text-[10px] mt-0.5 text-slate-300 font-medium hidden sm:block truncate w-full text-center">{dateStr}</p>
+      <p className="text-[10px] mt-0.5 text-slate-300 font-medium hidden sm:block truncate w-full text-center">
+        <span className={`${p.accent} font-semibold`}>{tzAbbr}</span> · {dateStr}
+      </p>
     </div>
   )
 }
