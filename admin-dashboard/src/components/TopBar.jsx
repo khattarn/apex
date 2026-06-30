@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Menu } from 'lucide-react'
 
 const ZONES = [
+  { label: 'UTC',         short: 'UTC', zone: 'UTC',                  flag: '🌐', color: 'slate'   },
   { label: 'New York',    short: 'NY',  zone: 'America/New_York',    flag: '🇺🇸', color: 'indigo'  },
   { label: 'Chicago',     short: 'CHI', zone: 'America/Chicago',     flag: '🇺🇸', color: 'violet'  },
   { label: 'Los Angeles', short: 'LA',  zone: 'America/Los_Angeles', flag: '🇺🇸', color: 'rose'    },
@@ -11,6 +12,7 @@ const ZONES = [
 ]
 
 const PALETTES = {
+  slate:   { bg: 'bg-slate-800/60',   border: 'border-slate-500/40',  time: 'text-slate-100',   accent: 'text-slate-400'   },
   indigo:  { bg: 'bg-indigo-950/60',  border: 'border-indigo-500/40',  time: 'text-indigo-200',  accent: 'text-indigo-400'  },
   violet:  { bg: 'bg-violet-950/60',  border: 'border-violet-500/40',  time: 'text-violet-200',  accent: 'text-violet-400'  },
   rose:    { bg: 'bg-rose-950/60',    border: 'border-rose-500/40',    time: 'text-rose-200',    accent: 'text-rose-400'    },
@@ -67,7 +69,7 @@ export default function TopBar({ onMenuClick }) {
         >
           <Menu size={18} />
         </button>
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-1.5 flex-1">
+        <div className="grid grid-cols-4 lg:grid-cols-7 gap-1.5 flex-1">
           {ZONES.map((z) => (
             <ClockCard key={z.zone} {...z} />
           ))}
