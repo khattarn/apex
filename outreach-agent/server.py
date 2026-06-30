@@ -1806,7 +1806,7 @@ async def activity_live():
             "leads": click_leads,
             "frequency": "Hourly Mon–Fri",
             "last_ran": _last_of("outbound_call"),
-            "description": "Calls leads who clicked an email link (10am–5pm local time)",
+            "description": "Calls leads who clicked an email link (11am–5pm local time)",
         },
         {
             "job": "Callbacks",
@@ -3071,13 +3071,13 @@ async def cron_wa_broadcast(request: Request):
     return {"ok": True, **result}
 
 
-# ── Cron: click-to-call campaign (email clickers, Mon–Fri 10 AM–5 PM local) ───
+# ── Cron: click-to-call campaign (email clickers, Mon–Fri 11 AM–5 PM local) ───
 
 @app.post("/api/cron/click-calls")
 async def cron_click_calls(request: Request):
     """
     Outbound voice campaign to leads who clicked an email link but have not yet
-    been called. Respects 10 AM–5 PM in the lead's local timezone.
+    been called. Respects 11 AM–5 PM in the lead's local timezone.
     Schedule on Railway: every hour, Mon–Fri.
     """
     cron_secret = os.getenv("CRON_SECRET", "")

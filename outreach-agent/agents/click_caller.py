@@ -3,7 +3,7 @@ click_caller.py — Outbound voice campaign targeting leads who clicked an email
 
 Triggered hourly Mon–Fri by APScheduler inside server.py.
 
-Each lead is called once. Calls only within 10 AM–5 PM local time.
+Each lead is called once. Calls only within 11 AM–5 PM local time.
 Sophie follows a 7-phase sales playbook: open → discover → insight pitch →
 trial + urgency → objection → 3-close sequence → exit.
 """
