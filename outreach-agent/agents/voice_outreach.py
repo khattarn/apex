@@ -221,7 +221,7 @@ STYLE RULES
 
 
 def _is_india(phone: str, market: str = "") -> bool:
-    if market.upper() == "IN":
+    if (market or "").upper() == "IN":
         return True
     digits = "".join(c for c in phone if c.isdigit())
     return (
