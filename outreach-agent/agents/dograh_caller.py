@@ -67,7 +67,8 @@ def place_outbound_call(
     trigger: str = "cold",
 ) -> dict:
     """
-    Trigger a Dograh outbound call via Sophie's workflow.
+    Trigger a Dograh outbound call.
+    India (0091…) → Priya workflow + Vobiz trunk 477.
     Returns the Dograh response dict which contains workflow_run_id.
     """
     api_key = os.getenv("DOGRAH_API_KEY", "")
@@ -81,16 +82,14 @@ def place_outbound_call(
     india_telephony_id   = os.getenv("DOGRAH_INDIA_TELEPHONY_CONFIG_ID", "")   # 477 — Vobiz +91
     default_telephony_id = os.getenv("DOGRAH_DEFAULT_TELEPHONY_CONFIG_ID", "") # 598 — SignalWire US/CA
 
-    # Sophie handles ALL outbound calls — Priya's workflow is inbound-only (answering +919262171423).
-    # Using Priya's workflow for outbound plays her inbound greeting, not an outbound sales script.
-    workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
-
     if cleaned.startswith("0091"):
-        telephony_id = india_telephony_id or None        # Vobiz 477 for Indian PSTN
-    elif default_telephony_id:
-        telephony_id = default_telephony_id              # SignalWire 598 for international
+        # India: Priya is the outbound agent for Indian leads, Vobiz trunk
+        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_PRIYA", _WORKFLOW_PRIYA_DEFAULT)
+        telephony_id  = india_telephony_id or None
     else:
-        telephony_id = india_telephony_id or None        # last-resort fallback
+        # International (should rarely reach here — US/CA/AU now go through Vapi)
+        workflow_uuid = os.getenv("DOGRAH_WORKFLOW_UUID_SOPHIE", _WORKFLOW_SOPHIE_DEFAULT)
+        telephony_id  = default_telephony_id or None
 
     # Build initial_context — Sophie can reference these via {{initial_context.field}}
     initial_context: dict = {
