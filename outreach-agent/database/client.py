@@ -188,6 +188,12 @@ def advance_email_sequence(lead_id: str, step_just_sent: int):
         "email_last_sent_at": now.isoformat(),
         "email_sent": True,
         "email_sent_date": now.isoformat(),
+        # Reset per-email engagement so opens/clicks reflect the current email only
+        "email_opened": False,
+        "email_opened_at": None,
+        "email_clicked": False,
+        "email_clicked_at": None,
+        "email_clicked_link": None,
     }
 
     if next_step <= len(EMAIL_SEQUENCE):

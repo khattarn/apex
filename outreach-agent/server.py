@@ -1276,14 +1276,16 @@ async def track_click(lead_id: str, url: str = "https://practicedesk.live"):
         already_opened  = lead.data[0].get("email_opened")  if lead.data else False
         already_clicked = lead.data[0].get("email_clicked") if lead.data else False
         ts = datetime.now(timezone.utc).isoformat()
-        patch = {"email_clicked": True, "email_opened": True, "email_clicked_at": ts}
-        if not already_opened:
-            patch["email_opened_at"] = ts
+        patch = {
+            "email_clicked": True, "email_opened": True,
+            "email_clicked_at": ts, "email_opened_at": ts,
+            "email_clicked_link": url,
+        }
         update_lead(lead_id, patch)
         if not already_opened:
             log_activity(lead_id, "email_opened",  {"source": "pixel"})
         if not already_clicked:
-            log_activity(lead_id, "email_clicked", {"source": "pixel"})
+            log_activity(lead_id, "email_clicked", {"source": "pixel", "url": url})
     except Exception:
         pass
     return RedirectResponse(url=url, status_code=302)
