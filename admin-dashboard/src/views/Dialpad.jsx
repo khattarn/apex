@@ -76,24 +76,75 @@ const QUICK_DIALS = [
 ]
 
 function InternationalDialpad() {
-  const [number, setNumber]   = useState('')
-  const [status, setStatus]   = useState('idle')
-  const [errorMsg, setErrMsg] = useState('')
-  const [muted, setMuted]     = useState(false)
+  const [number, setNumber]       = useState('')
+  const [status, setStatus]       = useState('idle')
+  const [errorMsg, setErrMsg]     = useState('')
+  const [muted, setMuted]         = useState(false)
+  const [audioOutputs, setOutputs] = useState([])
+  const [sinkId, setSinkId]       = useState('')
 
   const clientRef    = useRef(null)
   const callRef      = useRef(null)
   const subRef       = useRef(null)
   const streamSubRef = useRef(null)
   const audioRef     = useRef(null)
+  const sinkIdRef    = useRef('')   // stable ref for use inside stream closure
+
+  // Enumerate audio output devices — labels only appear after mic permission is granted
+  useEffect(() => {
+    async function loadOutputs() {
+      if (!navigator.mediaDevices?.enumerateDevices) return
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const outputs = devices.filter(d => d.kind === 'audiooutput')
+        setOutputs(outputs)
+      } catch {}
+    }
+    loadOutputs()
+    // Re-enumerate after mic permission fires (labels become available)
+    navigator.mediaDevices?.addEventListener?.('devicechange', loadOutputs)
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', loadOutputs)
+  }, [])
+
+  function selectSink(id) {
+    sinkIdRef.current = id
+    setSinkId(id)
+    const el = audioRef.current
+    if (el?.setSinkId) el.setSinkId(id).catch(() => {})
+  }
+
+  const longPressRef = useRef(null)
 
   function press(digit)  { setNumber(n => n + digit) }
   function backspace()   { setNumber(n => n.slice(0, -1)) }
+
+  // Long-press 0 → inserts '+' (standard phone behaviour)
+  function onZeroDown() {
+    longPressRef.current = setTimeout(() => {
+      longPressRef.current = null
+      setNumber(n => n + '+')
+    }, 500)
+  }
+  function onZeroUp() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current)
+      longPressRef.current = null
+      press('0')
+    }
+  }
+  function onZeroCancel() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current)
+      longPressRef.current = null
+    }
+  }
 
   function attachAudio(stream) {
     const el = audioRef.current
     if (!el || !stream) return
     el.srcObject = stream
+    // Route to the selected headset / output device if setSinkId is supported (Chrome/Edge)
+    if (sinkIdRef.current && el.setSinkId) el.setSinkId(sinkIdRef.current).catch(() => {})
     el.play().catch(err => console.warn('[Dialpad] audio.play() blocked:', err))
   }
 
@@ -196,10 +247,28 @@ function InternationalDialpad() {
   return (
     <div>
       {/* Status bar */}
-      <div className={`mb-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${sm.color}`}>
+      <div className={`mb-3 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${sm.color}`}>
         <span className={`w-2 h-2 rounded-full shrink-0 ${sm.dot}`} />
         <span className="truncate">{sm.label}</span>
       </div>
+
+      {/* Audio output device selector — shown when browser supports setSinkId */}
+      {audioOutputs.length > 1 && typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-[10px] text-slate-500 shrink-0">🎧 Output</span>
+          <select
+            value={sinkId}
+            onChange={e => selectSink(e.target.value)}
+            className="flex-1 text-[11px] bg-[#1e293b] border border-slate-700/50 rounded px-2 py-1 text-slate-300 outline-none"
+          >
+            {audioOutputs.map(d => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || `Output ${d.deviceId.slice(0, 8)}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Quick dials (hidden during call) */}
       {!inCall && (
@@ -222,9 +291,14 @@ function InternationalDialpad() {
 
       {/* Number display */}
       <div className="flex items-center bg-[#1e293b] border border-slate-700/50 rounded-lg px-4 py-3 mb-4 min-h-[56px]">
-        <span className="flex-1 text-xl font-mono tracking-widest text-white">
-          {number || <span className="text-slate-600 text-base font-sans">Enter number</span>}
-        </span>
+        <input
+          type="tel"
+          value={number}
+          onChange={e => !inCall && setNumber(e.target.value)}
+          placeholder="Enter number or paste"
+          readOnly={inCall}
+          className="flex-1 bg-transparent text-xl font-mono tracking-widest text-white placeholder-slate-600 outline-none"
+        />
         {number && !inCall && (
           <button onClick={backspace} className="text-slate-500 hover:text-slate-200 ml-2 transition-colors">
             <Delete size={18} />
@@ -235,16 +309,26 @@ function InternationalDialpad() {
       {/* Keypad (hidden during call) */}
       {!inCall && (
         <div className="grid grid-cols-3 gap-2 mb-5">
-          {KEYS.map(([digit, sub]) => (
-            <button
-              key={digit}
-              onClick={() => press(digit)}
-              className="flex flex-col items-center justify-center bg-[#1e293b] hover:bg-slate-700/60 border border-slate-700/40 rounded-lg py-3 transition-colors select-none"
-            >
-              <span className="text-lg font-semibold text-white leading-none">{digit}</span>
-              {sub && <span className="text-[9px] text-slate-500 mt-0.5 tracking-widest">{sub}</span>}
-            </button>
-          ))}
+          {KEYS.map(([digit, sub]) => {
+            const isZero = digit === '0'
+            return (
+              <button
+                key={digit}
+                onPointerDown={isZero ? onZeroDown : undefined}
+                onPointerUp={isZero ? onZeroUp : undefined}
+                onPointerLeave={isZero ? onZeroCancel : undefined}
+                onContextMenu={isZero ? e => e.preventDefault() : undefined}
+                onClick={isZero ? undefined : () => press(digit)}
+                className="flex flex-col items-center justify-center bg-[#1e293b] hover:bg-slate-700/60 border border-slate-700/40 rounded-lg py-3 transition-colors select-none"
+              >
+                <span className="text-lg font-semibold text-white leading-none">{digit}</span>
+                {isZero
+                  ? <span className="text-[9px] text-indigo-400 mt-0.5">hold for +</span>
+                  : sub && <span className="text-[9px] text-slate-500 mt-0.5 tracking-widest">{sub}</span>
+                }
+              </button>
+            )
+          })}
         </div>
       )}
 

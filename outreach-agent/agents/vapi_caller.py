@@ -113,7 +113,15 @@ def place_sophie_call(
         "customer": {"number": phone},
         "serverUrl": f"{server_url}/api/webhooks/vapi",
         "metadata": {"lead_id": lead_id},
+        "maxDurationSeconds": 300,
         "assistantOverrides": {
+            "voicemailDetection": {
+                "provider": "heuristics",
+                "voicemailDetectionTypes": ["machine_end_beep", "machine_end_silence"],
+                "enabled": True,
+                "machineDetectionTimeout": 30,
+            },
+            "endCallPhrases": ["goodbye", "have a great day", "take care"],
             "variableValues": {
                 "practice_name":  business_name,
                 "practice_type":  business_type,
