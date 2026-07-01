@@ -507,6 +507,38 @@
   <h2>Fix Log — Problems Solved</h2>
 
   <div class="fix-entry">
+    <div class="fix-date">2026-07-01</div>
+    <div>
+      <div class="fix-title">Public holiday blocking — CA &amp; US outreach fully silenced on statutory holidays</div>
+      <div class="fix-body">
+        All three outreach channels (email, WhatsApp, voice calls) now return <code>False</code> from their send-window functions on statutory public holidays for the relevant market.
+        Two categories of holidays are handled:
+        <ul>
+          <li><strong>Fixed-date</strong> — New Year's Day (CA+US), Juneteenth (US), Canada Day (US Jul 1), Independence Day (US Jul 4), Truth &amp; Reconciliation Day (CA Sep 30), Remembrance/Veterans Day (CA+US Nov 11), Christmas (CA+US), Boxing Day (CA).</li>
+          <li><strong>Floating</strong> — computed fresh each year via <code>_floating_holidays(year)</code> (LRU-cached): Good Friday (CA), Easter Monday (CA), Family Day 3rd-Mon-Feb (CA), Victoria Day last-Mon-≤May24 (CA), Civic Holiday 1st-Mon-Aug (CA), Labour/Labor Day 1st-Mon-Sep (CA+US), Thanksgiving 2nd-Mon-Oct (CA), MLK Day 3rd-Mon-Jan (US), Presidents' Day 3rd-Mon-Feb (US), Memorial Day last-Mon-May (US), Columbus Day 2nd-Mon-Oct (US), Thanksgiving 4th-Thu-Nov (US).</li>
+        </ul>
+        Easter date is computed with the Anonymous Gregorian algorithm built in — no external dependency.
+        The check is market-aware: CA holidays block CA leads only, US holidays block US leads only, AU and UK are unaffected.
+        Adding future holidays requires one line in <code>HOLIDAYS_FIXED</code> (fixed) or one <code>add()</code> call in <code>_floating_holidays()</code> (floating).
+      </div>
+      <div class="fix-files">outreach-agent/utils/timezone.py — HOLIDAYS_FIXED · _nth_weekday() · _easter() · _floating_holidays() · _is_holiday() · is_email_window() · is_wa_window() · is_voice_window()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-01</div>
+    <div>
+      <div class="fix-title">Vapi calls stuck "in progress" — voicemail detection + max duration added</div>
+      <div class="fix-body">
+        Sophie outbound calls were staying in Vapi's "in progress" state indefinitely because (1) no hard time cap was set and (2) voicemail boxes were never detected or hung up.
+        Added <code>maxDurationSeconds: 300</code> (5-minute hard cap) at the call level and <code>voicemailDetection</code> with <code>provider: "heuristics"</code>.
+        <strong>Important:</strong> must use <code>provider: "heuristics"</code> — not <code>"twilio"</code> — because Sophie uses Vapi native numbers (50d7061b) and SignalWire Alberta (a513803a), neither of which is Twilio-backed. The Twilio AMD provider only works on Twilio phone numbers.
+      </div>
+      <div class="fix-files">outreach-agent/agents/vapi_caller.py → place_sophie_call()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
     <div class="fix-date">2026-06-30</div>
     <div>
       <div class="fix-title">Vapi serverUrl must be top-level — not inside assistantOverrides</div>
