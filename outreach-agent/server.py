@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import time as _time
+from contextlib import asynccontextmanager
 from typing import Optional
 
 import requests
@@ -47,7 +48,13 @@ def _track_active_call(
         "lead_id":    lead_id,
     }
 
-app = FastAPI(title="Apex Admin API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(_app):
+    # start_scheduler is defined later in this file — Python resolves the name at call time
+    await start_scheduler()
+    yield
+
+app = FastAPI(title="Apex Admin API", version="1.0.0", lifespan=lifespan)
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
 _origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
@@ -2704,7 +2711,6 @@ async def _job_email_poller():
         log.error("_job_email_poller failed: %s", exc)
 
 
-@app.on_event("startup")
 async def start_scheduler():
     global _scheduler
     try:
@@ -2717,8 +2723,8 @@ async def start_scheduler():
     # misfire_grace_time: max seconds past due-time a job can still fire after a restart.
     # Default is 1s — any Railway restart ≥ 1s from a job's scheduled time silently skips it.
     # 900s (15 min) means jobs fire on the next startup even if the server was down ≤ 15 min.
-    _MGT_SHORT = 120    # 2 min — for high-frequency jobs (every 15 min / hourly)
-    _MGT_LONG  = 900    # 15 min — for low-frequency jobs (daily / 3×/day)
+    _MGT_SHORT = 300     # 5 min  — for high-frequency jobs (every 15 min / hourly)
+    _MGT_LONG  = 82800  # 23 h   — for daily jobs; fires on restart even if server was down all day
 
     _scheduler = AsyncIOScheduler(timezone="UTC")
     _scheduler.add_job(_job_wa_followup,         "cron", hour=9,        minute=0,   misfire_grace_time=_MGT_LONG)   # 9am UTC daily
@@ -2737,6 +2743,25 @@ async def start_scheduler():
     _scheduler.add_job(_job_prospect,             "cron", hour=12,       minute=0,   misfire_grace_time=_MGT_LONG)            # 12:00 UTC daily
     _scheduler.add_job(_job_email_poller,         "cron", minute="*/15",             misfire_grace_time=_MGT_SHORT)           # every 15 min, 7 days
     _scheduler.start()
+
+    # Startup catch-up: fire _job_prospect immediately if it missed today's 12:00 UTC window.
+    # Covers the case where the deploy happened after noon and misfire_grace_time already expired.
+    try:
+        from datetime import datetime, timezone
+        from database.client import get_client
+        now = datetime.now(timezone.utc)
+        if now.hour >= 12:
+            row = get_client().table("agent_health").select("last_success_at").eq("job", "prospect_cron").execute()
+            last_ok = (row.data or [{}])[0].get("last_success_at", "") if row.data else ""
+            if last_ok:
+                from utils.monitoring import _parse_ts
+                last_dt = _parse_ts(last_ok)
+                hours_since = (now - last_dt).total_seconds() / 3600 if last_dt else 999
+                if hours_since > 23:
+                    log.info("start_scheduler: prospect_cron missed today — firing now (last ran %.1fh ago)", hours_since)
+                    asyncio.ensure_future(_job_prospect())
+    except Exception as _e:
+        log.warning("start_scheduler: catch-up check failed: %s", _e)
 
 
 # ── Vobiz call-event webhook (Ring / StartApp / Hangup / recording.completed) ──
