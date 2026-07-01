@@ -24,6 +24,7 @@ CADENCE_HOURS: dict[str, int] = {
     "wa_followup":     26,   # daily 9am UTC
     "voice_followup":  26,   # hourly Mon–Fri
     "observatory":     26,   # daily 1:30 UTC
+    "prospect_cron":   26,   # daily 12:00 UTC
     "signal_weekly":   200,  # Monday 6am UTC
 }
 

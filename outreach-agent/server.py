@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 _running: dict = {}       # tracks which pipeline agents are currently executing
 _active_calls: dict = {}  # workflow_run_id → {lead_name, phone, started_at, direction}
+_scheduler = None         # module-level ref prevents GC of the APScheduler instance
 
 
 def _track_active_call(
@@ -2705,6 +2706,7 @@ async def _job_email_poller():
 
 @app.on_event("startup")
 async def start_scheduler():
+    global _scheduler
     try:
         from agents.signal import register_hook_ab_test
         register_hook_ab_test()
@@ -2712,23 +2714,29 @@ async def start_scheduler():
         pass  # non-fatal — Signal tables may not be migrated yet in fresh deploys
 
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(_job_wa_followup,      "cron", hour=9,        minute=0)      # 9am UTC daily
-    scheduler.add_job(_job_voice_followup,   "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 11am–5pm local
-                      day_of_week="mon-fri")
-    scheduler.add_job(_job_observatory,      "cron", hour=1,        minute=30)     # 1:30am UTC = 7am IST
-    scheduler.add_job(_job_email_campaign,   "cron", hour="13,15,22", minute=0)    # 13:00=CA 9am ET | 15:00=US 11am ET | 22:00=AU 8am AEST
-    scheduler.add_job(_job_wa_broadcast,     "cron", hour="*",      minute=15,     # every hour Mon–Fri — timezone filter inside handles 8:30am–7pm local
-                      day_of_week="mon-fri")
-    scheduler.add_job(_job_click_calls,      "cron", hour="*",      minute=0,      # every hour Mon–Fri — timezone filter inside handles 11am–5pm local
-                      day_of_week="mon-fri")
-    scheduler.add_job(_job_scheduled_callbacks, "cron", minute="*/15",             # every 15 min — checks for due callbacks
-                      day_of_week="mon-fri")
-    scheduler.add_job(_job_signal_weekly,    "cron", day_of_week="mon", hour=6, minute=0)  # Monday 6am UTC
-    scheduler.add_job(_job_watchdog,         "cron", hour="*",          minute=45)         # :45 every hour
-    scheduler.add_job(_job_prospect,         "cron", hour=12,            minute=0)          # 12:00 UTC daily
-    scheduler.add_job(_job_email_poller,     "cron", minute="*/15")                          # every 15 min, 7 days — IMAP poll for lead replies
-    scheduler.start()
+    # misfire_grace_time: max seconds past due-time a job can still fire after a restart.
+    # Default is 1s — any Railway restart ≥ 1s from a job's scheduled time silently skips it.
+    # 900s (15 min) means jobs fire on the next startup even if the server was down ≤ 15 min.
+    _MGT_SHORT = 120    # 2 min — for high-frequency jobs (every 15 min / hourly)
+    _MGT_LONG  = 900    # 15 min — for low-frequency jobs (daily / 3×/day)
+
+    _scheduler = AsyncIOScheduler(timezone="UTC")
+    _scheduler.add_job(_job_wa_followup,         "cron", hour=9,        minute=0,   misfire_grace_time=_MGT_LONG)   # 9am UTC daily
+    _scheduler.add_job(_job_voice_followup,       "cron", hour="*",      minute=0,   misfire_grace_time=_MGT_SHORT,  # every hour Mon–Fri
+                       day_of_week="mon-fri")
+    _scheduler.add_job(_job_observatory,          "cron", hour=1,        minute=30,  misfire_grace_time=_MGT_LONG)   # 1:30am UTC = 7am IST
+    _scheduler.add_job(_job_email_campaign,       "cron", hour="13,15,22", minute=0, misfire_grace_time=_MGT_LONG)   # 13:00=CA 9am ET | 15:00=US 11am ET | 22:00=AU 8am AEST
+    _scheduler.add_job(_job_wa_broadcast,         "cron", hour="*",      minute=15,  misfire_grace_time=_MGT_SHORT,  # every hour Mon–Fri
+                       day_of_week="mon-fri")
+    _scheduler.add_job(_job_click_calls,          "cron", hour="*",      minute=0,   misfire_grace_time=_MGT_SHORT,  # every hour Mon–Fri
+                       day_of_week="mon-fri")
+    _scheduler.add_job(_job_scheduled_callbacks,  "cron", minute="*/15",             misfire_grace_time=_MGT_SHORT,  # every 15 min
+                       day_of_week="mon-fri")
+    _scheduler.add_job(_job_signal_weekly,        "cron", day_of_week="mon", hour=6, minute=0, misfire_grace_time=_MGT_LONG)  # Monday 6am UTC
+    _scheduler.add_job(_job_watchdog,             "cron", hour="*",      minute=45,  misfire_grace_time=_MGT_SHORT)           # :45 every hour
+    _scheduler.add_job(_job_prospect,             "cron", hour=12,       minute=0,   misfire_grace_time=_MGT_LONG)            # 12:00 UTC daily
+    _scheduler.add_job(_job_email_poller,         "cron", minute="*/15",             misfire_grace_time=_MGT_SHORT)           # every 15 min, 7 days
+    _scheduler.start()
 
 
 # ── Vobiz call-event webhook (Ring / StartApp / Hangup / recording.completed) ──
@@ -3162,6 +3170,13 @@ async def cron_observatory(request: Request):
 async def cron_prospect(_: str = Depends(verify_token)):
     """Manually trigger one prospecting run (same as the 12:00 UTC daily cron)."""
     await _job_prospect()
+    return {"ok": True}
+
+
+@app.post("/api/cron/email-campaign")
+async def cron_email_campaign(_: str = Depends(verify_token)):
+    """Manually trigger the email campaign job (same as the 13/15/22 UTC scheduler)."""
+    await _job_email_campaign()
     return {"ok": True}
 
 
