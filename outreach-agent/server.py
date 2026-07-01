@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 _running: dict = {}       # tracks which pipeline agents are currently executing
 _active_calls: dict = {}  # workflow_run_id → {lead_name, phone, started_at, direction}
+_JOB_REGISTRY: dict = {}  # job name → async fn; populated in start_scheduler for auto-recovery
 _scheduler = None         # module-level ref prevents GC of the APScheduler instance
 
 
@@ -2604,10 +2605,15 @@ async def _job_signal_weekly():
 
 
 async def _job_watchdog():
-    """Hourly watchdog — cadence check + dependency probes + tiered alerts."""
+    """Hourly watchdog — cadence check + dependency probes + tiered alerts + auto-recovery."""
     try:
         from utils.monitoring import run_watchdog
-        await asyncio.to_thread(run_watchdog)
+        overdue = await asyncio.to_thread(run_watchdog)
+        for job_name in (overdue or []):
+            fn = _JOB_REGISTRY.get(job_name)
+            if fn:
+                log.warning("Watchdog: auto-recovering overdue job '%s'", job_name)
+                asyncio.ensure_future(fn())
     except Exception as exc:
         log.error("_job_watchdog failed: %s", exc)
 
@@ -2744,22 +2750,27 @@ async def start_scheduler():
     _scheduler.add_job(_job_email_poller,         "cron", minute="*/15",             misfire_grace_time=_MGT_SHORT)           # every 15 min, 7 days
     _scheduler.start()
 
-    # Startup catch-up: fire _job_prospect immediately if it missed today's 12:00 UTC window.
-    # Covers the case where the deploy happened after noon and misfire_grace_time already expired.
+    # Populate job registry — used by _job_watchdog for auto-recovery
+    _JOB_REGISTRY.update({
+        "prospect_cron":  _job_prospect,
+        "email_campaign": _job_email_campaign,
+        "wa_broadcast":   _job_wa_broadcast,
+        "wa_followup":    _job_wa_followup,
+        "voice_followup": _job_voice_followup,
+        "observatory":    _job_observatory,
+        "email_poller":   _job_email_poller,
+    })
+
+    # Startup catch-up: re-fire any overdue jobs immediately on boot.
+    # Handles deploys that land after a job's scheduled window + grace time.
     try:
-        from datetime import datetime, timezone
-        from database.client import get_client
-        now = datetime.now(timezone.utc)
-        if now.hour >= 12:
-            row = get_client().table("agent_health").select("last_success_at").eq("job", "prospect_cron").execute()
-            last_ok = (row.data or [{}])[0].get("last_success_at", "") if row.data else ""
-            if last_ok:
-                from utils.monitoring import _parse_ts
-                last_dt = _parse_ts(last_ok)
-                hours_since = (now - last_dt).total_seconds() / 3600 if last_dt else 999
-                if hours_since > 23:
-                    log.info("start_scheduler: prospect_cron missed today — firing now (last ran %.1fh ago)", hours_since)
-                    asyncio.ensure_future(_job_prospect())
+        from utils.monitoring import check_cadences
+        overdue = await asyncio.to_thread(check_cadences)
+        for alert in overdue:
+            fn = _JOB_REGISTRY.get(alert["job"])
+            if fn:
+                log.info("start_scheduler: catch-up firing '%s' (overdue by %s)", alert["job"], alert["message"])
+                asyncio.ensure_future(fn())
     except Exception as _e:
         log.warning("start_scheduler: catch-up check failed: %s", _e)
 

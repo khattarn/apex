@@ -233,28 +233,31 @@ def probe_dependencies() -> dict[str, dict]:
 # Watchdog (called hourly by scheduler)
 # ---------------------------------------------------------------------------
 
-def run_watchdog() -> None:
+def run_watchdog() -> list[str]:
     """
     Hourly: check cadences + probe dependencies + fire tiered alerts.
+    Returns list of overdue job names so the caller can auto-recover them.
     Lazy-imports notify_founder so this module loads even before notifier.py exists.
     """
     try:
         from utils.notifier import notify_founder
     except ImportError:
         log.warning("run_watchdog: utils.notifier not available yet — alerts skipped")
-        return
+        return []
 
     # Cadence overdue check
     alerts = check_cadences()
+    overdue_jobs = []
     for alert in alerts:
         log.warning("Watchdog cadence alert: %s", alert["message"])
         notify_founder(
             kind="system_alert",
             severity=alert["severity"],
             component=alert["job"],
-            reason=alert["message"],
+            reason=alert["message"] + " Auto-recovery triggered.",
         )
         _mark_alerted(alert["job"], alert["severity"])
+        overdue_jobs.append(alert["job"])
 
     # Dependency probes
     deps = probe_dependencies()
@@ -274,6 +277,7 @@ def run_watchdog() -> None:
         "Watchdog complete: %d cadence alert(s), %d dependency down",
         len(alerts), len(down),
     )
+    return overdue_jobs
 
 
 # ---------------------------------------------------------------------------
