@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Daily Workflow — PracticeDesk Outreach (ex-India)</title>
+<style>
+  :root {
+    --navy:       #0d1b3e;
+    --navy-mid:   #1a2f5e;
+    --navy-light: #243a6f;
+    --gold:       #c9a84c;
+    --gold-light: #e8c96a;
+    --white:      #ffffff;
+    --off-white:  #f7f6f2;
+    --text:       #1a1a2e;
+    --muted:      #6b7280;
+    --green:      #16a34a;
+    --green-bg:   #f0fdf4;
+    --amber:      #d97706;
+    --amber-bg:   #fffbeb;
+    --red:        #dc2626;
+    --red-bg:     #fef2f2;
+    --blue:       #1d4ed8;
+    --blue-bg:    #eff6ff;
+    --border:     #e2d9c8;
+    --teal:       #0d7a79;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--off-white);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+    color: var(--white);
+    padding: 48px 64px 40px;
+    border-bottom: 4px solid var(--gold);
+  }
+  .header-meta {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .header .subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.65);
+  }
+  .header-badges {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .badge-gold   { background: rgba(201,168,76,0.18); color: var(--gold-light); border: 1px solid rgba(201,168,76,0.35); }
+  .badge-green  { background: rgba(22,163,74,0.18);  color: #4ade80;            border: 1px solid rgba(22,163,74,0.35); }
+  .badge-amber  { background: rgba(217,119,6,0.18);  color: #fbbf24;            border: 1px solid rgba(217,119,6,0.35); }
+
+  /* ── Nav strip ── */
+  .nav-strip {
+    background: var(--navy-light);
+    padding: 13px 64px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-strip a {
+    color: var(--gold-light);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0.8;
+  }
+  .nav-strip a:hover { opacity: 1; text-decoration: underline; }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 52px; }
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .section h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  /* ── Lead journey ── */
+  .journey {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px 0 16px;
+    margin-bottom: 8px;
+  }
+  .journey-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 130px;
+  }
+  .journey-box {
+    background: var(--navy);
+    color: var(--white);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    width: 120px;
+    position: relative;
+  }
+  .journey-box .step-num {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--gold-light);
+    margin-bottom: 4px;
+  }
+  .journey-box .step-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .journey-box .step-job {
+    font-size: 10px;
+    color: rgba(255,255,255,0.55);
+  }
+  .journey-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    margin-top: 20px;
+  }
+  .journey-arrow svg { color: var(--gold); }
+  .journey-note {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+    max-width: 120px;
+  }
+
+  /* ── Clock grid ── */
+  .clock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .clock-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    border-left: 4px solid var(--navy);
+  }
+  .clock-card.continuous { border-left-color: var(--teal); }
+  .clock-card.weekly     { border-left-color: var(--gold); }
+  .clock-card.always-on  { border-left-color: #7c3aed; }
+  .clock-card .time {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--navy);
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .clock-card.continuous .time { color: var(--teal); }
+  .clock-card.weekly     .time { color: var(--amber); }
+  .clock-card.always-on  .time { color: #7c3aed; }
+  .clock-card .time-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+  .clock-card .job-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 4px;
+  }
+  .clock-card .job-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .clock-card .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 10px;
+  }
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+  }
+  .tag-au   { background: #dbeafe; color: #1e40af; }
+  .tag-ca   { background: #dcfce7; color: #166534; }
+  .tag-us   { background: #fce7f3; color: #9d174d; }
+  .tag-all  { background: #f3f4f6; color: #374151; }
+  .tag-warn { background: #fef9c3; color: #854d0e; }
+
+  /* ── Job detail cards ── */
+  .job-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .job-card-header {
+    background: var(--navy);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .job-card-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+  }
+  .job-card-header .header-meta-right {
+    font-size: 12px;
+    color: var(--gold-light);
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+  }
+  .job-card-body {
+    padding: 22px 24px;
+  }
+  .job-card-body p {
+    font-size: 14px;
+    color: #374151;
+    margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .detail-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .detail-item {
+    flex: 1;
+    min-width: 160px;
+  }
+  .detail-item .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .detail-item .value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--navy);
+  }
+  .rule-list {
+    list-style: none;
+    padding: 0;
+  }
+  .rule-list li {
+    font-size: 13px;
+    color: #374151;
+    padding: 6px 0 6px 22px;
+    position: relative;
+    border-bottom: 1px solid #f3f4f6;
+    line-height: 1.5;
+  }
+  .rule-list li:last-child { border-bottom: none; }
+  .rule-list li::before {
+    content: '›';
+    position: absolute;
+    left: 6px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .rule-list li.gate::before { content: '⛔'; left: 2px; font-size: 11px; }
+  .rule-list li.ok::before   { content: '✓';  left: 4px; color: var(--green); }
+  .rule-list li.warn::before { content: '⚠'; left: 2px; font-size: 11px; }
+
+  /* ── Phase block (Sophie) ── */
+  .phases {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .phase {
+    background: var(--off-white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    border-top: 3px solid var(--navy);
+  }
+  .phase .phase-num {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 4px;
+  }
+  .phase .phase-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 4px;
+  }
+  .phase .phase-time {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .phase p {
+    font-size: 12px;
+    color: #4b5563;
+    line-height: 1.5;
+    margin: 0 !important;
+  }
+
+  /* ── Market matrix ── */
+  .market-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .market-table th {
+    background: var(--navy);
+    color: var(--gold-light);
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .market-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .market-table tr:last-child td { border-bottom: none; }
+  .market-table tr:nth-child(even) td { background: #fafaf8; }
+  .market-name {
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .au  { color: #1e40af; }
+  .ca  { color: #166534; }
+  .us  { color: #9d174d; }
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-green  { background: var(--green-bg);  color: var(--green); }
+  .pill-red    { background: var(--red-bg);    color: var(--red); }
+  .pill-amber  { background: var(--amber-bg);  color: var(--amber); }
+
+  /* ── Observatory digest ── */
+  .digest {
+    background: var(--navy);
+    color: var(--white);
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    border-radius: 12px;
+    padding: 24px 28px;
+    line-height: 1.8;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .digest .d-head  { color: var(--gold-light); font-weight: 700; }
+  .digest .d-sect  { color: var(--gold); }
+  .digest .d-val   { color: #6ee7b7; }
+  .digest .d-muted { color: rgba(255,255,255,0.4); }
+
+  /* ── Tier priority ── */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .tier-card {
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .tier-card .t-num {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .tier-card .t-label {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .tier-card .t-desc {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tier-1 { background: #fffbeb; border-color: #fde68a; }
+  .tier-1 .t-num { color: #b45309; }
+  .tier-2 { background: #eff6ff; border-color: #bfdbfe; }
+  .tier-2 .t-num { color: #1d4ed8; }
+  .tier-3 { background: #f0fdf4; border-color: #bbf7d0; }
+  .tier-3 .t-num { color: #15803d; }
+  .tier-4 { background: #f9fafb; border-color: #e5e7eb; }
+  .tier-4 .t-num { color: #6b7280; }
+
+  /* ── Status banner ── */
+  .status-banner {
+    background: var(--amber-bg);
+    border: 1.5px solid #fcd34d;
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .status-banner .icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .status-banner .sb-title { font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 4px; }
+  .status-banner .sb-body  { font-size: 13px; color: #78350f; line-height: 1.5; }
+  .status-banner.green { background: var(--green-bg); border-color: #86efac; }
+  .status-banner.green .sb-title { color: #14532d; }
+  .status-banner.green .sb-body  { color: #166534; }
+
+  /* ── Watchdog tiers ── */
+  .sev-grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .sev-card {
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px solid;
+  }
+  .sev-card .sev-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .sev-card .sev-desc  { font-size: 12px; line-height: 1.5; }
+  .sev-1 { background: #fef9c3; border-color: #fde68a; }
+  .sev-1 .sev-label { color: #854d0e; }
+  .sev-2 { background: var(--amber-bg); border-color: #fcd34d; }
+  .sev-2 .sev-label { color: #92400e; }
+  .sev-3 { background: var(--red-bg); border-color: #fca5a5; }
+  .sev-3 .sev-label { color: var(--red); }
+
+  /* ── Footer ── */
+  .footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    margin-top: 40px;
+  }
+
+  @media (max-width: 700px) {
+    .header, .nav-strip, .container { padding-left: 20px; padding-right: 20px; }
+    .tier-grid { grid-template-columns: repeat(2,1fr); }
+    .sev-grid  { grid-template-columns: 1fr; }
+    .phases    { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="header">
+  <div class="header-meta">Apex · Internal Operations Platform · PracticeDesk Outreach</div>
+  <h1>Complete Daily Workflow</h1>
+  <p class="subtitle">Every automated job, timing, rule, and lead journey — PracticeDesk markets ex-India</p>
+  <div class="header-badges">
+    <span class="badge badge-green">● Railway (FastAPI + APScheduler)</span>
+    <span class="badge badge-gold">Markets: AU · CA · US</span>
+    <span class="badge badge-amber">All times UTC</span>
+  </div>
+</div>
+
+<!-- ── Nav ── -->
+<div class="nav-strip">
+  <a href="#journey">Lead Journey</a>
+  <a href="#schedule">Cron Schedule</a>
+  <a href="#jobs">Job Details</a>
+  <a href="#voice">Sophie Voice</a>
+  <a href="#observatory">Observatory</a>
+  <a href="#markets">Market Rules</a>
+  <a href="#watchdog">Watchdog</a>
+  <a href="#signal">Signal Weekly</a>
+  <a href="#status">Current Status</a>
+</div>
+
+<div class="container">
+
+  <!-- ── 1. Lead Journey ── -->
+  <div class="section" id="journey">
+    <div class="section-label">Section 01</div>
+    <h2>The Lead Journey — End to End</h2>
+
+    <div class="journey">
+
+      <div class="journey-step">
+        <div class="journey-box">
+          <div class="step-num">Step 1</div>
+          <div class="step-name">Discovered</div>
+          <div class="step-job">_job_prospect</div>
+        </div>
+        <div class="journey-note">Google Maps + synonym lists · dedupe by place_id</div>
+      </div>
+
+      <div class="journey-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+
+      <div class="journey-step">
+        <div class="journey-box">
+          <div class="step-num">Step 2</div>
+          <div class="step-name">Enriched</div>
+          <div class="step-job">enrichment.py</div>
+        </div>
+        <div class="journey-note">8 pain signals · pain_score 0–100</div>
+      </div>
+
+      <div class="journey-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+
+      <div class="journey-step">
+        <div class="journey-box">
+          <div class="step-num">Step 3</div>
+          <div class="step-name">WA Broadcast</div>
+          <div class="step-job">_job_wa_broadcast</div>
+        </div>
+        <div class="journey-note">Template v6 · AU unrestricted · US/CA post opt-in only</div>
+      </div>
+
+      <div class="journey-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+
+      <div class="journey-step">
+        <div class="journey-box">
+          <div class="step-num">Step 4</div>
+          <div class="step-name">Email Sequence</div>
+          <div class="step-job">_job_email_campaign</div>
+        </div>
+        <div class="journey-note">6-step drip · vertical-aware copy · A/B subject</div>
+      </div>
+
+      <div class="journey-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+
+      <div class="journey-step">
+        <div class="journey-box">
+          <div class="step-num">Step 5</div>
+          <div class="step-name">Sophie Call</div>
+          <div class="step-job">_job_click_calls</div>
+        </div>
+        <div class="journey-note">Priority queue · clicked → opened → emailed → cold · pain_score ranked</div>
+      </div>
+
+      <div class="journey-arrow">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+
+      <div class="journey-step">
+        <div class="journey-box" style="background:var(--teal);">
+          <div class="step-num">Step 6</div>
+          <div class="step-name">Reply / Demo</div>
+          <div class="step-job">reply_handler.py</div>
+        </div>
+        <div class="journey-note">Intent classification · Cal.com booking · status → converted</div>
+      </div>
+
+    </div>
+
+    <p style="font-size:13px;color:var(--muted);margin-top:12px;">
+      Silence fallbacks: WA follow-up at 3 days · voice follow-up (AU only) at 5 days · scheduled callbacks every 15 min
+    </p>
+  </div>
+
+  <!-- ── 2. Cron Schedule ── -->
+  <div class="section" id="schedule">
+    <div class="section-label">Section 02</div>
+    <h2>Cron Schedule — All Jobs</h2>
+
+    <div style="margin-bottom:20px;">
+      <strong style="font-size:13px;color:var(--navy);">Fixed Daily Jobs</strong>
+    </div>
+    <div class="clock-grid" style="margin-bottom:32px;">
+
+      <div class="clock-card">
+        <div class="time-label">Daily — UTC</div>
+        <div class="time">01:30</div>
+        <div class="job-name">Observatory Digest</div>
+        <div class="job-desc">Builds 24h sprint funnel + sends to your WhatsApp + stores in Supabase</div>
+        <div class="tags">
+          <span class="tag tag-all">Every day</span>
+          <span class="tag tag-warn">7:00 IST</span>
+        </div>
+      </div>
+
+      <div class="clock-card">
+        <div class="time-label">Daily — UTC</div>
+        <div class="time">09:00</div>
+        <div class="job-name">WA Follow-up</div>
+        <div class="job-desc">Second WA message (Claude Haiku, personalised) to leads silent 3+ days. Max 20.</div>
+        <div class="tags">
+          <span class="tag tag-all">Every day</span>
+          <span class="tag tag-au">AU</span>
+          <span class="tag tag-ca">CA</span>
+          <span class="tag tag-us">US</span>
+        </div>
+      </div>
+
+      <div class="clock-card">
+        <div class="time-label">Daily — UTC</div>
+        <div class="time">12:00</div>
+        <div class="job-name">Auto-Prospect</div>
+        <div class="job-desc">One (type, city) pair from rotation cursor. 4 synonym passes. Pain-scores new leads inline.</div>
+        <div class="tags">
+          <span class="tag tag-all">Every day</span>
+          <span class="tag tag-warn">Config-driven</span>
+        </div>
+      </div>
+
+      <div class="clock-card">
+        <div class="time-label">Daily — UTC</div>
+        <div class="time">13:00</div>
+        <div class="job-name">Email Campaign — CA</div>
+        <div class="job-desc">9 AM ET — Canada window. Max 30 leads. Must have scrape_attempted=True (CASL).</div>
+        <div class="tags">
+          <span class="tag tag-ca">CA only</span>
+          <span class="tag tag-warn">CASL cap 30</span>
+        </div>
+      </div>
+
+      <div class="clock-card">
+        <div class="time-label">Daily — UTC</div>
+        <div class="time">15:00</div>
+        <div class="job-name">Email Campaign — US</div>
+        <div class="job-desc">11 AM ET — US window. Max 150 non-CA leads. Vertical-aware copy from email_copy.yaml.</div>
+        <div class="tags">
+          <span class="tag tag-us">US</span>
+          <span class="tag tag-au">AU</span>
+        </div>
+      </div>
+
+      <div class="clock-card">
+        <div class="time-label">Daily — UTC</div>
+        <div class="time">22:00</div>
+        <div class="job-name">Email Campaign — AU</div>
+        <div class="job-desc">8 AM AEST — Australia window. Max 150 non-CA leads. Resend 180/day hard quota.</div>
+        <div class="tags">
+          <span class="tag tag-au">AU</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <strong style="font-size:13px;color:var(--navy);">Continuous Jobs — Mon–Fri only</strong>
+    </div>
+    <div class="clock-grid" style="margin-bottom:32px;">
+
+      <div class="clock-card continuous">
+        <div class="time-label">Hourly :00 — Mon–Fri</div>
+        <div class="time">:00</div>
+        <div class="job-name">Voice Priority Queue</div>
+        <div class="job-desc">Sophie outbound calls. Priority: clicked → opened → emailed → cold. Ranked by pain_score. Cap 50/day. 11am–5pm local only.</div>
+        <div class="tags">
+          <span class="tag tag-au">AU → Dograh</span>
+          <span class="tag tag-ca">CA → Vapi+SignalWire</span>
+          <span class="tag tag-us">US → Dograh</span>
+        </div>
+      </div>
+
+      <div class="clock-card continuous">
+        <div class="time-label">Hourly :00 — Mon–Fri</div>
+        <div class="time">:00</div>
+        <div class="job-name">Voice Follow-up (AU)</div>
+        <div class="job-desc">Cold voice to AU leads silent 5+ days and never called. Max 10 per run. US/CA skipped — click_caller owns those.</div>
+        <div class="tags">
+          <span class="tag tag-au">AU only</span>
+        </div>
+      </div>
+
+      <div class="clock-card continuous">
+        <div class="time-label">Hourly :15 — Mon–Fri</div>
+        <div class="time">:15</div>
+        <div class="job-name">WA Broadcast</div>
+        <div class="job-desc">Template WA to uncontacted leads. 8:30am–7pm local window. Max 30/run. AU unrestricted. US/CA post opt-in only.</div>
+        <div class="tags">
+          <span class="tag tag-au">AU free</span>
+          <span class="tag tag-warn">US/CA gated</span>
+        </div>
+      </div>
+
+      <div class="clock-card always-on">
+        <div class="time-label">Every 15 min — Mon–Fri</div>
+        <div class="time">*/15</div>
+        <div class="job-name">Scheduled Callbacks</div>
+        <div class="job-desc">Checks for leads who asked Sophie for a callback at a specific time. Places Sophie call if local time is in voice window.</div>
+        <div class="tags">
+          <span class="tag tag-all">All markets</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <strong style="font-size:13px;color:var(--navy);">System Jobs — 7 days</strong>
+    </div>
+    <div class="clock-grid">
+
+      <div class="clock-card weekly">
+        <div class="time-label">Monday — 06:00 UTC</div>
+        <div class="time">Mon</div>
+        <div class="job-name">Signal Weekly Report</div>
+        <div class="job-desc">Marketing head analyzes funnel_metrics, template_scores, A/B tests. Claude Haiku generates report + recommendations.</div>
+        <div class="tags">
+          <span class="tag tag-all">Weekly</span>
+        </div>
+      </div>
+
+      <div class="clock-card always-on">
+        <div class="time-label">Hourly :45 — every day</div>
+        <div class="time">:45</div>
+        <div class="job-name">Watchdog</div>
+        <div class="job-desc">Checks agent_health table for overdue jobs. Probes Anthropic, Supabase, Meta, Vapi via raw HTTP. Severity-tiered alerts. De-duped.</div>
+        <div class="tags">
+          <span class="tag tag-all">7 days</span>
+          <span class="tag tag-warn">Alerts founder</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 3. Job Details ── -->
+  <div class="section" id="jobs">
+    <div class="section-label">Section 03</div>
+    <h2>Job Details</h2>
+
+    <!-- Prospect -->
+    <div class="job-card">
+      <div class="job-card-header">
+        <h3>_job_prospect — Auto-Prospecting</h3>
+        <span class="header-meta-right">12:00 UTC daily · agents/prospector.py</span>
+      </div>
+      <div class="job-card-body">
+        <div class="detail-row">
+          <div class="detail-item"><div class="label">Trigger</div><div class="value">12:00 UTC daily</div></div>
+          <div class="detail-item"><div class="label">Config</div><div class="value">5 Supabase settings keys</div></div>
+          <div class="detail-item"><div class="label">Dedupe key</div><div class="value">Google Maps place_id</div></div>
+          <div class="detail-item"><div class="label">Heartbeat</div><div class="value">agent_health.prospect_cron</div></div>
+        </div>
+        <ul class="rule-list">
+          <li>Reads <code>cron_prospect_types</code> (e.g. "dentist,salon"), <code>cron_prospect_cities</code>, <code>cron_prospect_max</code> (default 10), and a JSON cursor from Supabase settings</li>
+          <li>Advances one (type, city) pair per run — rotates through all pairs day by day</li>
+          <li>Runs 4 synonym passes per vertical (e.g. "dentist" → dental clinic, dental practice, dentistry, dental surgery) to maximise coverage without duplicate Detail API calls</li>
+          <li>Each new lead immediately passed through <code>enrichment.py</code> — 8 signals scored: poor hours, low reviews, missing website, job ad detected, no booking widget, Google rating &lt;4.0, solo operator, recent opening</li>
+          <li>pain_score (0–100), pain_signal, pain_finding written to lead record</li>
+          <li>Skips any place_id already in the leads table</li>
+          <li class="warn">Alert fired if any exception — watchdog also catches extended silence</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- WA Broadcast -->
+    <div class="job-card">
+      <div class="job-card-header">
+        <h3>_job_wa_broadcast — WhatsApp Cold Outreach</h3>
+        <span class="header-meta-right">Hourly :15 · Mon–Fri · agents/wa_broadcast.py</span>
+      </div>
+      <div class="job-card-body">
+        <div class="detail-row">
+          <div class="detail-item"><div class="label">Template</div><div class="value">v6 (approved &amp; active)</div></div>
+          <div class="detail-item"><div class="label">Cap per run</div><div class="value">30 sends</div></div>
+          <div class="detail-item"><div class="label">Time window</div><div class="value">8:30am–7:00pm local</div></div>
+          <div class="detail-item"><div class="label">Source number</div><div class="value">+1 385-363-3720 (US Meta)</div></div>
+        </div>
+        <ul class="rule-list">
+          <li>Fetches up to 300 leads where <code>outreach_sent=false</code>, not dead/converted, phone not null</li>
+          <li>Each lead: checks <code>is_wa_window(city)</code> — converts city to timezone, checks local clock is 8:30am–7pm</li>
+          <li class="ok">AU leads: unrestricted cold send — ~33% WA penetration makes it viable</li>
+          <li class="gate">US leads: skipped unless <code>status=replied</code> or <code>interested</code> — low WA penetration, spam risk</li>
+          <li class="gate">CA leads: skipped unless opted in — CASL cold WA not permitted</li>
+          <li>Sends approved Meta template v4 (logo header + "Start free" + "Watch video" + "Call Henry" + "Stop" buttons)</li>
+          <li>Fallback for verticals without an approved template: free-form WA (session window only, no template needed)</li>
+          <li>Marks lead <code>outreach_sent=true</code>, logs <code>wa_outreach_sent</code> activity</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Email Campaign -->
+    <div class="job-card">
+      <div class="job-card-header">
+        <h3>_job_email_campaign — Drip Email Sequence</h3>
+        <span class="header-meta-right">13:00, 15:00, 22:00 UTC · agents/email_personalizer.py</span>
+      </div>
+      <div class="job-card-body">
+        <div class="detail-row">
+          <div class="detail-item"><div class="label">Daily hard cap</div><div class="value">180 (Resend quota)</div></div>
+          <div class="detail-item"><div class="label">CA cap per run</div><div class="value">30 (CASL)</div></div>
+          <div class="detail-item"><div class="label">Non-CA cap per run</div><div class="value">150</div></div>
+          <div class="detail-item"><div class="label">Sender</div><div class="value">henry@practicedesk.live</div></div>
+        </div>
+        <p>Fetches up to 250 leads due for their next sequence step. Splits into CA (max 30, must have <code>scrape_attempted=True</code> for CASL implied-consent) and non-CA (max 150). Generates vertical-aware email from <code>email_copy.yaml</code> — no more dental copy to salons.</p>
+        <ul class="rule-list">
+          <li class="gate">Skips leads with empty <code>business_type</code> — logs skipped_unknown_vertical, no fallback-to-dental</li>
+          <li>Checks <code>is_email_window(city, market)</code> per lead before sending</li>
+          <li>A/B subject line: randomly picks subject_a or subject_b from yaml per lead</li>
+          <li>Injects hidden preheader span at top of HTML for inbox preview text</li>
+          <li>Advances <code>email_sequence_step</code> after successful send</li>
+          <li>Records open/click tracking via Resend webhooks → <code>email_sends</code> table</li>
+          <li class="warn">Alert to founder if &gt;30% failure rate on a meaningful sample (5+ sends)</li>
+          <li>Stops cleanly at <code>QuotaExceededError</code> — remaining leads retry on next run</li>
+        </ul>
+
+        <div style="margin-top:16px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--navy);">Email sequence — 6 steps</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;">
+            <strong>Step 1 — Day 0</strong><br>
+            <span style="color:var(--muted);">Introduction / hook</span>
+          </div>
+          <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;">
+            <strong>Step 2 — Day 3</strong><br>
+            <span style="color:var(--muted);">Pain deepener</span>
+          </div>
+          <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;">
+            <strong>Step 3 — Day 6</strong><br>
+            <span style="color:var(--muted);">Social proof</span>
+          </div>
+          <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;">
+            <strong>Step 4 — Day 9</strong><br>
+            <span style="color:var(--muted);">Objection handler</span>
+          </div>
+          <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;">
+            <strong>Step 5 — Day 12</strong><br>
+            <span style="color:var(--muted);">Urgency / scarcity</span>
+          </div>
+          <div style="background:var(--off-white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;">
+            <strong>Step 6 — Day 30</strong><br>
+            <span style="color:var(--muted);">Re-engagement</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WA Follow-up -->
+    <div class="job-card">
+      <div class="job-card-header">
+        <h3>_job_wa_followup — 3-Day Silence Follow-up</h3>
+        <span class="header-meta-right">09:00 UTC daily · agents/followup.py</span>
+      </div>
+      <div class="job-card-body">
+        <div class="detail-row">
+          <div class="detail-item"><div class="label">Silence threshold</div><div class="value">3 days since WA sent</div></div>
+          <div class="detail-item"><div class="label">Cap per run</div><div class="value">20 leads</div></div>
+          <div class="detail-item"><div class="label">Message type</div><div class="value">Claude Haiku free-form (not template)</div></div>
+          <div class="detail-item"><div class="label">Fires once per lead</div><div class="value">Yes — activity log check</div></div>
+        </div>
+        <ul class="rule-list">
+          <li>Selects leads: <code>status=contacted</code>, <code>outreach_sent=true</code>, <code>outreach_date ≤ 3 days ago</code>, not dead/converted</li>
+          <li>Excludes leads that already have a <code>wa_followup_sent</code> activity (only ever fires once)</li>
+          <li>Claude Haiku generates a personalised follow-up message using business name, type, and city</li>
+          <li>2 second delay between sends to avoid Meta rate limits</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── 4. Sophie Voice ── -->
+  <div class="section" id="voice">
+    <div class="section-label">Section 04</div>
+    <h2>Sophie Voice Outreach</h2>
+
+    <p style="font-size:14px;color:#374151;margin-bottom:20px;">Sophie is the AI outbound sales executive. She runs two jobs: the <strong>voice priority queue</strong> (click_caller.py — all markets, engagement-triggered) and <strong>cold voice follow-up</strong> (voice_outreach.py — AU only, 5-day silence). Both share the same 7-phase system prompt and copy.yaml scripts.</p>
+
+    <div style="margin-bottom:20px;font-size:14px;font-weight:700;color:var(--navy);">Voice Priority Queue — Tier Order</div>
+    <div class="tier-grid" style="margin-bottom:28px;">
+      <div class="tier-card tier-1">
+        <div class="t-num">1</div>
+        <div class="t-label">Clicked</div>
+        <div class="t-desc">Email link clicked before today UTC · sorted by pain_score DESC</div>
+      </div>
+      <div class="tier-card tier-2">
+        <div class="t-num">2</div>
+        <div class="t-label">Opened</div>
+        <div class="t-desc">Email opened, not clicked · sorted by pain_score DESC</div>
+      </div>
+      <div class="tier-card tier-3">
+        <div class="t-num">3</div>
+        <div class="t-label">Emailed &gt;24h</div>
+        <div class="t-desc">Email sent &gt;24h ago, not opened · sorted by pain_score DESC</div>
+      </div>
+      <div class="tier-card tier-4">
+        <div class="t-num">4</div>
+        <div class="t-label">Never Contacted</div>
+        <div class="t-desc">No email, no WA · sorted by pain_score DESC</div>
+      </div>
+    </div>
+
+    <div class="detail-row" style="margin-bottom:20px;">
+      <div class="detail-item">
+        <div class="label">Daily cap</div>
+        <div class="value"><code>voice_dial_cap</code> setting (seeded: 50)</div>
+      </div>
+      <div class="detail-item">
+        <div class="label">Time window</div>
+        <div class="value">11:00am–5:00pm lead's local time</div>
+      </div>
+      <div class="detail-item">
+        <div class="label">AU routing</div>
+        <div class="value">Dograh outbound</div>
+      </div>
+      <div class="detail-item">
+        <div class="label">CA routing</div>
+        <div class="value">Vapi + SignalWire (+15872090343)</div>
+      </div>
+      <div class="detail-item">
+        <div class="label">US routing</div>
+        <div class="value">Dograh outbound</div>
+      </div>
+      <div class="detail-item">
+        <div class="label">pain_signal injection</div>
+        <div class="value">Vapi variableValues per call</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px;font-size:14px;font-weight:700;color:var(--navy);">Sophie's 7-Phase Call Script (max 5 minutes)</div>
+    <div class="phases">
+      <div class="phase">
+        <div class="phase-num">Phase 1</div>
+        <div class="phase-name">Opening</div>
+        <div class="phase-time">Target: 20 seconds</div>
+        <p>Pain-first opener from <code>copy.yaml → sophie_opener</code> per vertical. Immediately triggers ABSOLUTE RULE if prospect signals busy.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 2</div>
+        <div class="phase-name">Discovery</div>
+        <div class="phase-time">Target: 60 seconds · max 2 questions</div>
+        <p>Q1: how they handle reminders. Q2: vertical-specific pain question (<code>sophie_pain_question</code>). No more than 2 questions. Move on once pain is captured.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 3</div>
+        <div class="phase-name">Insight Pitch</div>
+        <div class="phase-time">Target: 45 seconds</div>
+        <p>Industry insight from <code>sophie_insight</code>. Bridges directly to the prospect's stated pain using their exact words.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 4</div>
+        <div class="phase-name">Trial Offer</div>
+        <div class="phase-time">Target: 20 seconds</div>
+        <p>One-sentence product description. Pricing injected per market (USD / CAD). Intro offer: setup fee waived until 29 Jul 2026.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 5</div>
+        <div class="phase-name">Objection</div>
+        <div class="phase-time">Target: 30 seconds · one round only</div>
+        <p>Handles one objection. Scripted responses for: "have a receptionist", "too busy", "don't want AI", "just email me", "not interested".</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 6</div>
+        <div class="phase-name">Close Sequence</div>
+        <div class="phase-time">Target: 40 seconds · stop at first yes</div>
+        <p>14-day free trial offer. No card. Two close attempts. If no yes after two → Phase 7.</p>
+      </div>
+      <div class="phase">
+        <div class="phase-num">Phase 7</div>
+        <div class="phase-name">Exit</div>
+        <div class="phase-time">Target: 20 seconds</div>
+        <p>YES → <code>send_signup_link</code> tool + practicedesk.live. DEMO → <code>book_demo</code> tool (Cal.com). CALLBACK → <code>schedule_callback</code>. HARD NO → warm close + end.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;background:var(--navy);border-radius:10px;padding:16px 20px;">
+      <div style="color:var(--gold-light);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Absolute Rule — Callback Requests</div>
+      <p style="color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;">If the prospect says <em>anything</em> like "call me back", "not a good time", "I'm busy" → (1) confirm time, (2) use <code>schedule_callback</code> tool, (3) confirm, (4) END CALL. No exceptions. No "it'll just take a sec."</p>
+    </div>
+  </div>
+
+  <!-- ── 5. Observatory ── -->
+  <div class="section" id="observatory">
+    <div class="section-label">Section 05</div>
+    <h2>Observatory — Daily Digest (01:30 UTC)</h2>
+
+    <p style="font-size:14px;color:#374151;margin-bottom:20px;">Fires at 01:30 UTC (7:00am IST) every day. Queries Supabase for the last 24 hours. Sends via WA to your personal number and stores in Supabase <code>settings</code> table so the dashboard can display it.</p>
+
+    <div class="digest"><span class="d-head">Apex Daily — 30 Jun 2026 01:30 UTC</span>
+
+<span class="d-sect">── SPRINT FUNNEL (last 24h) ────────────</span>
+Prospected (new leads):  <span class="d-val">12</span>
+Emailed:                 <span class="d-val">47</span>  (opened: <span class="d-val">9</span> · clicked: <span class="d-val">3</span>)
+Replies — WA: <span class="d-val">2</span>  (interested: <span class="d-val">1</span>)  |  Email: <span class="d-val">0</span>
+Demos booked:            <span class="d-val">1</span>
+Trial starts:            <span class="d-val">0</span>
+
+<span class="d-sect">── OUTREACH (last 24h) ─────────────────</span>
+WA broadcast sent:       <span class="d-val">30</span>
+WA follow-up sent:       <span class="d-val">4</span>
+Sophie outbound calls:   <span class="d-val">12</span>
+Voice follow-up calls:   <span class="d-val">3</span>
+  Est. call cost:        <span class="d-val">$0.0840</span>
+
+<span class="d-sect">── CUMULATIVE TOTALS ───────────────────</span>
+Total leads: <span class="d-val">406</span>  |  Replied: <span class="d-val">8</span>  |  Converted: <span class="d-val">0</span>
+Email seq active: <span class="d-val">238</span>  |  Complete: <span class="d-val">12</span>
+
+<span class="d-sect">── LAST PIPELINE RUN ───────────────────</span>
+<span class="d-muted">2026-06-30 12:00 UTC — Sydney dentist (prospect_cron)</span></div>
+
+    <p style="font-size:12px;color:var(--muted);margin-top:10px;">Numbers above are illustrative. Actual values from Supabase queries on next run.</p>
+  </div>
+
+  <!-- ── 6. Market Rules ── -->
+  <div class="section" id="markets">
+    <div class="section-label">Section 06</div>
+    <h2>Market Rules — AU · CA · US</h2>
+
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>Market</th>
+          <th>WA Cold</th>
+          <th>Email</th>
+          <th>Voice</th>
+          <th>Key Constraint</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="market-name au">🇦🇺 AU</span></td>
+          <td><span class="pill pill-green">Unrestricted</span><br><small>8:30am–7pm AEST</small></td>
+          <td><span class="pill pill-green">Yes</span><br><small>22:00 UTC run · up to 150</small></td>
+          <td><span class="pill pill-green">Both paths</span><br><small>click_caller + voice_followup · 11am–5pm AEST · Dograh</small></td>
+          <td>None — most permissive market. WA and cold voice both fully open.</td>
+        </tr>
+        <tr>
+          <td><span class="market-name ca">🇨🇦 CA</span></td>
+          <td><span class="pill pill-red">Post opt-in only</span><br><small>status=replied/interested</small></td>
+          <td><span class="pill pill-amber">Gated</span><br><small>13:00 UTC · max 30/day · scrape_attempted=True only</small></td>
+          <td><span class="pill pill-amber">click_caller only</span><br><small>Vapi + SignalWire · NO voice_followup</small></td>
+          <td>CASL — email implied consent requires publicly scraped address. Cold WA not permitted. 30/day cap.</td>
+        </tr>
+        <tr>
+          <td><span class="market-name us">🇺🇸 US</span></td>
+          <td><span class="pill pill-red">Post opt-in only</span><br><small>status=replied/interested</small></td>
+          <td><span class="pill pill-green">Yes</span><br><small>15:00 UTC run · up to 150</small></td>
+          <td><span class="pill pill-amber">click_caller only</span><br><small>Dograh · NO voice_followup</small></td>
+          <td>Low WA penetration (~23%) makes cold WA a spam risk. Voice restricted to engagement-triggered (click_caller).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:20px;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px;">Channel matrix by action</div>
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>Lead State</th>
+          <th>AU</th>
+          <th>CA</th>
+          <th>US</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Brand new</strong> (no contact)</td>
+          <td>WA broadcast + email + voice (Tier 4)</td>
+          <td>Email only</td>
+          <td>Email + voice (Tier 4)</td>
+        </tr>
+        <tr>
+          <td><strong>Email sent</strong> (not opened)</td>
+          <td>WA broadcast + voice (Tier 3)</td>
+          <td>Next email step only</td>
+          <td>Next email step + voice (Tier 3)</td>
+        </tr>
+        <tr>
+          <td><strong>Email opened</strong></td>
+          <td>WA broadcast + voice (Tier 2)</td>
+          <td>Next email + voice (Tier 2)</td>
+          <td>Next email + voice (Tier 2)</td>
+        </tr>
+        <tr>
+          <td><strong>Email clicked</strong></td>
+          <td>WA broadcast + Sophie call (Tier 1)</td>
+          <td>Sophie call (Tier 1)</td>
+          <td>Sophie call (Tier 1)</td>
+        </tr>
+        <tr>
+          <td><strong>WA sent, no reply, 3 days</strong></td>
+          <td>WA follow-up (once)</td>
+          <td>WA follow-up (once)</td>
+          <td>WA follow-up (once)</td>
+        </tr>
+        <tr>
+          <td><strong>WA sent, no reply, 5 days</strong></td>
+          <td>Cold voice follow-up</td>
+          <td>— (skip)</td>
+          <td>— (skip)</td>
+        </tr>
+        <tr>
+          <td><strong>Replied (WA/email)</strong></td>
+          <td>Reply handler → intent classify → Cal.com or answer</td>
+          <td>Reply handler → intent classify → Cal.com or answer</td>
+          <td>Reply handler → intent classify → Cal.com or answer</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── 7. Watchdog ── -->
+  <div class="section" id="watchdog">
+    <div class="section-label">Section 07</div>
+    <h2>Watchdog — Health Monitoring</h2>
+
+    <p style="font-size:14px;color:#374151;margin-bottom:20px;">Fires every hour at :45, 7 days a week. Reads the <code>agent_health</code> Supabase table where every cron job writes a heartbeat at the end of its run (<code>upsert_heartbeat()</code>). Compares last heartbeat to expected cadence. De-duped to avoid alert spam.</p>
+
+    <div style="margin-bottom:16px;font-size:14px;font-weight:700;color:var(--navy);">Alert Severity Tiers</div>
+    <div class="sev-grid" style="margin-bottom:24px;">
+      <div class="sev-card sev-1">
+        <div class="sev-label">Warning</div>
+        <div class="sev-desc">Job slightly overdue. Logged. No immediate alert unless it persists to the next check.</div>
+      </div>
+      <div class="sev-card sev-2">
+        <div class="sev-label">Critical</div>
+        <div class="sev-desc">Job significantly overdue or dependency probe failed. WA + email alert to founder.</div>
+      </div>
+      <div class="sev-card sev-3">
+        <div class="sev-label">Emergency</div>
+        <div class="sev-desc">Multiple jobs down or core dependency (Supabase, Anthropic) unreachable. Immediate dual-channel alert.</div>
+      </div>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;">Dependency probes (raw HTTP — no SDK)</div>
+    <ul class="rule-list">
+      <li class="ok">Anthropic API — <code>requests.get()</code> to health endpoint</li>
+      <li class="ok">Supabase — REST ping</li>
+      <li class="ok">Meta WhatsApp API — token validation</li>
+      <li class="ok">Vapi — account check</li>
+      <li class="warn">SDK methods forbidden in probes — version pinning caused false Anthropic alerts previously</li>
+    </ul>
+
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:18px;margin-bottom:10px;">Founder alert channels</div>
+    <ul class="rule-list">
+      <li>WhatsApp via Meta UTILITY templates: <code>apex_system_alert</code> (critical) and <code>apex_daily_brief</code></li>
+      <li>Email via Resend — always-on failsafe, fires even if WA fails</li>
+    </ul>
+  </div>
+
+  <!-- ── 8. Signal Weekly ── -->
+  <div class="section" id="signal">
+    <div class="section-label">Section 08</div>
+    <h2>Signal — Weekly Marketing Intelligence</h2>
+
+    <p style="font-size:14px;color:#374151;margin-bottom:20px;">Fires Monday 06:00 UTC. Signal is the AI marketing head — it reads performance data across all agent outputs and generates a strategic report with recommendations.</p>
+
+    <div class="detail-row">
+      <div class="detail-item"><div class="label">Agent</div><div class="value">agents/signal.py</div></div>
+      <div class="detail-item"><div class="label">Model</div><div class="value">Claude Haiku</div></div>
+      <div class="detail-item"><div class="label">Cadence</div><div class="value">Monday 06:00 UTC</div></div>
+      <div class="detail-item"><div class="label">Feeds into</div><div class="value">VP Marketing → Content Agent</div></div>
+    </div>
+
+    <ul class="rule-list" style="margin-top:16px;">
+      <li>Reads <code>funnel_metrics</code> table — open rates, reply rates, conversion rates per vertical per market</li>
+      <li>Reads <code>template_scores</code> — which WA templates are performing, which are dead</li>
+      <li>Reads <code>ab_tests</code> — active tests (email subject hook A/B currently running), auto-promotes at 2× lift / 20+ sends</li>
+      <li>Reads <code>targets</code> — quarterly MRR target tracking (on_track / behind / missed / exceeded)</li>
+      <li>Generates <code>get_performance_feedback_brief()</code> — winning templates, underperformers, dead ends, recommended next actions</li>
+      <li>Feeds brief to VP Marketing → VP Marketing commissions Content Agent with signal context for regeneration</li>
+    </ul>
+
+    <div style="margin-top:16px;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;">Autonomy guardrails</div>
+    <ul class="rule-list">
+      <li class="ok">Can act autonomously: A/B tests ≤20 leads/variant, auto-promote/kill, send-time shift ±2h, objection logging, target revision within ±20%</li>
+      <li class="gate">Must propose to you: tests &gt;20 leads, new templates, channel changes, Sophie script changes, geo profile changes, target revision &gt;20%, dead-end declaration</li>
+    </ul>
+  </div>
+
+  <!-- ── 9. Current Status ── -->
+  <div class="section" id="status">
+    <div class="section-label">Section 09</div>
+    <h2>Current Status — As of 30 Jun 2026</h2>
+
+    <div class="status-banner green">
+      <div class="icon">✅</div>
+      <div>
+        <div class="sb-title">WA Templates v6 — APPROVED &amp; Active</div>
+        <div class="sb-body">All 6 v6 templates approved by Meta. Test sends confirmed on both numbers. <code>VERTICAL_TEMPLATE = _V6</code> flipped in <code>wa_broadcast.py</code>. WA broadcast now running on v6 body copy.</div>
+      </div>
+    </div>
+
+    <div class="status-banner green">
+      <div class="icon">✅</div>
+      <div>
+        <div class="sb-title">Email Inbound Reply Capture — Live</div>
+        <div class="sb-body"><code>POST /api/webhooks/email-inbound</code> is active. Email forwarding from <code>henry@practicedesk.live</code> to the Railway endpoint has been configured. Inbound replies are now captured and classified.</div>
+      </div>
+    </div>
+
+    <div class="status-banner green">
+      <div class="icon">✅</div>
+      <div>
+        <div class="sb-title">Vapi Dashboard — Sophie Prompt Updated</div>
+        <div class="sb-body">Sophie prompt pushed to Vapi assistant ID <code>bfecad5e</code> via <code>update_vapi_sophie_prompt.py</code>. Vapi dashboard now shows "Sophie" — no residual "Aria" references.</div>
+      </div>
+    </div>
+
+    <div class="status-banner green">
+      <div class="icon">✅</div>
+      <div>
+        <div class="sb-title">Twilio Outbound — Compliance Cleared</div>
+        <div class="sb-body">Twilio account ACecbb29b compliance review passed. Outbound calling unblocked. Twilio BYOT number active in Vapi for US/CA where applicable.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:28px;font-size:14px;font-weight:700;color:var(--navy);margin-bottom:14px;">All agents — live status</div>
+    <table class="market-table">
+      <thead>
+        <tr><th>#</th><th>Agent</th><th>Status</th><th>File</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>Prospector</td><td><span class="pill pill-green">Live</span></td><td><code>agents/prospector.py</code></td></tr>
+        <tr><td>2</td><td>Personalizer (WA)</td><td><span class="pill pill-green">Live</span></td><td><code>agents/personalizer.py</code></td></tr>
+        <tr><td>3</td><td>Outreach (WA send)</td><td><span class="pill pill-green">Live</span></td><td><code>agents/outreach.py</code></td></tr>
+        <tr><td>4</td><td>Reply Handler (WA)</td><td><span class="pill pill-green">Live</span></td><td><code>agents/reply_handler.py</code></td></tr>
+        <tr><td>5</td><td>Demo Booking</td><td><span class="pill pill-green">Live</span></td><td>Integrated in reply_handler.py → Cal.com</td></tr>
+        <tr><td>6</td><td>WA Follow-up</td><td><span class="pill pill-green">Live</span></td><td><code>agents/followup.py</code> · 09:00 UTC</td></tr>
+        <tr><td>7</td><td>Voice Follow-up (AU)</td><td><span class="pill pill-green">Live</span></td><td><code>agents/voice_outreach.py</code> · hourly</td></tr>
+        <tr><td>8</td><td>Content Agent</td><td><span class="pill pill-green">Live</span></td><td><code>agents/content_agent.py</code></td></tr>
+        <tr><td>9</td><td>Re-engagement</td><td><span class="pill pill-red">Planned</span></td><td>Not built</td></tr>
+        <tr><td>10</td><td>Observatory</td><td><span class="pill pill-green">Live</span></td><td><code>agents/observatory.py</code> · 01:30 UTC</td></tr>
+        <tr><td>11</td><td>Affiliate Tracker</td><td><span class="pill pill-red">Planned</span></td><td>Not built</td></tr>
+        <tr><td>12</td><td>VP Marketing</td><td><span class="pill pill-green">Live</span></td><td><code>agents/vp_marketing.py</code></td></tr>
+        <tr><td>—</td><td>Signal (Marketing Head)</td><td><span class="pill pill-green">Live</span></td><td><code>agents/signal.py</code> · Mon 06:00 UTC</td></tr>
+        <tr><td>—</td><td>Click Caller (Sophie)</td><td><span class="pill pill-green">Live</span></td><td><code>agents/click_caller.py</code> · hourly</td></tr>
+        <tr><td>—</td><td>Email Personalizer</td><td><span class="pill pill-green">Live</span></td><td><code>agents/email_personalizer.py</code></td></tr>
+        <tr><td>—</td><td>Watchdog</td><td><span class="pill pill-green">Live</span></td><td><code>utils/monitoring.py</code> · hourly :45</td></tr>
+        <tr><td>—</td><td>Email Reply Capture</td><td><span class="pill pill-green">Live</span></td><td><code>POST /api/webhooks/email-inbound</code> · email forwarding active</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  Apex Internal · PracticeDesk Outreach Workflow · Generated 30 Jun 2026 · khattarn3@yahoo.com
+</div>
+
+</body>
+</html>
