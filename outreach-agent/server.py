@@ -2622,12 +2622,12 @@ async def _job_prospect():
     """Daily 12:00 UTC prospecting cron — discovers new leads for configured types/cities.
 
     Reads config from Supabase settings table (keys seeded at deploy time):
-      cron_prospect_enabled  — "true" / "false"  (default true if missing)
-      cron_prospect_types    — comma-separated list e.g. "dentist,salon"
-      cron_prospect_cities   — comma-separated list e.g. "Sydney,Toronto"
-      cron_prospect_max      — max leads per type/city pass (default 10)
-      cron_prospect_cursor   — JSON {"type": ..., "city": ..., "idx": ...}
-                               used to rotate through pairs across daily runs
+      cron_prospect_enabled       — "true" / "false"  (default true if missing)
+      cron_prospect_types         — comma-separated list e.g. "dentist,salon"
+      cron_prospect_cities        — comma-separated list e.g. "Sydney,Toronto"
+      cron_prospect_max           — max leads per type/city pass (default 10)
+      cron_prospect_pairs_per_run — how many (type, city) pairs to process per run (default 1)
+      cron_prospect_cursor        — JSON {"idx": ...} — rotates through pairs across runs
     """
     try:
         from database.client import get_setting, save_setting, save_lead, get_existing_place_ids
@@ -2638,66 +2638,77 @@ async def _job_prospect():
             log.info("_job_prospect: disabled via settings")
             return
 
-        types_raw  = get_setting("cron_prospect_types")  or "dentist"
-        cities_raw = get_setting("cron_prospect_cities") or "Sydney"
-        max_raw    = get_setting("cron_prospect_max")    or "10"
-        cursor_raw = get_setting("cron_prospect_cursor")
+        types_raw     = get_setting("cron_prospect_types")         or "dentist"
+        cities_raw    = get_setting("cron_prospect_cities")        or "Sydney"
+        max_raw       = get_setting("cron_prospect_max")           or "10"
+        per_run_raw   = get_setting("cron_prospect_pairs_per_run") or "1"
+        cursor_raw    = get_setting("cron_prospect_cursor")
 
         types  = [t.strip() for t in types_raw.split(",") if t.strip()]
         cities = [c.strip() for c in cities_raw.split(",") if c.strip()]
-        max_results = int(max_raw) if str(max_raw).isdigit() else 10
+        max_results  = int(max_raw)     if str(max_raw).isdigit()     else 10
+        pairs_per_run = int(per_run_raw) if str(per_run_raw).isdigit() else 1
 
-        # Parse cursor — tells us which (type, city) pair to run this cycle
+        # Parse cursor — tells us which (type, city) pair to start from this cycle
         try:
             cursor = json.loads(cursor_raw) if isinstance(cursor_raw, str) else (cursor_raw or {})
         except Exception:
             cursor = {}
         idx = int(cursor.get("idx", 0))
 
-        # All (type, city) pairs — rotate through one per daily run
+        # All (type, city) pairs — rotate through pairs_per_run of them per run
         pairs = [(t, c) for t in types for c in cities]
         if not pairs:
             return
-        idx = idx % len(pairs)
-        btype, city = pairs[idx]
+        pairs_per_run = max(1, min(pairs_per_run, len(pairs)))
 
-        log.info("_job_prospect: running %s in %s (pair %d/%d)", btype, city, idx + 1, len(pairs))
+        total_new_leads = 0
+        run_summary = []
 
-        known_ids = await asyncio.to_thread(get_existing_place_ids, btype, city)
-        businesses = await asyncio.to_thread(find_businesses, btype, city, max_results, known_ids)
+        for step in range(pairs_per_run):
+            pair_idx = (idx + step) % len(pairs)
+            btype, city = pairs[pair_idx]
 
-        new_leads = 0
-        for biz in businesses:
-            lead_data = {
-                "name":               biz.get("name"),
-                "address":            biz.get("address"),
-                "place_id":           biz.get("place_id"),
-                "phone":              biz.get("phone"),
-                "website":            biz.get("website"),
-                "business_type":      btype,
-                "city":               city,
-                "status":             "new",
-                "outreach_sent":      False,
-                "pain_score":         biz.get("pain_score"),
-                "pain_signal":        biz.get("pain_signal"),
-                "pain_finding":       biz.get("pain_finding"),
-                "has_online_booking": biz.get("has_online_booking"),
-                "hours_json":         biz.get("hours_json"),
-            }
-            try:
-                result = await asyncio.to_thread(save_lead, lead_data)
-                if result:
-                    new_leads += 1
-            except Exception as exc:
-                log.warning("_job_prospect: save_lead failed for %s: %s", biz.get("name"), exc)
+            log.info("_job_prospect: running %s in %s (pair %d/%d)", btype, city, pair_idx + 1, len(pairs))
 
-        # Advance cursor to next pair
-        next_cursor = json.dumps({"idx": (idx + 1) % len(pairs)})
+            known_ids = await asyncio.to_thread(get_existing_place_ids, btype, city)
+            businesses = await asyncio.to_thread(find_businesses, btype, city, max_results, known_ids)
+
+            new_leads = 0
+            for biz in businesses:
+                lead_data = {
+                    "name":               biz.get("name"),
+                    "address":            biz.get("address"),
+                    "place_id":           biz.get("place_id"),
+                    "phone":              biz.get("phone"),
+                    "website":            biz.get("website"),
+                    "business_type":      btype,
+                    "city":               city,
+                    "status":             "new",
+                    "outreach_sent":      False,
+                    "pain_score":         biz.get("pain_score"),
+                    "pain_signal":        biz.get("pain_signal"),
+                    "pain_finding":       biz.get("pain_finding"),
+                    "has_online_booking": biz.get("has_online_booking"),
+                    "hours_json":         biz.get("hours_json"),
+                }
+                try:
+                    result = await asyncio.to_thread(save_lead, lead_data)
+                    if result:
+                        new_leads += 1
+                except Exception as exc:
+                    log.warning("_job_prospect: save_lead failed for %s: %s", biz.get("name"), exc)
+
+            log.info("_job_prospect: %s new leads for %s in %s", new_leads, btype, city)
+            total_new_leads += new_leads
+            run_summary.append({"type": btype, "city": city, "new_leads": new_leads})
+
+        # Advance cursor past all pairs processed this run
+        next_cursor = json.dumps({"idx": (idx + pairs_per_run) % len(pairs)})
         await asyncio.to_thread(save_setting, "cron_prospect_cursor", next_cursor)
 
-        log.info("_job_prospect: %s new leads for %s in %s", new_leads, btype, city)
         from utils.monitoring import upsert_heartbeat
-        upsert_heartbeat("prospect_cron", {"new_leads": new_leads, "type": btype, "city": city})
+        upsert_heartbeat("prospect_cron", {"new_leads": total_new_leads, "pairs": run_summary})
     except Exception as exc:
         log.error("_job_prospect failed: %s", exc)
         from utils.alerter import alert_founder
