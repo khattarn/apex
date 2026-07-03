@@ -1456,9 +1456,12 @@ async def signalwire_prepare(req: DialpadPrepareRequest, _=Depends(verify_token)
 @app.post("/api/signalwire/dialpad-swml")
 async def signalwire_dialpad_swml(request: Request):
     """SWML webhook — SignalWire calls this when the browser dials /public/practicedesk-dialpad.
-    Returns SWML that connects the incoming browser call to the pending PSTN destination."""
+    Returns SWML that connects the incoming browser call to the pending PSTN destination.
+    Every outbound sales call is recorded (record_call) so the audio can be reviewed later."""
     import json as _json
+    from urllib.parse import quote as _quote
     caller_id = os.getenv("SIGNALWIRE_CALLER_ID", "+12086884760")
+    base_url  = os.getenv("PUBLIC_BASE_URL", "https://serene-passion-production-cd82.up.railway.app")
     dest = _pending_dialpad.get("to", "")
     age  = _time_mod.time() - _pending_dialpad.get("ts", 0.0)
     log.info("dialpad-swml called: dest=%s age=%.1fs", dest, age)
@@ -1469,10 +1472,18 @@ async def signalwire_dialpad_swml(request: Request):
             "sections": {"main": [{"play": {"url": "silence:1"}}, {"hangup": {}}]}
         }
     else:
+        status_url = f"{base_url}/api/signalwire/recording-callback?to={_quote(dest)}"
         swml = {
             "version": "1.0.0",
             "sections": {
                 "main": [
+                    {
+                        "record_call": {
+                            "format": "mp3",
+                            "stereo": True,
+                            "status_url": status_url,
+                        }
+                    },
                     {
                         "connect": {
                             "from": caller_id,
@@ -1484,6 +1495,57 @@ async def signalwire_dialpad_swml(request: Request):
             }
         }
     return Response(content=_json.dumps(swml), media_type="application/json")
+
+
+@app.get("/api/signalwire/recording-callback")
+@app.post("/api/signalwire/recording-callback")
+async def signalwire_recording_callback(request: Request, to: str = Query(default="")):
+    """Best-effort capture of the record_call status callback for International-dialpad calls.
+    SignalWire's exact payload shape isn't confirmed for record_call yet, so this parses both
+    JSON and form bodies and checks several likely field-name variants. The raw payload is always
+    logged so field mapping can be corrected after the first live call without guessing blind.
+    The recording itself always lands in the SignalWire Space (Storage > Recordings) regardless
+    of whether this callback fires or the fields below are recognised."""
+    raw: dict = {}
+    try:
+        raw = await request.json()
+    except Exception:
+        try:
+            form = await request.form()
+            raw = dict(form)
+        except Exception:
+            raw = {}
+
+    log.info("signalwire recording-callback: to=%s raw=%s", to, raw)
+
+    def _first(*keys):
+        for k in keys:
+            v = raw.get(k)
+            if v:
+                return v
+        return ""
+
+    recording_url = _first("recording_url", "RecordingUrl", "url", "public_url", "media_url")
+    duration       = _first("duration", "RecordingDuration", "call_duration")
+    call_id        = _first("call_id", "CallSid", "id")
+
+    if to:
+        try:
+            from database.client import get_lead_by_phone, log_activity
+            lead = get_lead_by_phone(to)
+            if lead:
+                log_activity(lead["id"], "outbound_call", {
+                    "channel":       "international_dialpad",
+                    "dialed_number": to,
+                    "recording_url": recording_url,
+                    "duration":      duration,
+                    "call_id":       call_id,
+                    "raw":           raw,
+                })
+        except Exception:
+            log.exception("signalwire recording-callback: failed to log activity")
+
+    return {"ok": True}
 
 
 @app.get("/api/signalwire/henry-inbound-swml")
