@@ -111,15 +111,14 @@ def place_sophie_call(
         "assistantId": assistant_id,
         "phoneNumberId": phone_number_id,
         "customer": {"number": phone},
-        "serverUrl": f"{server_url}/api/webhooks/vapi",
         "metadata": {"lead_id": lead_id},
         "maxDurationSeconds": 300,
         "assistantOverrides": {
+            "server": {"url": f"{server_url}/api/webhooks/vapi"},
             "voicemailDetection": {
-                "provider": "heuristics",
-                "voicemailDetectionTypes": ["machine_end_beep", "machine_end_silence"],
-                "enabled": True,
-                "machineDetectionTimeout": 30,
+                "provider": "vapi",
+                "type": "audio",
+                "beepMaxAwaitSeconds": 30,
             },
             "endCallPhrases": ["goodbye", "have a great day", "take care"],
             "variableValues": {
