@@ -754,11 +754,15 @@ async def dograh_webhook(request: Request):
 
     # ── Sophie outbound — route by extracted call_outcome ────────────────────
     if call_outcome == "booked_demo":
-        _handle_book_demo(
+        booking_result = _handle_book_demo(
             lead_id=lead_id,
             preferred_time=demo_preferred_time,
             attendee_email=attendee_email,
             attendee_name=contact_name,
+        )
+        _notify_call_outcome(
+            lead_id, "booked_demo", recording_url, summary,
+            extra_line=booking_result,
         )
 
     elif call_outcome == "callback_scheduled":
@@ -777,8 +781,16 @@ async def dograh_webhook(request: Request):
                 "preferred_day":  callback_day,
                 "preferred_time": callback_time_str,
             })
+            _notify_call_outcome(
+                lead_id, "callback_scheduled", recording_url, summary,
+                extra_line=f"Call back: {callback_day} {callback_time_str}",
+            )
         except Exception as exc:
             log.warning("Could not parse callback time '%s %s': %s", callback_day, callback_time_str, exc)
+            _notify_call_outcome(
+                lead_id, "callback_scheduled", recording_url, summary,
+                extra_line=f"Call back: {callback_day} {callback_time_str} (unparsed)",
+            )
 
     elif call_outcome == "callback_requested":
         update_lead(lead_id, {"callback_requested": True})
@@ -786,13 +798,18 @@ async def dograh_webhook(request: Request):
             "source": "dograh_outbound",
             "note": "Prospect requested human callback during Sophie call",
         })
-        _notify_callback_requested(lead_id)
+        _notify_call_outcome(
+            lead_id, "callback_requested", recording_url, summary,
+            extra_line="They want a human call — please follow up.",
+        )
 
     elif call_outcome == "not_interested":
         update_lead(lead_id, {"status": "dead"})
+        _notify_call_outcome(lead_id, "not_interested", recording_url, summary)
 
     elif call_outcome == "booked_demo_manually":
         update_lead(lead_id, {"status": "converted"})
+        _notify_call_outcome(lead_id, "booked_demo_manually", recording_url, summary)
 
     # ── Always log Sophie completion ──────────────────────────────────────────
     log_activity(lead_id, "outbound_call_completed", {
@@ -872,39 +889,40 @@ def _handle_book_demo(
         return f"Booking failed: {exc}."
 
 
-def _notify_callback_requested(lead_id: str) -> None:
-    """Send Neeraj a WhatsApp alert when a prospect asks for a human callback."""
+_CALL_OUTCOME_LABELS = {
+    "booked_demo":          "🎉 Demo booked",
+    "callback_scheduled":   "📞 Callback scheduled",
+    "callback_requested":   "📞 Callback requested",
+    "not_interested":       "❌ Not interested",
+    "booked_demo_manually": "🎉 Demo booked (manual)",
+}
+
+
+def _notify_call_outcome(
+    lead_id: str,
+    outcome: str,
+    recording_url: str = "",
+    summary: str = "",
+    extra_line: str = "",
+) -> None:
+    """Notify Neeraj (email always-on + WA approved template) for any actionable Sophie call outcome."""
     try:
         from database.client import get_client
+        from utils.notifier import notify_founder
         db = get_client()
         lead = db.table("leads").select("name, phone, business_type, city").eq("id", lead_id).single().execute().data
         if not lead:
             return
 
-        wa_token   = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
-        phone_id   = os.getenv("OUTREACH_WA_PHONE_NUMBER_ID", "")
-        neeraj_no  = os.getenv("FOUNDER_WHATSAPP_NUMBER", "")  # e.g. +919XXXXXXXXX
-        if not all([wa_token, phone_id, neeraj_no]):
-            return
-
-        msg = (
-            f"📞 *Callback requested*\n"
-            f"Lead: {lead['name']}\n"
-            f"Phone: {lead['phone']}\n"
-            f"Type: {lead.get('business_type', '')} · {lead.get('city', '')}\n"
-            f"They want a human call — please follow up."
-        )
-        import requests as req
-        req.post(
-            f"https://graph.facebook.com/v19.0/{phone_id}/messages",
-            json={
-                "messaging_product": "whatsapp",
-                "to": neeraj_no,
-                "type": "text",
-                "text": {"body": msg},
-            },
-            headers={"Authorization": f"Bearer {wa_token}"},
-            timeout=10,
+        label = _CALL_OUTCOME_LABELS.get(outcome, outcome)
+        lead_line = f"{lead['name']} · {lead['phone']} · {lead.get('business_type', '')} · {lead.get('city', '')}"
+        notify_founder(
+            kind="call_outcome",
+            label=label,
+            lead_line=lead_line,
+            detail=extra_line,
+            summary=summary,
+            recording_url=recording_url,
         )
     except Exception:
         pass  # notification is best-effort
@@ -1018,6 +1036,115 @@ async def get_lead_activities(lead_id: str, _=Depends(verify_token)):
         .execute()
     )
     return {"data": result.data or []}
+
+
+@app.get("/api/ceo-report")
+async def get_ceo_report(_=Depends(verify_token)):
+    """
+    Every genuinely actionable outbound-call outcome (a live person engaged, not just a
+    dial/voicemail), with the full transcript, summary and recording matched in, plus
+    whether a scheduled callback has actually been followed up on yet.
+    """
+    from datetime import datetime, timezone
+    from collections import defaultdict
+    from database.client import get_client
+    db = get_client()
+
+    def _parse(ts: str):
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+    outcome_types = ["callback_scheduled", "callback_requested", "booked_demo", "booked_demo_manually"]
+    outcomes = (
+        db.table("lead_activities")
+        .select("id, lead_id, type, detail, created_at")
+        .in_("type", outcome_types)
+        .order("created_at", desc=True)
+        .execute().data or []
+    )
+    if not outcomes:
+        return {"data": []}
+
+    lead_ids = list({str(o["lead_id"]) for o in outcomes})
+
+    leads_rows = (
+        db.table("leads")
+        .select("id, name, phone, email, city, business_type, status")
+        .in_("id", lead_ids)
+        .execute().data or []
+    )
+    lead_map = {str(r["id"]): r for r in leads_rows}
+
+    completed_rows = (
+        db.table("lead_activities")
+        .select("id, lead_id, detail, created_at")
+        .eq("type", "outbound_call_completed")
+        .in_("lead_id", lead_ids)
+        .order("created_at")
+        .execute().data or []
+    )
+    completed_by_lead = defaultdict(list)
+    for c in completed_rows:
+        completed_by_lead[str(c["lead_id"])].append(c)
+
+    call_rows = (
+        db.table("lead_activities")
+        .select("lead_id, created_at")
+        .eq("type", "outbound_call")
+        .in_("lead_id", lead_ids)
+        .order("created_at")
+        .execute().data or []
+    )
+    calls_by_lead = defaultdict(list)
+    for c in call_rows:
+        calls_by_lead[str(c["lead_id"])].append(_parse(c["created_at"]))
+
+    rows = []
+    for o in outcomes:
+        lid = str(o["lead_id"])
+        lead = lead_map.get(lid, {})
+        detail = o.get("detail") or {}
+        o_time = _parse(o["created_at"])
+
+        # The completed-call row (with transcript/summary/recording) lands a few
+        # seconds after the outcome row for the same Dograh call — match by proximity.
+        matched = {}
+        for c in completed_by_lead.get(lid, []):
+            c_time = _parse(c["created_at"])
+            if 0 <= (c_time - o_time).total_seconds() <= 120:
+                matched = c.get("detail") or {}
+                break
+
+        callback_at = detail.get("callback_at", "")
+        followed_up = False
+        if callback_at:
+            try:
+                cb_dt = _parse(callback_at)
+                followed_up = any(t > cb_dt for t in calls_by_lead.get(lid, []))
+            except Exception:
+                pass
+
+        rows.append({
+            "activity_id":     o["id"],
+            "lead_id":         lid,
+            "lead_name":       lead.get("name", "Unknown"),
+            "phone":           lead.get("phone", ""),
+            "email":           lead.get("email", ""),
+            "city":            lead.get("city", ""),
+            "business_type":   lead.get("business_type", ""),
+            "lead_status":     lead.get("status", ""),
+            "outcome":         o["type"],
+            "callback_at":     callback_at,
+            "preferred_day":   detail.get("preferred_day", ""),
+            "preferred_time":  detail.get("preferred_time", ""),
+            "summary":         matched.get("summary", ""),
+            "transcript":      matched.get("transcript", ""),
+            "recording_url":   matched.get("recording_url", ""),
+            "ended_reason":    matched.get("ended_reason", ""),
+            "followed_up":     followed_up,
+            "occurred_at":     o["created_at"],
+        })
+
+    return {"data": rows}
 
 
 @app.get("/api/call-sessions")

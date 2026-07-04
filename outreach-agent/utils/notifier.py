@@ -20,6 +20,7 @@ _FOUNDER_WA    = os.getenv("FOUNDER_WHATSAPP_NUMBER", "")
 
 _TEMPLATE_DAILY_BRIEF  = "apex_daily_brief"
 _TEMPLATE_SYSTEM_ALERT = "apex_system_alert"
+_TEMPLATE_CALL_OUTCOME = "apex_call_outcome"
 
 _SEVERITY_ICONS = {"critical": "🔴", "warning": "🟠", "info": "✅", "degraded": "🟡"}
 
@@ -30,12 +31,18 @@ def notify_founder(
     severity: str = "info",
     component: str = "",
     reason: str = "",
+    label: str = "",
+    lead_line: str = "",
+    detail: str = "",
+    summary: str = "",
+    recording_url: str = "",
 ) -> None:
     """
     Send to email (always) + WhatsApp (best-effort via approved template).
 
-    kind="daily_brief"  — body = full digest text
-    kind="system_alert" — severity / component / reason filled in
+    kind="daily_brief"   — body = full digest text
+    kind="system_alert"  — severity / component / reason filled in
+    kind="call_outcome"  — label / lead_line / detail / summary / recording_url filled in
     """
     if kind == "daily_brief":
         _send_email_brief(body)
@@ -44,6 +51,9 @@ def notify_founder(
         msg = reason or f"{severity.upper()}: {component}"
         _send_email_alert(severity, component, msg)
         _send_wa_alert(severity, component, msg)
+    elif kind == "call_outcome":
+        _send_email_call_outcome(label, lead_line, detail, summary, recording_url)
+        _send_wa_call_outcome(label, lead_line, detail, summary, recording_url)
     else:
         log.warning("notify_founder: unknown kind=%s", kind)
 
@@ -77,6 +87,42 @@ def _send_email_brief(body: str) -> bool:
         return ok
     except Exception as exc:
         log.warning("Email brief delivery error: %s", exc)
+        return False
+
+
+def _send_email_call_outcome(
+    label: str, lead_line: str, detail: str, summary: str, recording_url: str
+) -> bool:
+    key = os.getenv("RESEND_API_KEY")
+    if not key:
+        log.warning("notify_founder: RESEND_API_KEY not set — email call_outcome skipped")
+        return False
+    lines = [lead_line]
+    if detail:
+        lines.append(detail)
+    if summary:
+        lines.append(f"Summary: {summary}")
+    if recording_url:
+        lines.append(f"Recording: {recording_url}")
+    text = "\n\n".join(lines)
+    try:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json={
+                "from":    "Apex Observatory <observatory@practicedesk.live>",
+                "to":      [_FOUNDER_EMAIL],
+                "subject": f"{label} — Apex",
+                "text":    text,
+            },
+            timeout=15,
+        )
+        ok = resp.status_code in (200, 201)
+        if not ok:
+            log.warning("Email call_outcome delivery failed: HTTP %s", resp.status_code)
+        return ok
+    except Exception as exc:
+        log.warning("Email call_outcome delivery error: %s", exc)
         return False
 
 
@@ -154,6 +200,49 @@ def _send_wa_brief(body: str) -> bool:
         return False
     except Exception as exc:
         log.info("WA brief send skipped: %s", exc)
+        return False
+
+
+def _send_wa_call_outcome(
+    label: str, lead_line: str, detail: str, summary: str, recording_url: str
+) -> bool:
+    if not _FOUNDER_WA or not _wa_phone_id():
+        return False
+    try:
+        resp = requests.post(
+            f"https://graph.facebook.com/v19.0/{_wa_phone_id()}/messages",
+            headers=_wa_headers(),
+            json={
+                "messaging_product": "whatsapp",
+                "to":   _FOUNDER_WA,
+                "type": "template",
+                "template": {
+                    "name":     _TEMPLATE_CALL_OUTCOME,
+                    "language": {"code": "en"},
+                    "components": [{
+                        "type": "body",
+                        # Body: "Outcome: {{1}}\nLead: {{2}}\nDetail: {{3}}\nCall summary: {{4}}\nRecording link: {{5}}"
+                        "parameters": [
+                            {"type": "text", "text": label or "-"},
+                            {"type": "text", "text": lead_line or "-"},
+                            {"type": "text", "text": detail or "-"},
+                            {"type": "text", "text": (summary or "-")[:500]},
+                            {"type": "text", "text": recording_url or "-"},
+                        ],
+                    }],
+                },
+            },
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return True
+        log.info(
+            "WA call_outcome template not yet approved or failed (HTTP %s) — email is the record",
+            resp.status_code,
+        )
+        return False
+    except Exception as exc:
+        log.info("WA call_outcome send skipped: %s", exc)
         return False
 
 

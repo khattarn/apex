@@ -1,5 +1,5 @@
 """
-Submit the two founder-notification UTILITY templates to Meta.
+Submit the founder-notification UTILITY templates to Meta.
 
 Run once from outreach-agent/:
     python utils/submit_founder_templates.py
@@ -7,8 +7,10 @@ Run once from outreach-agent/:
 Templates:
   apex_daily_brief   — daily digest with one body variable (the text)
   apex_system_alert  — alert with three variables: icon, component, reason
+  apex_call_outcome  — actionable Sophie call outcome with five variables:
+                       label, lead_line, detail, summary, recording_url
 
-Both target the OUTREACH number (Phone Number ID: OUTREACH_WA_PHONE_NUMBER_ID),
+All target the OUTREACH number (Phone Number ID: OUTREACH_WA_PHONE_NUMBER_ID),
 NOT the PracticeDesk customer number.
 
 After submission, check status in Meta Business Suite > WhatsApp > Message Templates.
@@ -57,6 +59,36 @@ TEMPLATES = [
                 "text": "Apex Alert {{1}}\n\n{{2}}: {{3}}",
                 "example": {
                     "body_text": [["🔴", "email_campaign", "32% failure rate — check Resend quota"]]
+                },
+            }
+        ],
+    },
+    {
+        # NOTE: submitted directly via the WABA endpoint (not phone_number_id) on 2026-07-04
+        # because {{n}}/word-ratio validation rejected a shorter, emoji-heavy body. Status: PENDING.
+        "name":     "apex_call_outcome",
+        "category": "UTILITY",
+        "language": "en",
+        "components": [
+            {
+                "type": "BODY",
+                "text": (
+                    "Apex Lead Alert\n\n"
+                    "Outcome: {{1}}\n"
+                    "Lead: {{2}}\n"
+                    "Detail: {{3}}\n"
+                    "Call summary: {{4}}\n"
+                    "Recording link: {{5}}\n\n"
+                    "This lead had a live conversation with your AI sales agent. Please review and follow up promptly."
+                ),
+                "example": {
+                    "body_text": [[
+                        "Callback scheduled",
+                        "Texas Dental Center, dentist, Houston, phone 8328319101",
+                        "Call back Monday at 2pm",
+                        "Aria followed up on an email click about reducing no-shows and the clinic asked for a callback at a specific time",
+                        "https://storage.vapi.ai/019ea7f6-62c1-7777-ac38-e381716ed848-mono.wav",
+                    ]]
                 },
             }
         ],

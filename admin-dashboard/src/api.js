@@ -259,6 +259,7 @@ export const getCallSessions = (params = {}) => {
 
 export const getLiveActivity = () => request('/api/activity/live')
 export const getObservatoryLatest = () => request('/api/observatory/latest')
+export const getCeoReport = () => request('/api/ceo-report')
 
 export function streamWaBlast(payload, onLine, onDone, onError) {
   const token = localStorage.getItem('pd_token')
