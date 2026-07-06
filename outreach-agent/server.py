@@ -1686,6 +1686,35 @@ async def henry_inbound_swml(request: Request):
     return Response(content=twiml, media_type="application/xml")
 
 
+@app.get("/api/signalwire/vapi-ca-outbound-swml")
+@app.post("/api/signalwire/vapi-ca-outbound-swml")
+async def vapi_ca_outbound_swml(request: Request):
+    """
+    SWML webhook for the CA (Alberta) SignalWire Domain Application. Mirrors the
+    working Bright Smile Dental outbound script (resource 79839a02-6f5f-471e-8ed6-a7dd28524600):
+    Vapi's byo-sip-trunk sends an authenticated INVITE to this Domain Application's
+    SIP address; this SWML connects it out to the PSTN destination embedded in the
+    original "to" URI, with +15872090343 forced as the caller ID.
+    """
+    import json as _json
+    ca_number = os.getenv("VAPI_CA_PHONE_NUMBER", "+15872090343")
+    swml = {
+        "version": "1.0.0",
+        "sections": {
+            "main": [
+                {
+                    "connect": {
+                        "answer_on_bridge": True,
+                        "from": ca_number,
+                        "to": '%{call.to.replace(/^sip:/i, "").replace(/@.*/, "")}',
+                    }
+                }
+            ]
+        },
+    }
+    return Response(content=_json.dumps(swml), media_type="application/json")
+
+
 # Keep legacy Twilio endpoints as aliases during transition
 @app.get("/api/twilio/token")
 async def twilio_token(_=Depends(verify_token)):
