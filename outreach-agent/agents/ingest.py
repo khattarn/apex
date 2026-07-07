@@ -32,7 +32,17 @@ from database.client import (
 
 _FIND_PLACE_URL = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
-_EMAIL_EXCLUDE = ("sentry", "example.com", "schema.org", "wix.", "w3.org", "pixel")
+_EMAIL_EXCLUDE_SUBSTR = ("sentry", "example.com", "schema.org", "wix.", "w3.org", "pixel")
+# Image/asset extensions and placeholder domains — a bare substring check let these through:
+# e.g. srcset="logo-inverse@2x.png" matches the email regex ("2x.png" looks like a valid TLD).
+_EMAIL_EXCLUDE_DOMAIN_SUFFIXES = (
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp",
+    ".css", ".js", ".woff", ".woff2", ".ttf", ".eot",
+)
+_EMAIL_EXCLUDE_DOMAINS = {
+    "domain.com", "example.com", "yourdomain.com", "yoursite.com", "test.com",
+    "email.com", "mail.com", "website.com", "mysite.com", "company.com", "business.com",
+}
 
 
 def _find_place_id(name: str, city: str, api_key: str) -> str | None:
@@ -129,9 +139,13 @@ def ingest_rows(
         if not email and html:
             for m in _EMAIL_RE.finditer(html):
                 candidate = m.group(0).lower()
-                if not any(x in candidate for x in _EMAIL_EXCLUDE):
-                    email = m.group(0)
-                    break
+                if any(x in candidate for x in _EMAIL_EXCLUDE_SUBSTR):
+                    continue
+                domain = candidate.rsplit("@", 1)[-1]
+                if domain in _EMAIL_EXCLUDE_DOMAINS or any(domain.endswith(s) for s in _EMAIL_EXCLUDE_DOMAIN_SUFFIXES):
+                    continue
+                email = m.group(0)
+                break
 
         if dry_run:
             saved.append({
