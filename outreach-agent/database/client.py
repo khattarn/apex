@@ -28,7 +28,8 @@ def get_client():
 # ── Leads ─────────────────────────────────────────────────────────────────────
 
 def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
-              email_engagement=None, voice_called=None, limit=25, offset=0, search=None):
+              email_engagement=None, voice_called=None, limit=25, offset=0, search=None,
+              source=None):
     db = get_client()
 
     # Resolve voice_called filter via lead_activities lookup
@@ -44,6 +45,8 @@ def get_leads(business_type=None, status=None, city=None, outreach_sent=None,
         query = query.eq("status", status)
     if city:
         query = query.ilike("city", f"%{city}%")
+    if source:
+        query = query.eq("source", source)
     if outreach_sent is True:
         query = query.eq("outreach_sent", True)
     elif outreach_sent is False:
@@ -177,11 +180,17 @@ def get_leads_due_for_email(limit=50):
     return result.data
 
 
-def advance_email_sequence(lead_id: str, step_just_sent: int):
+def email_sequence_cap(lead: dict) -> int:
+    """Job-ad leads run a shorter 3-email sequence (Change #11); everyone else uses the full cadence."""
+    return 3 if lead.get("pain_signal") == "job_ad_frontdesk" else len(EMAIL_SEQUENCE)
+
+
+def advance_email_sequence(lead_id: str, step_just_sent: int, sequence_length: int = None):
     """Update sequence state after sending step N. Sets next_email_due_at for step N+1."""
     from datetime import datetime, timezone, timedelta
     now = datetime.now(timezone.utc)
     next_step = step_just_sent + 1
+    cap = sequence_length or len(EMAIL_SEQUENCE)
 
     update = {
         "email_sequence_step": step_just_sent,
@@ -196,7 +205,7 @@ def advance_email_sequence(lead_id: str, step_just_sent: int):
         "email_clicked_link": None,
     }
 
-    if next_step <= len(EMAIL_SEQUENCE):
+    if next_step <= cap:
         current_days = EMAIL_SEQUENCE[step_just_sent - 1][1]
         next_days    = EMAIL_SEQUENCE[next_step - 1][1]
         interval     = next_days - current_days

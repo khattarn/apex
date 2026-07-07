@@ -6,6 +6,11 @@ import StatusBadge from '../components/StatusBadge'
 const PAGE_SIZE = 25
 const BUSINESS_TYPES = ['dentist', 'salon', 'accountant', 'physiotherapist', 'lawyer']
 const STATUSES = ['new', 'contacted', 'replied', 'converted', 'dead']
+const SOURCES = [
+  { value: 'job_ad_indeed', label: 'Job ad (Indeed)' },
+  { value: 'new_business_manual', label: 'New business' },
+]
+const SOURCE_LABELS = Object.fromEntries(SOURCES.map((s) => [s.value, s.label]))
 
 function Modal({ title, children, onClose }) {
   return (
@@ -31,11 +36,20 @@ function fmt(ts) {
   return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function SourceBadge({ source }) {
+  if (!source) return null
+  return (
+    <span className="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-700/40 rounded px-1.5 py-0.5 whitespace-nowrap">
+      {SOURCE_LABELS[source] || source}
+    </span>
+  )
+}
+
 export default function LeadsTable() {
   const [leads, setLeads] = useState([])
   const [count, setCount] = useState(0)
   const [page, setPage] = useState(0)
-  const [filters, setFilters] = useState({ business_type: '', status: '', city: '', outreach_sent: '', email_engagement: '', voice_called: '' })
+  const [filters, setFilters] = useState({ business_type: '', status: '', city: '', outreach_sent: '', email_engagement: '', voice_called: '', source: '' })
   const [calledIds, setCalledIds] = useState(new Set())
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -65,6 +79,7 @@ export default function LeadsTable() {
       ...(filters.outreach_sent !== '' && { outreach_sent: filters.outreach_sent === 'true' }),
       ...(filters.email_engagement && { email_engagement: filters.email_engagement }),
       ...(filters.voice_called !== '' && { voice_called: filters.voice_called === 'true' }),
+      ...(filters.source && { source: filters.source }),
       ...(search && { search }),
     }
 
@@ -72,7 +87,7 @@ export default function LeadsTable() {
       .then((res) => { setLeads(res.data || []); setCount(res.count || 0) })
       .catch((err) => { console.error(err); setLoadError(err.message || 'Failed to load leads') })
       .finally(() => setLoading(false))
-  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, filters.email_engagement, filters.voice_called, search])
+  }, [page, filters.business_type, filters.status, filters.city, filters.outreach_sent, filters.email_engagement, filters.voice_called, filters.source, search])
 
   useEffect(() => {
     getCalledIds().then(r => setCalledIds(new Set(r?.ids || []))).catch(() => {})
@@ -264,6 +279,14 @@ export default function LeadsTable() {
           <option value="true">Called by Sophie</option>
           <option value="false">Not yet called</option>
         </select>
+        <select
+          value={filters.source}
+          onChange={(e) => setFilter('source', e.target.value)}
+          className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+        >
+          <option value="">All tags</option>
+          {SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
         <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
           <button
             onClick={startEnrich}
@@ -306,6 +329,7 @@ export default function LeadsTable() {
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white truncate">{lead.name}</p>
                 <p className="text-xs text-slate-400 mt-0.5 capitalize">{lead.city} · {lead.business_type}</p>
+                <div className="mt-1"><SourceBadge source={lead.source} /></div>
               </div>
               <StatusBadge status={lead.status} />
             </div>
@@ -366,23 +390,27 @@ export default function LeadsTable() {
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="border-b border-slate-700/40 text-slate-400 text-xs">
-                {['Name', 'City', 'Type', 'Phone', 'Email', 'Website', 'Status', 'WA', 'Emailed', 'Added', 'Actions'].map((h) => (
+                {['Name', 'City', 'Type', 'Tag', 'Phone', 'Email', 'Website', 'Status', 'WA', 'Emailed', 'Added', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center text-slate-500 text-xs">Loading…</td></tr>
               )}
               {!loading && leads.length === 0 && (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500 text-xs">No leads found</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center text-slate-500 text-xs">No leads found</td></tr>
               )}
               {leads.map((lead) => (
                 <tr key={lead.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
                   <td className="px-4 py-2.5 font-medium max-w-[160px] truncate">{lead.name}</td>
                   <td className="px-4 py-2.5 text-slate-400">{lead.city}</td>
                   <td className="px-4 py-2.5 text-slate-400 capitalize">{lead.business_type}</td>
+                  <td className="px-4 py-2.5">
+                    <SourceBadge source={lead.source} />
+                    {!lead.source && <span className="text-slate-600 text-xs">—</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-slate-400 text-xs">{lead.phone || '—'}</td>
                   <td className="px-4 py-2.5 text-xs">
                     {lead.email

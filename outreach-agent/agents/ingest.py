@@ -1,8 +1,8 @@
 """
-ingest.py — Manual ingestion for recently-opened businesses.
+ingest.py — Manual ingestion for curated lead lists (press, social, AI research, job ads).
 
-Use when you have a curated list (press, social, AI research) and want to seed
-directly rather than running a Maps text-search sweep.
+Use when you have a curated list and want to seed directly rather than running a Maps
+text-search sweep.
 
 Flow per row:
   Find Place from text → Place Details → dedupe → compute_pain (force override)
@@ -11,6 +11,11 @@ Flow per row:
 Row dict: {name, city, vertical, address?, phone?, email?}
   phone  — pre-researched fallback if Places returns nothing
   email  — pre-researched; if supplied, skips inline regex scrape
+
+ingest_rows() is the shared core; ingest_new_businesses() and ingest_job_ad_leads() are
+thin wrappers that force the pain_signal/pain_finding/source for their scenario.
+Pass dry_run=True to resolve + enrich without writing to Supabase or the email sequence —
+useful for previewing a batch before committing it.
 """
 
 import os
@@ -45,11 +50,24 @@ def _find_place_id(name: str, city: str, api_key: str) -> str | None:
     return candidates[0]["place_id"] if candidates else None
 
 
-def ingest_new_businesses(rows: list[dict]) -> dict:
+def ingest_rows(
+    rows: list[dict],
+    *,
+    pain_signal: str,
+    pain_finding,
+    source: str,
+    market: str = "CA",
+    force_pain_score: int | None = None,
+    dry_run: bool = False,
+) -> dict:
     """
     rows: [{name, city, vertical, address?, phone?, email?}]
+    pain_finding: str, or callable(row) -> str, for per-row wording (e.g. "recently opened in {city}")
+    force_pain_score: overrides the computed heuristic score (e.g. to guarantee top-of-queue ranking)
+    dry_run: resolve + enrich but skip save_lead / mark_scrape_attempted / log_activity —
+             returns the same shape so callers can preview before committing.
     Returns {saved: [...], skipped: [...], unresolved: [...]}
-    Each saved entry: {name, city, place_id, phone, email, pain_signal, pain_finding}
+    Each saved entry: {name, city, place_id, phone, email, pain_signal, pain_finding, dry_run?}
     """
     api_key = os.getenv("GOOGLE_MAPS_API_KEY")
     if not api_key:
@@ -86,13 +104,13 @@ def ingest_new_businesses(rows: list[dict]) -> dict:
         details = gmaps.place(place_id, fields=PLACES_DETAIL_FIELDS).get("result", {})
         website = details.get("website", "")
 
-        # 4. Pain heuristic (gives pain_signals list for has_online_booking)
+        # 4. Pain heuristic (gives pain_signals list for has_online_booking + a fallback score)
         html = fetch_website_html(website, timeout=6)
         pain = compute_pain(details, html)
+        pain_score = pain["pain_score"] if force_pain_score is None else force_pain_score
 
-        # 5. Force pain signal — confirmed-new, no heuristic needed
-        pain_signal  = "new_business"
-        pain_finding = f"recently opened in {city}"
+        # 5. Forced pain signal — confirmed externally, no heuristic needed
+        finding = pain_finding(row) if callable(pain_finding) else pain_finding
 
         # 6. has_online_booking column (uses heuristic result)
         pain_signal_names = [s["signal"] for s in pain["pain_signals"]]
@@ -115,6 +133,19 @@ def ingest_new_businesses(rows: list[dict]) -> dict:
                     email = m.group(0)
                     break
 
+        if dry_run:
+            saved.append({
+                "name":         details.get("name", name),
+                "city":         city,
+                "place_id":     place_id,
+                "phone":        phone,
+                "email":        email,
+                "pain_signal":  pain_signal,
+                "pain_finding": finding,
+                "dry_run":      True,
+            })
+            continue
+
         # 9. Save lead
         opening_hours = details.get("opening_hours") or {}
         lead = save_lead({
@@ -127,15 +158,15 @@ def ingest_new_businesses(rows: list[dict]) -> dict:
             "user_ratings_total": details.get("user_ratings_total"),
             "hours_json":         opening_hours.get("weekday_text") or None,
             "has_online_booking": has_online_booking,
-            "pain_score":         pain["pain_score"],
+            "pain_score":         pain_score,
             "pain_signal":        pain_signal,
-            "pain_finding":       pain_finding,
+            "pain_finding":       finding,
             "pain_signals":       pain["pain_signals"],
             "business_type":      vertical,
             "city":               city,
-            "market":             "CA",
+            "market":             market,
             "status":             "new",
-            "source":             "new_business_manual",
+            "source":             source,
         })
         if not lead:
             unresolved.append({
@@ -146,7 +177,7 @@ def ingest_new_businesses(rows: list[dict]) -> dict:
 
         # 10. Wire into email sequence (sets next_email_due_at if email found)
         mark_scrape_attempted(lead["id"], email)
-        log_activity(lead["id"], "ingested", {"source": "new_business_manual"})
+        log_activity(lead["id"], "ingested", {"source": source})
 
         saved.append({
             "name":         lead["name"],
@@ -155,7 +186,46 @@ def ingest_new_businesses(rows: list[dict]) -> dict:
             "phone":        phone,
             "email":        email,
             "pain_signal":  pain_signal,
-            "pain_finding": pain_finding,
+            "pain_finding": finding,
         })
 
     return {"saved": saved, "skipped": skipped, "unresolved": unresolved}
+
+
+def ingest_new_businesses(rows: list[dict], dry_run: bool = False) -> dict:
+    """Recently-opened businesses — forces pain_signal='new_business'."""
+    return ingest_rows(
+        rows,
+        pain_signal="new_business",
+        pain_finding=lambda row: f"recently opened in {row['city']}",
+        source="new_business_manual",
+        market="CA",
+        dry_run=dry_run,
+    )
+
+
+def ingest_job_ad_leads(
+    rows: list[dict],
+    dry_run: bool = False,
+    source: str = "job_ad_indeed",
+    pain_finding: str = "actively hiring a front-desk receptionist (seen on Indeed)",
+) -> dict:
+    """
+    Clinics actively hiring a front-desk receptionist (seen on a job board — manual
+    Indeed batches use the defaults; the SerpAPI cron passes source="job_ad_serpapi"
+    and the shorter finding text since Google Jobs aggregates multiple boards, not
+    just Indeed).
+    force_pain_score=100 keeps these at the top of the pain_score-ranked voice
+    priority queue (see database.client.get_voice_priority_queue) — phone-first via
+    Sophie per docs/apex-rebuild/job-ad-outreach.md. market='CA' also puts them on the
+    lighter CASL email cadence (agents/email_personalizer.py._first_email_number).
+    """
+    return ingest_rows(
+        rows,
+        pain_signal="job_ad_frontdesk",
+        pain_finding=pain_finding,
+        source=source,
+        market="CA",
+        force_pain_score=100,
+        dry_run=dry_run,
+    )

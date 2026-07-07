@@ -336,6 +336,7 @@ async def list_leads(
     email_engagement: Optional[str] = None,
     voice_called: Optional[bool] = None,
     search: Optional[str] = None,
+    source: Optional[str] = None,
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
     _=Depends(verify_token),
@@ -349,6 +350,7 @@ async def list_leads(
         email_engagement=email_engagement,
         voice_called=voice_called,
         search=search,
+        source=source,
         limit=limit,
         offset=offset,
     )
@@ -452,7 +454,7 @@ async def email_campaign(_=Depends(verify_token)):
     async def generate():
         from database.client import (
             get_leads_due_for_email, advance_email_sequence,
-            log_activity, get_setting, EMAIL_SEQUENCE,
+            log_activity, get_setting, EMAIL_SEQUENCE, email_sequence_cap,
         )
         from agents.email_personalizer import generate_email, detect_market
         from agents.email_sender import send_email
@@ -507,12 +509,13 @@ async def email_campaign(_=Depends(verify_token)):
 
             current_step = lead.get("email_sequence_step") or 0
             next_step    = current_step + 1
-            if next_step > len(EMAIL_SEQUENCE):
+            seq_cap      = email_sequence_cap(lead)
+            if next_step > seq_cap:
                 skipped += 1
                 continue
 
             email_num, _ = EMAIL_SEQUENCE[next_step - 1]
-            yield {"data": json.dumps({"type": "log", "line": f"  > {name} — Email {email_num} (step {next_step}/{len(EMAIL_SEQUENCE)})"})}
+            yield {"data": json.dumps({"type": "log", "line": f"  > {name} — Email {email_num} (step {next_step}/{seq_cap})"})}
 
             try:
                 subject, html, email_num_used, variant = await asyncio.to_thread(
@@ -522,7 +525,7 @@ async def email_campaign(_=Depends(verify_token)):
                 resend_id   = (send_result or {}).get("id", "")
                 if resend_id and run_id:
                     save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step)
-                advance_email_sequence(lead["id"], next_step)
+                advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used, "subject": subject,
                     "variant": variant, "sequence_step": next_step,
@@ -940,7 +943,7 @@ async def cron_email_sequence(request: Request):
     # Delegate to the same logic as the manual campaign
     from database.client import (
         get_leads_due_for_email, advance_email_sequence,
-        log_activity, save_campaign_run, EMAIL_SEQUENCE,
+        log_activity, save_campaign_run, EMAIL_SEQUENCE, email_sequence_cap,
     )
     from agents.email_personalizer import generate_email, detect_market
     from agents.email_sender import send_email
@@ -964,7 +967,8 @@ async def cron_email_sequence(request: Request):
 
         current_step = lead.get("email_sequence_step") or 0
         next_step    = current_step + 1
-        if next_step > len(EMAIL_SEQUENCE):
+        seq_cap      = email_sequence_cap(lead)
+        if next_step > seq_cap:
             skipped += 1
             continue
 
@@ -972,7 +976,7 @@ async def cron_email_sequence(request: Request):
         try:
             subject, html, email_num_used, variant = generate_email(lead, email_number=email_num)
             send_email(lead["email"], subject, html)
-            advance_email_sequence(lead["id"], next_step)
+            advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
             log_activity(lead["id"], "email_sent", {
                 "email_number": email_num_used,
                 "variant": variant,
@@ -2695,7 +2699,7 @@ async def _job_email_campaign():
     try:
         from database.client import (
             get_leads_due_for_email, advance_email_sequence,
-            log_activity, save_campaign_run, save_email_send, EMAIL_SEQUENCE,
+            log_activity, save_campaign_run, save_email_send, EMAIL_SEQUENCE, email_sequence_cap,
         )
         from agents.email_personalizer import generate_email, detect_market
         from agents.email_sender import send_email, QuotaExceededError
@@ -2739,7 +2743,8 @@ async def _job_email_campaign():
 
             current_step = lead.get("email_sequence_step") or 0
             next_step    = current_step + 1
-            if next_step > len(EMAIL_SEQUENCE):
+            seq_cap      = email_sequence_cap(lead)
+            if next_step > seq_cap:
                 skipped += 1
                 continue
 
@@ -2750,7 +2755,7 @@ async def _job_email_campaign():
                 resend_id   = (send_result or {}).get("id", "")
                 if resend_id and run_id:
                     save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step)
-                advance_email_sequence(lead["id"], next_step)
+                advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used,
                     "variant": variant,
@@ -2933,6 +2938,118 @@ async def _job_prospect():
         alert_founder("prospect_cron", exc)
 
 
+async def _job_jobad_scout():
+    """Daily job-ad scout — SerpAPI Google Jobs -> Places resolve -> pain_signal=job_ad_frontdesk (Change #11).
+
+    Reads config from Supabase settings table:
+      jobad_scout_enabled   — "true" / "false"  (default true if missing)
+      jobad_cities          — comma-separated list (falls back to cron_prospect_cities — the CA list)
+      jobad_cities_per_run  — how many cities to scout per run (default 1)
+      jobad_cursor          — JSON {"idx": ...} — rotates through cities across runs
+      jobad_gl              — SerpAPI country code for these cities (default "ca")
+      jobad_max_days_recent — recency cutoff passed to is_recent() (default 30)
+      jobad_monthly_limit   — SerpAPI searches/month budget for the alert threshold (default 250)
+      jobad_calls_month     — "YYYY-MM" — auto-managed, resets jobad_calls_count on month rollover
+      jobad_calls_count     — auto-managed running total of searches this month
+    """
+    try:
+        from database.client import get_setting, save_setting
+        from agents.ingest import ingest_job_ad_leads
+        from agents import serpapi_client
+        from datetime import datetime, timezone
+
+        enabled = (get_setting("jobad_scout_enabled") or "true").lower()
+        if enabled == "false":
+            log.info("_job_jobad_scout: disabled via settings")
+            return
+
+        cities_raw    = get_setting("jobad_cities") or get_setting("cron_prospect_cities") or "Toronto"
+        per_run_raw   = get_setting("jobad_cities_per_run") or "1"
+        cursor_raw    = get_setting("jobad_cursor")
+        gl            = get_setting("jobad_gl") or "ca"
+        max_days      = int(get_setting("jobad_max_days_recent") or "30")
+        monthly_limit = int(get_setting("jobad_monthly_limit") or "250")
+
+        cities = [c.strip() for c in cities_raw.split(",") if c.strip()]
+        if not cities:
+            return
+        cities_per_run = max(1, min(int(per_run_raw) if str(per_run_raw).isdigit() else 1, len(cities)))
+
+        try:
+            cursor = json.loads(cursor_raw) if isinstance(cursor_raw, str) else (cursor_raw or {})
+        except Exception:
+            cursor = {}
+        idx = int(cursor.get("idx", 0))
+
+        # Monthly quota bookkeeping — reset on month rollover
+        month_key    = datetime.now(timezone.utc).strftime("%Y-%m")
+        stored_month = get_setting("jobad_calls_month")
+        stored_count = int(get_setting("jobad_calls_count") or "0")
+        if stored_month != month_key:
+            stored_month, stored_count = month_key, 0
+
+        if stored_count >= monthly_limit:
+            log.warning("_job_jobad_scout: monthly SerpAPI quota reached (%d/%d) — skipping", stored_count, monthly_limit)
+            from utils.notifier import notify_founder
+            notify_founder(kind="system_alert", severity="warning", component="jobad_scout",
+                            reason=f"SerpAPI monthly quota reached ({stored_count}/{monthly_limit}) — scout paused until next month or raise jobad_monthly_limit.")
+            await asyncio.to_thread(save_setting, "jobad_calls_month", stored_month)
+            return
+
+        calls_before = serpapi_client.calls_made()
+        total_saved = total_skipped = total_unresolved = 0
+        run_summary = []
+
+        for step in range(cities_per_run):
+            city = cities[(idx + step) % len(cities)]
+            city_rows = []
+            for vertical, queries in serpapi_client.JOBAD_QUERIES.items():
+                for query in queries:
+                    run_calls_so_far = serpapi_client.calls_made() - calls_before
+                    if stored_count + run_calls_so_far >= monthly_limit:
+                        break
+                    jobs = await asyncio.to_thread(serpapi_client.search_jobs, query, city, gl=gl)
+                    recent = [j for j in jobs if serpapi_client.is_recent(j.get("posted_at", ""), max_days)]
+                    city_rows.extend(serpapi_client.to_ingest_rows(recent, vertical, city))
+
+            result = {"saved": [], "skipped": [], "unresolved": []}
+            if city_rows:
+                result = await asyncio.to_thread(
+                    ingest_job_ad_leads, city_rows,
+                    dry_run=False, source="job_ad_serpapi",
+                    pain_finding="actively hiring a front-desk receptionist",
+                )
+            total_saved      += len(result["saved"])
+            total_skipped    += len(result["skipped"])
+            total_unresolved += len(result["unresolved"])
+            run_summary.append({"city": city, **{k: len(v) for k, v in result.items()}})
+
+        await asyncio.to_thread(save_setting, "jobad_cursor", json.dumps({"idx": (idx + cities_per_run) % len(cities)}))
+
+        run_calls = serpapi_client.calls_made() - calls_before
+        new_count = stored_count + run_calls
+        await asyncio.to_thread(save_setting, "jobad_calls_month", month_key)
+        await asyncio.to_thread(save_setting, "jobad_calls_count", str(new_count))
+
+        log.info("_job_jobad_scout: %d saved, %d skipped, %d unresolved — %d SerpAPI calls (%d/%d this month)",
+                  total_saved, total_skipped, total_unresolved, run_calls, new_count, monthly_limit)
+
+        # Quota guard — warn once when crossing 80%
+        if new_count >= 0.8 * monthly_limit > stored_count:
+            from utils.notifier import notify_founder
+            notify_founder(kind="system_alert", severity="warning", component="jobad_scout",
+                            reason=f"SerpAPI usage at {new_count}/{monthly_limit} searches this month (~{int(100*new_count/monthly_limit)}%) — nearing plan limit.")
+
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("jobad_scout", {"saved": total_saved, "skipped": total_skipped,
+                                          "unresolved": total_unresolved, "calls_this_run": run_calls,
+                                          "calls_this_month": new_count, "cities": run_summary})
+    except Exception as exc:
+        log.error("_job_jobad_scout failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("jobad_scout", exc)
+
+
 async def _job_email_poller():
     """Poll info@practicedesk.live via IMAP every 15 min — process replies from known leads."""
     try:
@@ -2976,12 +3093,15 @@ async def start_scheduler():
     _scheduler.add_job(_job_signal_weekly,        "cron", day_of_week="mon", hour=6, minute=0, misfire_grace_time=_MGT_LONG)  # Monday 6am UTC
     _scheduler.add_job(_job_watchdog,             "cron", hour="*",      minute=45,  misfire_grace_time=_MGT_SHORT)           # :45 every hour
     _scheduler.add_job(_job_prospect,             "cron", hour=12,       minute=0,   misfire_grace_time=_MGT_LONG)            # 12:00 UTC daily
+    _scheduler.add_job(_job_jobad_scout,          "cron", hour=14,       minute=0,
+                       misfire_grace_time=3600,   coalesce=True)  # 14:00 UTC daily, 1h grace, collapse missed runs
     _scheduler.add_job(_job_email_poller,         "cron", minute="*/15",             misfire_grace_time=_MGT_SHORT)           # every 15 min, 7 days
     _scheduler.start()
 
     # Populate job registry — used by _job_watchdog for auto-recovery
     _JOB_REGISTRY.update({
         "prospect_cron":  _job_prospect,
+        "jobad_scout":    _job_jobad_scout,
         "email_campaign": _job_email_campaign,
         "wa_broadcast":   _job_wa_broadcast,
         "wa_followup":    _job_wa_followup,
@@ -3435,6 +3555,22 @@ async def cron_observatory(request: Request):
 async def cron_prospect(_: str = Depends(verify_token)):
     """Manually trigger one prospecting run (same as the 12:00 UTC daily cron)."""
     await _job_prospect()
+    return {"ok": True}
+
+
+@app.post("/api/cron/jobad-scout")
+async def cron_jobad_scout(request: Request):
+    """
+    Manually/externally trigger one job-ad scout run (same as the 14:00 UTC daily cron).
+    Auth: CRON_SECRET bearer token — lets an external scheduler trigger it if the
+    in-process APScheduler instance is down (Change #11 reliability requirement).
+    """
+    cron_secret = os.getenv("CRON_SECRET", "")
+    if cron_secret:
+        auth = request.headers.get("Authorization", "")
+        if auth.removeprefix("Bearer ").strip() != cron_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    await _job_jobad_scout()
     return {"ok": True}
 
 

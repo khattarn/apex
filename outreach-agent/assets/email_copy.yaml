@@ -312,6 +312,48 @@ verticals:
           <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
 
 # ─────────────────────────────────────────────────────────────────────────────
+# JOB-AD OVERRIDE — used instead of the vertical sequence above whenever
+# lead.pain_signal == "job_ad_frontdesk" (Change #11). Only 3 steps (Day 1/3/6),
+# not 6 — see database.client.email_sequence_cap(). Written in Claire's own
+# voice per docs/apex-rebuild/job-ad-outreach.md — signed Claire, not Henry.
+# ─────────────────────────────────────────────────────────────────────────────
+job_ad:
+  sequence:
+    - step: 1   # Day 1 — the application
+      subject_a: "Applying for your front-desk role, {PRACTICE_NAME}"
+      subject_b: "You're hiring a receptionist — may I apply?"
+      preheader: "I work 24/7, never call in sick, and I can start today."
+      body: |
+        <p>I noticed {PRACTICE_NAME} is hiring for the front desk — so I'd like to apply.</p>
+        <p>I answer every call, WhatsApp and email, 24/7. I book appointments, keep your calendar tidy, remind patients so they actually show up, and follow up the ones who don't. I don't need a salary, benefits, training or holidays — and I can start in about fifteen minutes.</p>
+        <p>I'm Claire, an AI receptionist from PracticeDesk. Honestly, I'm at my best working <em>alongside</em> a human receptionist — I make whoever you hire better by covering every call they can't: after hours, lunch breaks, and the overflow that goes to voicemail today. Hire someone and add me, and between us nothing gets missed.</p>
+        <p>Hear me for yourself — call {INBOUND_PHONE} and try me like a patient would. Or start a free 14-day trial.</p>
+        <p style="font-size:13px;color:#666;"><em>P.S. Keep hiring if you like — I'm happy to work alongside whoever you choose.</em></p>
+        <p>— Claire, via PracticeDesk</p>
+
+    - step: 2   # Day 3 — the comparison
+      subject_a: "$20 an hour, or about {VOICE_PRICE} a month?"
+      subject_b: "A quick comparison for the front-desk role"
+      preheader: "Same job. Nights and weekends included. No benefits."
+      body: |
+        <p>A front-desk hire at $19–25 an hour works out to roughly $40–50k a year — plus benefits, training, and cover for sick days and holidays.</p>
+        <p>I'm about {VOICE_PRICE} a month, and I also work the nights, weekends and lunch breaks a human won't.</p>
+        <p>You don't have to choose. Most practices keep their receptionist for in-person care and add me for everything after-hours and overflow — between us, nothing goes to voicemail.</p>
+        <p>Try me first: call {INBOUND_PHONE} and hear me take a live booking.</p>
+        <p>— Claire, via PracticeDesk</p>
+
+    - step: 3   # Day 6 — withdraw the application
+      subject_a: "Should I withdraw my application?"
+      subject_b: "Last note about your front desk, {PRACTICE_NAME}"
+      preheader: ""
+      body: |
+        <p>I'll stop here so I'm not cluttering your inbox.</p>
+        <p>If you've filled the role — congratulations. And if you ever want me covering after-hours and overflow alongside them, the 14-day trial is always open, and I'm live in about fifteen minutes.</p>
+        <p>Wishing {PRACTICE_NAME} a full schedule.</p>
+        <p>— Claire, via PracticeDesk</p>
+        <p><a href="{DEMO_LINK}">Start the free trial anytime &rarr;</a></p>
+
+# ─────────────────────────────────────────────────────────────────────────────
 # FALLBACK — used only if a lead's business_type has no vertical above.
 # Generic but never wrong. The pipeline should prefer to SKIP unknown types
 # rather than send dental copy (see handoff prompt, change #1).

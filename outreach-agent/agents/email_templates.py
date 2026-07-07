@@ -3,6 +3,11 @@ PRODUCT_URL = "https://practicedesk.live"
 INBOUND_PHONE = "+1 (318) 770-6725"
 INBOUND_PHONE_RAW = "+13187706725"
 
+# Job-ad sequence pricing line (docs/apex-rebuild/job-ad-outreach.md) — a single
+# approximate monthly figure, not the full tier breakdown used elsewhere (click_caller.py).
+VOICE_PRICE_USD = "$180/month"
+VOICE_PRICE_CAD = "CA $200/month"
+
 # YouTube intro video — shown for all medical/professional verticals
 YOUTUBE_INTRO = "https://youtu.be/zHVLE5ek7jY"
 
