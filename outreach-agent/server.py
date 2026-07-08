@@ -628,14 +628,38 @@ async def vapi_webhook(request: Request):
     if event_type != "end-of-call-report":
         return {"ok": True}
 
+    # Debug: persist raw payload so the structuredData field location can be
+    # confirmed/corrected against a real call without needing another live test.
+    try:
+        from database.client import get_client as _gc
+        from datetime import datetime, timezone as _tz
+        _gc().table("settings").upsert({
+            "key": "vapi_last_webhook_payload",
+            "value": json.dumps(payload),
+            "updated_at": datetime.now(_tz.utc).isoformat(),
+        }).execute()
+    except Exception:
+        pass
+
     call          = payload.get("call", {})
     artifact      = payload.get("artifact", {})
+    # Field location isn't verified against a live payload yet — Vapi's docs were
+    # inconsistent on this. Check all three plausible spots defensively.
+    analysis      = call.get("analysis") or artifact.get("analysis") or payload.get("analysis") or {}
+    structured    = analysis.get("structuredData") or {}
     ended_reason  = call.get("endedReason", "")
     recording_url = artifact.get("recordingUrl", "")
     summary       = (artifact.get("summary") or "")[:500]
     transcript    = (artifact.get("transcript") or "")[:1000]
     call_type     = call.get("type", "")  # "outboundPhoneCall" | "inboundPhoneCall"
     customer_phone = call.get("customer", {}).get("number", "")
+
+    call_outcome        = structured.get("call_outcome", "") or "unknown"
+    demo_preferred_time = structured.get("demo_preferred_time", "")
+    attendee_email      = structured.get("attendee_email", "")
+    contact_name        = structured.get("contact_name", "")
+    callback_day        = structured.get("callback_day", "")
+    callback_time_str   = structured.get("callback_time", "")
 
     from database.client import update_lead, log_activity
 
@@ -656,7 +680,64 @@ async def vapi_webhook(request: Request):
             "recording_url": recording_url,
             "summary":       summary,
             "transcript":    transcript,
+            "call_outcome":  call_outcome,
         })
+
+        # ── Route by extracted call_outcome (mirrors dograh_webhook) ───────────
+        if call_outcome == "booked_demo":
+            booking_result = _handle_book_demo(
+                lead_id=lead_id,
+                preferred_time=demo_preferred_time,
+                attendee_email=attendee_email,
+                attendee_name=contact_name,
+            )
+            _notify_call_outcome(
+                lead_id, "booked_demo", recording_url, summary,
+                extra_line=booking_result,
+            )
+
+        elif call_outcome == "callback_scheduled":
+            from agents.cal_booking import parse_preferred_time
+            from utils.timezone import get_tz_name
+            from database.client import get_lead_by_id
+            lead_rec = get_lead_by_id(lead_id)
+            tz = get_tz_name(
+                lead_rec.get("city", "") if lead_rec else "",
+                lead_rec.get("market", "") if lead_rec else "",
+            )
+            try:
+                callback_dt = parse_preferred_time(f"{callback_day} {callback_time_str}", tz)
+                log_activity(lead_id, "callback_scheduled", {
+                    "callback_at":    callback_dt.isoformat(),
+                    "preferred_day":  callback_day,
+                    "preferred_time": callback_time_str,
+                })
+                _notify_call_outcome(
+                    lead_id, "callback_scheduled", recording_url, summary,
+                    extra_line=f"Call back: {callback_day} {callback_time_str}",
+                )
+            except Exception as exc:
+                log.warning("Could not parse callback time '%s %s': %s", callback_day, callback_time_str, exc)
+                _notify_call_outcome(
+                    lead_id, "callback_scheduled", recording_url, summary,
+                    extra_line=f"Call back: {callback_day} {callback_time_str} (unparsed)",
+                )
+
+        elif call_outcome == "callback_requested":
+            update_lead(lead_id, {"callback_requested": True})
+            log_activity(lead_id, "callback_requested", {
+                "source": "vapi_outbound",
+                "note": "Prospect requested human callback during Sophie call",
+            })
+            _notify_call_outcome(
+                lead_id, "callback_requested", recording_url, summary,
+                extra_line="They want a human call — please follow up.",
+            )
+
+        elif call_outcome == "not_interested":
+            update_lead(lead_id, {"status": "dead"})
+            _notify_call_outcome(lead_id, "not_interested", recording_url, summary)
+
         return {"ok": True}
 
     # ── Inbound Henry call ────────────────────────────────────────────────────
