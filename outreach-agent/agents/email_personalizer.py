@@ -30,21 +30,27 @@ def _load_email_copy() -> dict:
         return yaml.safe_load(f)
 
 
+def _addr_has_token(addr: str, tok: str) -> bool:
+    """Whole-word/phrase match — a bare `tok in addr` check false-positives on
+    short codes like "WA" or "SA" hiding inside ordinary words (e.g. "Gateway")."""
+    return re.search(rf"\b{re.escape(tok)}\b", addr) is not None
+
+
 def detect_market(phone: str, address: str = "") -> str:
     phone = re.sub(r"[^\d+]", "", phone or "")
     addr = (address or "").upper()
 
     if phone.startswith("+61") or phone.startswith("0061"):
         return "AU"
-    if any(tok in addr for tok in _AU_STATES):
+    if any(_addr_has_token(addr, tok) for tok in _AU_STATES):
         return "AU"
 
     if phone.startswith("+1") or (phone.startswith("1") and len(phone) == 11):
-        if any(tok in addr for tok in _CA_TOKENS):
+        if any(_addr_has_token(addr, tok) for tok in _CA_TOKENS):
             return "CA"
         return "US"
 
-    if "CANADA" in addr:
+    if _addr_has_token(addr, "CANADA"):
         return "CA"
     return "US"  # safe default for unrecognised numbers
 
