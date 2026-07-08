@@ -25,13 +25,24 @@ def _load_copy() -> dict:
     return _COPY_CACHE
 
 
-def _get_script(business_type: str) -> dict:
+def _get_script(business_type: str, pain_signal: str = "") -> dict:
+    """
+    opener/insight/pain_question for a business type, from copy.yaml.
+    If pain_signal has a matching entry in the vertical's sophie_signal_openers
+    table (Change #9), it overrides the generic sophie_opener — e.g.
+    job_ad_frontdesk gets the hiring-specific opener instead of the vertical default.
+    """
     copy = _load_copy()
     vertical = (copy.get('verticals') or {}).get(business_type)
     if not vertical:
         vertical = copy.get('defaults') or {}
+    opener = vertical.get('sophie_opener', '')
+    if pain_signal:
+        signal_opener = (vertical.get('sophie_signal_openers') or {}).get(pain_signal)
+        if signal_opener:
+            opener = signal_opener
     return {
-        "firstMessage": vertical.get('sophie_opener', ''),
+        "firstMessage": opener,
         "insight":      vertical.get('sophie_insight', ''),
         "pain_question": vertical.get('sophie_pain_question', ''),
     }
@@ -260,7 +271,7 @@ def place_outbound_call(
             city=city, trigger="cold",
         )
 
-    script = _get_script(business_type)
+    script = _get_script(business_type, pain_signal)
     phone_number_id = (
         os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
         if is_canadian(city, market)

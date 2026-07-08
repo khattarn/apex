@@ -1256,7 +1256,7 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
 
     script = {}
     try:
-        script = _get_script(lead.get("business_type", "").lower())
+        script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
     except Exception:
         pass
 
@@ -2573,7 +2573,7 @@ async def _job_voice_followup():
             try:
                 script = {}
                 try:
-                    script = _get_script(lead.get("business_type", "").lower())
+                    script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
                 except Exception:
                     pass
                 result = place_sophie_call(
@@ -2668,7 +2668,7 @@ async def _job_scheduled_callbacks():
             try:
                 script = {}
                 try:
-                    script = _get_script(lead.get("business_type", "").lower())
+                    script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
                 except Exception:
                     pass
                 result = place_sophie_call(
@@ -3508,7 +3508,7 @@ async def cron_voice_followup(request: Request):
         try:
             script = {}
             try:
-                script = _get_script(lead.get("business_type", "").lower())
+                script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
             except Exception:
                 pass
             result = place_sophie_call(

@@ -58,8 +58,18 @@ GENTLE-TONE RULES (non-negotiable)
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 1 — OPENING  (target: 20 seconds)
 ═══════════════════════════════════════════════════════════════════════════════
-The prospect recently clicked on a PracticeDesk email, so this is a warm call. \
-Your opening message is pre-set. After they respond:
+Your opening message is pre-set — use it exactly as given, then adapt from their reply.
+
+Call context — pain_signal is "{{pain_signal}}":
+- If it is "job_ad_frontdesk": this is a phone-first outreach call, NOT a warm \
+  email-click callback. Do not say or imply they clicked an email or already know \
+  PracticeDesk. You're reaching out because you saw they're hiring for the front \
+  desk (per the opening message). If asked how you found them, say you saw the job \
+  posting. Keep the alongside-a-human-receptionist framing — you're not pitching a \
+  replacement.
+- Otherwise: the prospect recently clicked a PracticeDesk email, so this is a warm call.
+
+After they respond:
 - If they signal they are busy or ask for a callback → trigger the ABSOLUTE RULE above immediately.
 - If they say they have a moment → continue to Phase 2.
 
@@ -193,11 +203,20 @@ def main() -> None:
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
     }
+
+    # Vapi's PATCH replaces the whole `model` object rather than merging — fetch the
+    # current provider/model first so we don't drop them by only sending `messages`.
+    current = requests.get(url, headers=headers, timeout=30)
+    if not current.ok:
+        sys.exit(f"Failed to fetch current assistant config: HTTP {current.status_code}: {current.text}")
+    current_model = current.json().get("model", {})
+
     payload = {
         "model": {
+            **current_model,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT}
-            ]
+            ],
         }
     }
 

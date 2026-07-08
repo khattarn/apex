@@ -21,35 +21,11 @@ _PRICING_CAD = "Starter: CAD $70/month · Growth: CAD $140/month · Pro: CAD $25
 def _pricing_line(market: str) -> str:
     return _PRICING_CAD if (market or "").upper() == "CA" else _PRICING_USD
 
-# ── Load copy assets ──────────────────────────────────────────────────────────
 
-_COPY_CACHE = None
-
-def _load_copy() -> dict:
-    global _COPY_CACHE
-    if _COPY_CACHE is not None:
-        return _COPY_CACHE
-    try:
-        import yaml
-        assets_path = os.path.join(os.path.dirname(__file__), '..', 'assets', 'copy.yaml')
-        with open(assets_path, 'r', encoding='utf-8') as f:
-            _COPY_CACHE = yaml.safe_load(f) or {}
-    except Exception:
-        _COPY_CACHE = {}
-    return _COPY_CACHE
-
-
-def _get_script(business_type: str) -> dict:
-    """Return opener/insight/pain_question for a business type from copy.yaml."""
-    copy = _load_copy()
-    vertical = (copy.get('verticals') or {}).get(business_type)
-    if not vertical:
-        vertical = copy.get('defaults') or {}
-    return {
-        "firstMessage": vertical.get('sophie_opener', ''),
-        "insight":      vertical.get('sophie_insight', ''),
-        "pain_question": vertical.get('sophie_pain_question', ''),
-    }
+def _get_script(business_type: str, pain_signal: str = "") -> dict:
+    """opener/insight/pain_question for a business type — see voice_outreach._get_script."""
+    from agents.voice_outreach import _get_script as _shared_get_script
+    return _shared_get_script(business_type, pain_signal)
 
 
 # ── Business-type openers (legacy fallback) ───────────────────────────────────
@@ -368,7 +344,7 @@ def place_click_call(lead: dict) -> dict:
             city=city, trigger="email_click",
         )
 
-    script = _get_script(business_type)
+    script = _get_script(business_type, lead.get("pain_signal", ""))
     phone_number_id = (
         os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
         if is_canadian(city, market)

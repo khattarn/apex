@@ -254,6 +254,14 @@ verticals:
     sophie_pain_question: >
       When a patient tries to reach you after hours right now — do they get any response at all?
 
+    # Signal-aware openers — see verticals.dentist.sophie_signal_openers for the full pattern note.
+    sophie_signal_openers:
+      job_ad_frontdesk: >
+        Hi, I'm Sophie from PracticeDesk — I noticed you're hiring for the front
+        desk, so the timing felt right to reach out. Good reception staff are hard
+        to find and keep. We help practices cover the phones and bookings so a gap
+        up front never means a missed patient. Could I share how?
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Defaults — used when a vertical isn't listed above
