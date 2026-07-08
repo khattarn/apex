@@ -1032,7 +1032,7 @@ async def cron_email_sequence(request: Request):
 
     from agents.email_sender import QuotaExceededError
 
-    leads = get_leads_due_for_email(limit=180)
+    leads = get_leads_due_for_email(limit=150)
     sent = skipped = failed = 0
 
     for lead in leads:
@@ -2776,7 +2776,9 @@ async def _job_scheduled_callbacks():
 
 
 async def _job_email_campaign():
-    """Auto-send up to 180 emails/day to leads due for their next sequence step."""
+    """Auto-send to leads due for their next sequence step. Resend's actual account
+    quota is 150 emails/day (not enforced here — send_email() raises QuotaExceededError
+    on Resend's own 429, which is what actually stops sending once the real cap hits)."""
     try:
         from database.client import (
             get_leads_due_for_email, advance_email_sequence,
@@ -2845,7 +2847,7 @@ async def _job_email_campaign():
                 })
                 sent += 1
             except QuotaExceededError:
-                break  # daily Resend quota (180) reached — remaining retried next run
+                break  # daily Resend quota (150) reached — remaining retried next run
             except Exception:
                 failed += 1
 
