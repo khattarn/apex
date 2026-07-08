@@ -2885,6 +2885,58 @@ async def _job_email_campaign():
         alert_founder("email_campaign", exc)
 
 
+async def _job_enrich_emails():
+    """
+    Auto-run email enrichment so new leads from prospecting get a real email
+    address without anyone having to click "Run Pipeline" manually. Without this,
+    leads pile up with scrape_attempted=False forever and are never eligible for
+    the email campaign (get_leads_due_for_email requires a non-empty email).
+    Mirrors the logic in POST /api/leads/enrich-emails, minus the SSE streaming.
+    """
+    try:
+        from database.client import get_leads_for_enrichment, mark_scrape_attempted
+        from agents.email_scraper import scrape_email_debug
+
+        candidates = get_leads_for_enrichment()
+        total = len(candidates)
+        if total == 0:
+            from utils.monitoring import upsert_heartbeat
+            upsert_heartbeat("enrich_emails", {"enriched": 0, "total": 0})
+            return
+
+        async def _scrape_one(website: str) -> tuple[str | None, list[str]]:
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(scrape_email_debug, website),
+                    timeout=8,
+                )
+            except asyncio.TimeoutError:
+                return None, ["timeout after 8s"]
+            except Exception as exc:
+                return None, [f"error: {exc}"]
+
+        BATCH = 5
+        enriched = 0
+        for batch_start in range(0, total, BATCH):
+            batch = candidates[batch_start:batch_start + BATCH]
+            results = await asyncio.gather(*[_scrape_one(l["website"]) for l in batch])
+            for lead, (email, _debug) in zip(batch, results):
+                if email:
+                    mark_scrape_attempted(lead["id"], email)
+                    enriched += 1
+                else:
+                    mark_scrape_attempted(lead["id"], None)
+            await asyncio.sleep(0)
+
+        log.info("_job_enrich_emails: enriched %d/%d", enriched, total)
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("enrich_emails", {"enriched": enriched, "total": total})
+    except Exception as exc:
+        log.error("_job_enrich_emails failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("enrich_emails", exc)
+
+
 async def _job_signal_weekly():
     """Signal weekly run — Monday 6am UTC. Scores templates, computes funnel,
     detects dead ends, generates projections, updates targets, writes brief, emails founder."""
@@ -3177,6 +3229,7 @@ async def start_scheduler():
     _scheduler.add_job(_job_jobad_scout,          "cron", hour=14,       minute=0,
                        misfire_grace_time=3600,   coalesce=True)  # 14:00 UTC daily, 1h grace, collapse missed runs
     _scheduler.add_job(_job_email_poller,         "cron", minute="*/15",             misfire_grace_time=_MGT_SHORT)           # every 15 min, 7 days
+    _scheduler.add_job(_job_enrich_emails,        "cron", hour="*",      minute=30,  misfire_grace_time=_MGT_SHORT)           # every hour, all days — keeps up with daily prospecting
     _scheduler.start()
 
     # Populate job registry — used by _job_watchdog for auto-recovery
@@ -3189,6 +3242,7 @@ async def start_scheduler():
         "voice_followup": _job_voice_followup,
         "observatory":    _job_observatory,
         "email_poller":   _job_email_poller,
+        "enrich_emails":  _job_enrich_emails,
     })
 
     # Startup catch-up: re-fire any overdue jobs immediately on boot.
