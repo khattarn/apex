@@ -387,7 +387,7 @@ def run_click_campaign() -> dict:
     Cap: voice_dial_cap setting (default 50). Respects 11am–5pm local window.
     """
     from datetime import datetime, timezone, timedelta
-    from database.client import get_voice_priority_queue, get_setting, log_activity
+    from database.client import get_voice_priority_queue, get_voice_priority_calls_today, get_setting, log_activity
     from utils.monitoring import upsert_heartbeat
 
     try:
@@ -395,10 +395,16 @@ def run_click_campaign() -> dict:
     except Exception:
         cap = 50
 
+    # voice_dial_cap is a daily cap, but this job runs hourly — subtract what's
+    # already gone out today so repeated runs can't each independently use the
+    # full cap.
+    already_called_today = get_voice_priority_calls_today()
+    remaining_cap = max(0, cap - already_called_today)
+
     today_utc  = datetime.now(timezone.utc).date().isoformat()
     cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
-    leads = get_voice_priority_queue(cap=cap)
+    leads = get_voice_priority_queue(cap=remaining_cap) if remaining_cap else []
     called, skipped_tz, skipped_no_phone, errors = 0, 0, 0, 0
 
     for lead in leads:

@@ -162,7 +162,7 @@ def mark_scrape_attempted(lead_id: str, email: str | None):
 # ── Email sequence ────────────────────────────────────────────────────────────
 
 def get_leads_due_for_email(limit=50):
-    """Leads where next_email_due_at <= now, not paused, not dead, have email."""
+    """Leads where next_email_due_at <= now, not paused, not dead, have email, not bounced."""
     from datetime import datetime, timezone
     db = get_client()
     now = datetime.now(timezone.utc).isoformat()
@@ -171,6 +171,7 @@ def get_leads_due_for_email(limit=50):
         .select("*")
         .lte("next_email_due_at", now)
         .eq("email_sequence_paused", False)
+        .eq("email_bounced", False)
         .neq("status", "dead")
         .not_.is_("email", "null")
         .neq("email", "")
@@ -328,19 +329,33 @@ def update_campaign_run(run_id: str, data: dict):
 
 
 def save_email_send(lead_id: str, campaign_run_id: str, resend_email_id: str,
-                    email_number: int, sequence_step: int):
+                    email_number: int, sequence_step: int, market: str | None = None):
     """Record a sent email and store resend_email_id on the lead for webhook lookup."""
     try:
-        get_client().table("email_sends").insert({
+        payload = {
             "lead_id": lead_id,
             "campaign_run_id": campaign_run_id,
             "resend_email_id": resend_email_id,
             "email_number": email_number,
             "sequence_step": sequence_step,
-        }).execute()
+        }
+        if market:
+            payload["market"] = market
+        get_client().table("email_sends").insert(payload).execute()
     except Exception:
         pass
     update_lead(lead_id, {"resend_email_id": resend_email_id})
+
+
+def get_emails_sent_today(market: str | None = None) -> int:
+    """Count email_sends since UTC midnight, optionally filtered by market (e.g. CASL CA cap)."""
+    from datetime import datetime, timezone
+    db = get_client()
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    query = db.table("email_sends").select("id", count="exact").gte("sent_at", start)
+    if market:
+        query = query.eq("market", market)
+    return query.execute().count or 0
 
 
 def get_email_send_by_resend_id(resend_email_id: str):
@@ -384,7 +399,7 @@ def get_leads_due_callback() -> list[dict]:
     """
     from datetime import datetime, timezone
     db = get_client()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
 
     # All scheduled callbacks
     rows = (
@@ -399,7 +414,17 @@ def get_leads_due_callback() -> list[dict]:
     for row in rows:
         detail = row.get("detail") or {}
         callback_at = detail.get("callback_at", "")
-        if callback_at and callback_at <= now:
+        if not callback_at:
+            continue
+        try:
+            # callback_at is stored in the lead's local timezone offset (e.g. "-04:00"),
+            # not UTC — comparing the raw ISO strings against `now` (always "+00:00")
+            # is a string compare, not a time compare, and misfires by the size of the
+            # offset. Parse both to aware datetimes and compare the actual instants.
+            cb_dt = datetime.fromisoformat(callback_at.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if cb_dt <= now:
             due_lead_ids.append(str(row["lead_id"]))
 
     if not due_lead_ids:
@@ -528,6 +553,25 @@ def get_leads_for_followup(limit=20) -> list:
     )
     leads = [l for l in result.data if str(l["id"]) not in already_sent]
     return leads[:limit]
+
+
+def get_voice_priority_calls_today() -> int:
+    """Count outbound_call activities placed by the voice priority queue since UTC midnight —
+    used to turn voice_dial_cap into a real daily cap (the job runs hourly, so without this
+    each run independently allows up to `cap` fresh leads, letting the real daily total run
+    several times past the configured cap)."""
+    from datetime import datetime, timezone
+    db = get_client()
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    rows = (
+        db.table("lead_activities")
+        .select("detail")
+        .eq("type", "outbound_call")
+        .gte("created_at", start)
+        .execute()
+        .data or []
+    )
+    return sum(1 for r in rows if (r.get("detail") or {}).get("trigger") == "voice_priority_queue")
 
 
 def get_voice_priority_queue(cap: int = 50) -> list[dict]:

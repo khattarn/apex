@@ -460,7 +460,10 @@ async def email_campaign(_=Depends(verify_token)):
         from agents.email_sender import send_email
         from utils.timezone import is_email_window, window_description
 
-        leads = get_leads_due_for_email()
+        candidates = get_leads_due_for_email()
+        leads = _gate_casl_ca(candidates)
+        if len(leads) < len(candidates):
+            yield {"data": json.dumps({"type": "log", "line": f"CASL gate: {len(candidates) - len(leads)} CA lead(s) held back (daily cap or no scrape consent)"})}
         yield {"data": json.dumps({"type": "log", "line": f"Found {len(leads)} leads due for email"})}
 
         if not leads:
@@ -524,7 +527,7 @@ async def email_campaign(_=Depends(verify_token)):
                 send_result = await asyncio.to_thread(send_email, lead["email"], subject, html)
                 resend_id   = (send_result or {}).get("id", "")
                 if resend_id and run_id:
-                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step)
+                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market)
                 advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used, "subject": subject,
@@ -653,6 +656,10 @@ async def vapi_webhook(request: Request):
     transcript    = (artifact.get("transcript") or "")[:1000]
     call_type     = call.get("type", "")  # "outboundPhoneCall" | "inboundPhoneCall"
     customer_phone = call.get("customer", {}).get("number", "")
+    # Same defensive-location pattern as `analysis` above — Vapi's documented
+    # field is call.cost (USD), but check message/top-level too since that
+    # doc has been unreliable before.
+    call_cost = call.get("cost") or payload.get("cost") or 0
 
     call_outcome        = structured.get("call_outcome", "") or "unknown"
     demo_preferred_time = structured.get("demo_preferred_time", "")
@@ -681,6 +688,7 @@ async def vapi_webhook(request: Request):
             "summary":       summary,
             "transcript":    transcript,
             "call_outcome":  call_outcome,
+            "cost_info":     {"total_cost": call_cost},
         })
 
         # ── Route by extracted call_outcome (mirrors dograh_webhook) ───────────
@@ -737,6 +745,14 @@ async def vapi_webhook(request: Request):
         elif call_outcome == "not_interested":
             update_lead(lead_id, {"status": "dead"})
             _notify_call_outcome(lead_id, "not_interested", recording_url, summary)
+
+        elif call_outcome == "booked_demo_manually":
+            update_lead(lead_id, {"status": "converted"})
+            log_activity(lead_id, "booked_demo_manually", {
+                "source": "vapi_outbound",
+                "note": "Sophie booked the demo manually mid-call",
+            })
+            _notify_call_outcome(lead_id, "booked_demo_manually", recording_url, summary)
 
         return {"ok": True}
 
@@ -893,6 +909,10 @@ async def dograh_webhook(request: Request):
 
     elif call_outcome == "booked_demo_manually":
         update_lead(lead_id, {"status": "converted"})
+        log_activity(lead_id, "booked_demo_manually", {
+            "source": "dograh_outbound",
+            "note": "Sophie booked the demo manually mid-call",
+        })
         _notify_call_outcome(lead_id, "booked_demo_manually", recording_url, summary)
 
     # ── Always log Sophie completion ──────────────────────────────────────────
@@ -1024,7 +1044,7 @@ async def cron_email_sequence(request: Request):
     # Delegate to the same logic as the manual campaign
     from database.client import (
         get_leads_due_for_email, advance_email_sequence,
-        log_activity, save_campaign_run, EMAIL_SEQUENCE, email_sequence_cap,
+        log_activity, save_campaign_run, save_email_send, EMAIL_SEQUENCE, email_sequence_cap,
     )
     from agents.email_personalizer import generate_email, detect_market
     from agents.email_sender import send_email
@@ -1032,8 +1052,17 @@ async def cron_email_sequence(request: Request):
 
     from agents.email_sender import QuotaExceededError
 
-    leads = get_leads_due_for_email(limit=150)
+    candidates = get_leads_due_for_email(limit=150)
+    leads = _gate_casl_ca(candidates)
     sent = skipped = failed = 0
+
+    run_record = save_campaign_run({
+        "type": "email", "business_type": "all", "city": "all",
+        "max_prospects": len(leads), "mode": "cron",
+        "prospects_found": len(leads), "new_leads": 0,
+        "messages_sent": 0, "emails_sent": 0, "log": "Cron in progress…",
+    })
+    run_id = run_record["id"] if run_record else None
 
     for lead in leads:
         if not (lead.get("business_type") or "").strip():
@@ -1056,7 +1085,10 @@ async def cron_email_sequence(request: Request):
         email_num, _ = EMAIL_SEQUENCE[next_step - 1]
         try:
             subject, html, email_num_used, variant = generate_email(lead, email_number=email_num)
-            send_email(lead["email"], subject, html)
+            send_result = send_email(lead["email"], subject, html)
+            resend_id   = (send_result or {}).get("id", "")
+            if resend_id and run_id:
+                save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market)
             advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
             log_activity(lead["id"], "email_sent", {
                 "email_number": email_num_used,
@@ -2290,13 +2322,21 @@ async def health():
     except Exception:
         checks["supabase"] = False
 
-    # Anthropic
+    # Anthropic — raw HTTP, not the SDK (SDK version skew has previously caused
+    # false "down" alerts; see utils/monitoring.py's probe_dependencies for the
+    # same fix). 200/401 both mean the API is actually reachable.
     try:
-        import anthropic
-        anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY")).models.list()
-        checks["anthropic"] = True
+        r = requests.get(
+            "https://api.anthropic.com/v1/models",
+            headers={
+                "x-api-key":         os.getenv("ANTHROPIC_API_KEY", ""),
+                "anthropic-version": "2023-06-01",
+            },
+            timeout=8,
+        )
+        checks["anthropic"] = r.status_code in (200, 401)
     except Exception:
-        checks["anthropic"] = bool(os.getenv("ANTHROPIC_API_KEY"))
+        checks["anthropic"] = False
 
     # Google Maps
     checks["google_maps"] = bool(os.getenv("GOOGLE_MAPS_API_KEY"))
@@ -2735,6 +2775,7 @@ async def _job_click_calls():
 
 async def _job_scheduled_callbacks():
     """Call back leads who asked Sophie to call them at a specific time."""
+    called = errors = 0
     try:
         from database.client import get_leads_due_callback, log_activity
         from agents.vapi_caller import place_sophie_call
@@ -2769,10 +2810,43 @@ async def _job_scheduled_callbacks():
                     "trigger": "scheduled_callback",
                     "phone": lead["phone"],
                 })
+                called += 1
             except Exception as exc:
                 log.error("Scheduled callback failed for lead %s: %s", lead.get("id"), exc)
-    except Exception:
-        pass
+                errors += 1
+        from utils.monitoring import upsert_heartbeat
+        upsert_heartbeat("scheduled_callbacks", {"called": called, "errors": errors})
+    except Exception as exc:
+        log.error("_job_scheduled_callbacks failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("scheduled_callbacks", exc)
+
+
+_CASL_CA_DAILY_CAP = 30
+
+
+def _gate_casl_ca(leads: list[dict]) -> list[dict]:
+    """CASL requires Canada leads on a separate, lower-volume, consent-gated path:
+    only publicly-scraped addresses (scrape_attempted=True, satisfying implied-consent
+    under CASL s.10(9)(b)), capped at _CASL_CA_DAILY_CAP per UTC calendar day — counted
+    against ALL email_sends today, not just this run, since this gate must be applied by
+    every send path (manual, cron endpoint, and the scheduler) to hold as a real daily cap.
+    """
+    from database.client import get_emails_sent_today
+    from agents.email_personalizer import detect_market
+
+    already_sent_ca = get_emails_sent_today(market="CA")
+    remaining_ca = max(0, _CASL_CA_DAILY_CAP - already_sent_ca)
+
+    ca_leads, non_ca_leads = [], []
+    for lead in leads:
+        mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
+        if mkt == "CA":
+            if lead.get("scrape_attempted"):
+                ca_leads.append(lead)
+        else:
+            non_ca_leads.append(lead)
+    return non_ca_leads + ca_leads[:remaining_ca]
 
 
 async def _job_email_campaign():
@@ -2788,20 +2862,8 @@ async def _job_email_campaign():
         from agents.email_sender import send_email, QuotaExceededError
         from utils.timezone import is_email_window
 
-        # CASL requires Canada leads on a separate, lower-volume path.
-        # Only send CA emails to publicly-scraped addresses (scrape_attempted=True),
-        # which satisfies implied-consent requirements under CASL s.10(9)(b).
-        _CA_CAP, _NON_CA_CAP = 30, 150
         all_candidates = get_leads_due_for_email(limit=250)
-        ca_leads, non_ca_leads = [], []
-        for _l in all_candidates:
-            _mkt = detect_market(_l.get("phone", ""), _l.get("address", "") or "")
-            if _mkt == "CA":
-                if _l.get("scrape_attempted"):
-                    ca_leads.append(_l)
-            else:
-                non_ca_leads.append(_l)
-        leads = non_ca_leads[:_NON_CA_CAP] + ca_leads[:_CA_CAP]
+        leads = _gate_casl_ca(all_candidates)
         sent = skipped = failed = 0
 
         # Create a campaign run so email_sends records have a parent
@@ -2837,7 +2899,7 @@ async def _job_email_campaign():
                 send_result = send_email(lead["email"], subject, html)
                 resend_id   = (send_result or {}).get("id", "")
                 if resend_id and run_id:
-                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step)
+                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market)
                 advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used,
@@ -2974,6 +3036,8 @@ async def _job_watchdog():
                 asyncio.ensure_future(fn())
     except Exception as exc:
         log.error("_job_watchdog failed: %s", exc)
+        from utils.alerter import alert_founder
+        alert_founder("watchdog", exc)
 
 
 async def _job_prospect():
@@ -3236,15 +3300,18 @@ async def start_scheduler():
 
     # Populate job registry — used by _job_watchdog for auto-recovery
     _JOB_REGISTRY.update({
-        "prospect_cron":  _job_prospect,
-        "jobad_scout":    _job_jobad_scout,
-        "email_campaign": _job_email_campaign,
-        "wa_broadcast":   _job_wa_broadcast,
-        "wa_followup":    _job_wa_followup,
-        "voice_followup": _job_voice_followup,
-        "observatory":    _job_observatory,
-        "email_poller":   _job_email_poller,
-        "enrich_emails":  _job_enrich_emails,
+        "prospect_cron":        _job_prospect,
+        "jobad_scout":          _job_jobad_scout,
+        "email_campaign":       _job_email_campaign,
+        "wa_broadcast":         _job_wa_broadcast,
+        "wa_followup":          _job_wa_followup,
+        "voice_followup":       _job_voice_followup,
+        "observatory":          _job_observatory,
+        "email_poller":         _job_email_poller,
+        "enrich_emails":        _job_enrich_emails,
+        "click_calls":          _job_click_calls,
+        "scheduled_callbacks":  _job_scheduled_callbacks,
+        "signal_weekly":        _job_signal_weekly,
     })
 
     # Startup catch-up: re-fire any overdue jobs immediately on boot.
@@ -3439,6 +3506,16 @@ async def reply_wa_inbox(inbox_id: str, body: dict, _=Depends(verify_token)):
     except Exception:
         pass  # DB update failure must not block a successfully sent message
 
+    return {"ok": True}
+
+
+@app.post("/api/inbox/wa/{inbox_id}/read")
+async def mark_wa_inbox_read(inbox_id: str, _=Depends(verify_token)):
+    """Mark a WA inbox message read without sending a reply (drives the unread badge)."""
+    from database.client import get_client
+
+    # Only flip status if it's still "new" — never clobber a "replied" status.
+    get_client().table("wa_inbox").update({"status": "read"}).eq("id", inbox_id).eq("status", "new").execute()
     return {"ok": True}
 
 

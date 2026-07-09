@@ -8,7 +8,7 @@ Wire up in server.py after Signal and Brain are live.
 
 import logging
 from datetime import datetime, timezone
-from database.client import supabase
+from database.client import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ FOUNDER_WA_NUMBER = "+919810982019"
 
 async def write_journal(entry_type: str, summary: str, detail: dict = None):
     """Write an entry to the system journal."""
-    supabase.table("system_journal").insert({
+    get_client().table("system_journal").insert({
         "entry_type": entry_type,
         "summary": summary,
         "detail": detail or {},
@@ -59,7 +59,7 @@ async def issue_directive(agent: str, directive: str, params: dict = None):
     Directives: PAUSE | ADJUST_INTERVAL | CHANGE_TEMPLATE | TARGET | ABORT_LEAD
     Each agent must call check_directives() before running.
     """
-    supabase.table("agent_directives").insert({
+    get_client().table("agent_directives").insert({
         "agent": agent,
         "directive": directive,
         "params": params or {},
@@ -75,7 +75,7 @@ async def check_directives(agent_name: str) -> list:
     Each agent calls this before running.
     Returns list of active directives relevant to that agent.
     """
-    result = supabase.table("agent_directives") \
+    result = get_client().table("agent_directives") \
         .select("*") \
         .eq("agent", agent_name) \
         .eq("status", "pending") \
@@ -84,7 +84,7 @@ async def check_directives(agent_name: str) -> list:
 
 
 async def mark_directive_applied(directive_id: str):
-    supabase.table("agent_directives").update({
+    get_client().table("agent_directives").update({
         "status": "applied",
         "applied_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", directive_id).execute()

@@ -769,7 +769,7 @@ Output ONLY the message text."""
         "signal_copy_proposal",
         f"Signal proposes new {channel} template for {business_type}/{country}",
         {
-            "channel":current_template, "business_type":business_type, "country":country,
+            "channel":channel, "business_type":business_type, "country":country,
             "current_template":current_template, "proposed_template":improved,
             "performance_data":performance_data,
         },

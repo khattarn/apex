@@ -19,14 +19,16 @@ log = logging.getLogger(__name__)
 # Maximum gap (hours) between successful runs before raising an alert.
 # Set generously to avoid false positives across weekends / scheduled quiet periods.
 CADENCE_HOURS: dict[str, int] = {
-    "email_campaign":  14,   # runs at 22:00 and 13:00 UTC
-    "wa_broadcast":    26,   # hourly Mon–Fri
-    "wa_followup":     26,   # daily 9am UTC
-    "voice_followup":  26,   # hourly Mon–Fri
-    "observatory":     26,   # daily 1:30 UTC
-    "prospect_cron":   26,   # daily 12:00 UTC
-    "jobad_scout":     26,   # daily 14:00 UTC
-    "signal_weekly":   200,  # Monday 6am UTC
+    "email_campaign":       14,   # runs at 22:00 and 13:00 UTC
+    "wa_broadcast":         26,   # hourly Mon–Fri
+    "wa_followup":          26,   # daily 9am UTC
+    "voice_followup":       26,   # hourly Mon–Fri
+    "observatory":          26,   # daily 1:30 UTC
+    "prospect_cron":        26,   # daily 12:00 UTC
+    "jobad_scout":          26,   # daily 14:00 UTC
+    "signal_weekly":        200,  # Monday 6am UTC
+    "click_calls":          26,   # hourly Mon–Fri
+    "scheduled_callbacks":  6,    # every 15 min Mon–Fri — a stuck run means a promised callback is missed
 }
 
 _SEVERITY_CRITICAL = "critical"
