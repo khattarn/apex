@@ -35,10 +35,14 @@ function BarRow({ label, value, total, color }) {
   )
 }
 
-function PracticeDeskDetail({ stats }) {
+function PracticeDeskDetail({ stats, statsError }) {
   const pd = stats?.practicedesk
   if (!pd) {
-    return <p className="text-xs text-slate-500">Loading stats…</p>
+    return (
+      <p className={`text-xs ${statsError ? 'text-red-400' : 'text-slate-500'}`}>
+        {statsError ? 'Stats unavailable — try refreshing' : 'Loading stats…'}
+      </p>
+    )
   }
 
   const verticalColors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-cyan-500', 'bg-teal-500']
@@ -137,13 +141,14 @@ export default function ProductDetail() {
   const { productId } = useParams()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+  const [statsError, setStatsError] = useState(false)
   const token = localStorage.getItem('pd_token')
 
   const product = PRODUCTS.find(p => p.id === productId)
 
   useEffect(() => {
     if (!product || product.statsSource !== 'supabase') return
-    fetchProductStats(token).then(setStats).catch(() => {})
+    fetchProductStats(token).then(setStats).catch(() => setStatsError(true))
   }, [token, product])
 
   if (!product) {
@@ -220,7 +225,7 @@ export default function ProductDetail() {
       <div>
         <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">Metrics</p>
         {product.statsSource === 'supabase'
-          ? <PracticeDeskDetail stats={stats} />
+          ? <PracticeDeskDetail stats={stats} statsError={statsError} />
           : <FirebasePlaceholder product={product} />
         }
       </div>

@@ -33,6 +33,7 @@ export default function Settings() {
   const [savedTemplate, setSavedTemplate] = useState('')
   const [savingTemplate, setSavingTemplate] = useState(false)
   const [templateMsg, setTemplateMsg] = useState(null)
+  const [templateLoadFailed, setTemplateLoadFailed] = useState(false)
 
   const [health, setHealth] = useState({})
   const [checkingHealth, setCheckingHealth] = useState(false)
@@ -49,14 +50,18 @@ export default function Settings() {
   const [emailPreviewMarket, setEmailPreviewMarket] = useState('CA')
 
   useEffect(() => {
-    getSetting('whatsapp_prompt_template')
-      .then(({ value }) => { setTemplate(value); setSavedTemplate(value) })
-      .catch(() => {})
-
+    loadWaTemplate()
     checkHealth()
     loadTemplates()
     loadEmailPreview(1, 'CA')
   }, [])
+
+  function loadWaTemplate() {
+    setTemplateLoadFailed(false)
+    getSetting('whatsapp_prompt_template')
+      .then(({ value }) => { setTemplate(value); setSavedTemplate(value) })
+      .catch(() => setTemplateLoadFailed(true))
+  }
 
   async function loadEmailPreview(num, market) {
     setEmailPreviewLoading(true)
@@ -174,27 +179,43 @@ export default function Settings() {
             <code className="text-indigo-400">&#123;city&#125;</code>.
           </p>
         </div>
-        <textarea
-          value={template}
-          onChange={(e) => setTemplate(e.target.value)}
-          rows={6}
-          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none leading-5"
-        />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={saveTemplate}
-            disabled={savingTemplate || template === savedTemplate}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded transition-colors"
-          >
-            <Save size={13} />
-            {savingTemplate ? 'Saving…' : 'Save'}
-          </button>
-          {templateMsg && (
-            <p className={`text-xs ${templateMsg.ok ? 'text-green-400' : 'text-red-400'}`}>
-              {templateMsg.text}
+        {templateLoadFailed ? (
+          <div className="bg-red-900/30 border border-red-700/50 rounded px-3 py-2.5 flex items-center justify-between gap-3">
+            <p className="text-xs text-red-400">
+              Failed to load the current template — editing is disabled so you don't accidentally overwrite it.
             </p>
-          )}
-        </div>
+            <button
+              onClick={loadWaTemplate}
+              className="shrink-0 flex items-center gap-1.5 text-xs text-red-300 hover:text-white border border-red-700/50 hover:bg-red-800/40 px-2.5 py-1 rounded transition-colors"
+            >
+              <RefreshCw size={11} /> Retry
+            </button>
+          </div>
+        ) : (
+          <>
+            <textarea
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              rows={6}
+              className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none leading-5"
+            />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={saveTemplate}
+                disabled={savingTemplate || template === savedTemplate}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded transition-colors"
+              >
+                <Save size={13} />
+                {savingTemplate ? 'Saving…' : 'Save'}
+              </button>
+              {templateMsg && (
+                <p className={`text-xs ${templateMsg.ok ? 'text-green-400' : 'text-red-400'}`}>
+                  {templateMsg.text}
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       {/* WA Templates */}

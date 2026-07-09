@@ -145,14 +145,16 @@ export default function AgentDetail() {
   const { agentId } = useParams()
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+  const [statsError, setStatsError] = useState(false)
   const token = localStorage.getItem('pd_token')
 
   const agent = AGENTS.find(a => a.id === agentId)
 
   useEffect(() => {
     if (!agent || agent.status === 'planned') return
-    fetchAgentStats(token).then(setStats).catch(() => {})
-    const t = setInterval(() => fetchAgentStats(token).then(setStats).catch(() => {}), 10000)
+    const fetchStats = () => fetchAgentStats(token).then((s) => { setStats(s); setStatsError(false) }).catch(() => setStatsError(true))
+    fetchStats()
+    const t = setInterval(fetchStats, 10000)
     return () => clearInterval(t)
   }, [token, agent])
 
@@ -203,6 +205,7 @@ export default function AgentDetail() {
                     Running
                   </span>
                 )}
+                {statsError && <span className="text-xs text-red-400">Stats unavailable — retrying…</span>}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">{agent.tech} · {agent.owner}</p>
             </div>

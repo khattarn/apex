@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { MessageSquare, Send, RefreshCw, Search, Users, Megaphone, Phone, Radio } from 'lucide-react'
-import { getWaInbox, replyWaInbox, getLeads, getCampaigns } from '../api'
+import { getWaInbox, replyWaInbox, markWaRead, getLeads, getCampaigns } from '../api'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -238,7 +238,7 @@ function ChatArea({ thread, onReply }) {
 
 // ─── Inbox panel (thread list + chat) ────────────────────────────────────────
 
-function InboxPanel({ messages, loading, onReply }) {
+function InboxPanel({ messages, loading, onReply, onOpenThread }) {
   const [selectedPhone, setSelectedPhone] = useState(null)
   const [filter, setFilter] = useState('all')
   const [searchQ, setSearchQ] = useState('')
@@ -326,7 +326,10 @@ function InboxPanel({ messages, loading, onReply }) {
               key={thread.phone}
               thread={thread}
               selected={selectedPhone === thread.phone}
-              onClick={() => setSelectedPhone(thread.phone)}
+              onClick={() => {
+                setSelectedPhone(thread.phone)
+                if (thread.unread > 0) onOpenThread(thread)
+              }}
             />
           ))}
         </div>
@@ -355,8 +358,8 @@ function ContactsPanel() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    getLeads({ limit: 500 })
-      .then(r => setLeads(r.leads || []))
+    getLeads({ limit: 100 })
+      .then(r => setLeads(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -445,7 +448,7 @@ function BroadcastsPanel() {
   useEffect(() => {
     getCampaigns()
       .then(r => {
-        const all = r.runs || r.campaigns || []
+        const all = Array.isArray(r) ? r : r?.data || []
         setCampaigns(all.filter(c => c.mode === 'wa_blast').slice(0, 50))
       })
       .catch(() => {})
@@ -529,6 +532,14 @@ export default function Inbox() {
     )
   }
 
+  async function handleOpenThread(thread) {
+    const unreadIds = thread.msgs.filter(m => m.status === 'new').map(m => m.id)
+    setMessages(prev =>
+      prev.map(m => unreadIds.includes(m.id) ? { ...m, status: 'read' } : m)
+    )
+    await Promise.all(unreadIds.map(id => markWaRead(id).catch(() => {})))
+  }
+
   const tabs = [
     { id: 'inbox',      label: 'Inbox',      Icon: MessageSquare },
     { id: 'contacts',   label: 'Contacts',   Icon: Users },
@@ -572,7 +583,7 @@ export default function Inbox() {
 
       {/* Panel content */}
       {tab === 'inbox' && (
-        <InboxPanel messages={messages} loading={loading} onReply={handleReply} />
+        <InboxPanel messages={messages} loading={loading} onReply={handleReply} onOpenThread={handleOpenThread} />
       )}
       {tab === 'contacts' && <ContactsPanel />}
       {tab === 'broadcasts' && <BroadcastsPanel />}

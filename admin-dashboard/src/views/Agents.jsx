@@ -288,11 +288,13 @@ function timeAgo(iso) {
 export default function Agents() {
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+  const [statsError, setStatsError] = useState(false)
   const token = localStorage.getItem('pd_token')
 
   useEffect(() => {
-    fetchAgentStats(token).then(setStats).catch(() => {})
-    const t = setInterval(() => fetchAgentStats(token).then(setStats).catch(() => {}), 10000)
+    const fetchStats = () => fetchAgentStats(token).then((s) => { setStats(s); setStatsError(false) }).catch(() => setStatsError(true))
+    fetchStats()
+    const t = setInterval(fetchStats, 10000)
     return () => clearInterval(t)
   }, [token])
 
@@ -304,13 +306,16 @@ export default function Agents() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">Agents</h2>
-        <p className="text-xs text-slate-500">
-          <span className="text-green-400">{liveCount} live</span>
-          <span className="mx-1.5 text-slate-700">·</span>
-          <span className="text-amber-400">{buildingCount} building</span>
-          <span className="mx-1.5 text-slate-700">·</span>
-          {plannedCount} planned
-        </p>
+        <div className="flex items-center gap-3">
+          {statsError && <span className="text-xs text-red-400">Stats unavailable — retrying…</span>}
+          <p className="text-xs text-slate-500">
+            <span className="text-green-400">{liveCount} live</span>
+            <span className="mx-1.5 text-slate-700">·</span>
+            <span className="text-amber-400">{buildingCount} building</span>
+            <span className="mx-1.5 text-slate-700">·</span>
+            {plannedCount} planned
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

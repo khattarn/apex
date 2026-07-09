@@ -78,10 +78,11 @@ const COLOR = {
 export default function Products() {
   const navigate = useNavigate()
   const [stats, setStats] = useState(null)
+  const [statsError, setStatsError] = useState(false)
   const token = localStorage.getItem('pd_token')
 
   useEffect(() => {
-    fetchProductStats(token).then(setStats).catch(() => {})
+    fetchProductStats(token).then(setStats).catch(() => setStatsError(true))
   }, [token])
 
   const pd = stats?.practicedesk
@@ -90,6 +91,7 @@ export default function Products() {
     if (product.statsSource === 'firebase') {
       return <span className="text-slate-600 text-xs">Firebase metrics — connect to enable</span>
     }
+    if (statsError) return <span className="text-red-400 text-xs">Stats unavailable</span>
     if (!pd) return <span className="text-slate-600 text-xs">Loading…</span>
     return (
       <span className="text-xs text-slate-400">

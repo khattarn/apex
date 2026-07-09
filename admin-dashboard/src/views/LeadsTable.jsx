@@ -136,6 +136,7 @@ export default function LeadsTable() {
     if (!confirm(`Place outbound call to ${lead.name} at ${lead.phone}?`)) return
     try {
       await callLead(lead.id)
+      setCalledIds((prev) => new Set(prev).add(String(lead.id)))
       load()
     } catch (e) {
       alert(`Call failed: ${e.message}`)

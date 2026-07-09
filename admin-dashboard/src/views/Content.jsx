@@ -483,6 +483,7 @@ function GenerateTab({ onSaved }) {
   const [error, setError]       = useState(null)
   const [queuing, setQueuing]   = useState(false)
   const [queued, setQueued]     = useState(false)
+  const [queueError, setQueueError] = useState(null)
 
   function handleProductChange(p) {
     setProduct(p)
@@ -514,6 +515,7 @@ function GenerateTab({ onSaved }) {
   async function handleSaveToQueue() {
     if (!result) return
     setQueuing(true)
+    setQueueError(null)
     try {
       await saveApproval({
         content_type: result.content_type,
@@ -528,7 +530,7 @@ function GenerateTab({ onSaved }) {
       setQueued(true)
       onSaved()
     } catch (e) {
-      // fail silently — content is still available to copy
+      setQueueError(e.message || 'Failed to save — content is still available to copy above')
     } finally {
       setQueuing(false)
     }
@@ -699,6 +701,9 @@ function GenerateTab({ onSaved }) {
                       : <><Inbox size={12} /> Save to Queue</>}
                 </button>
               </div>
+              {queueError && (
+                <p className="text-xs text-red-400 mt-1">{queueError}</p>
+              )}
             </div>
 
             {/* Content body */}
