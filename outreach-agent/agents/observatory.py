@@ -76,8 +76,8 @@ def _get_emails_detail(start: str, end: str) -> tuple[int, int, int]:
         rows = (
             db.table("email_sends")
             .select("opened_at, clicked_at")
-            .gte("created_at", start)
-            .lte("created_at", end)
+            .gte("sent_at", start)
+            .lte("sent_at", end)
             .execute()
             .data or []
         )
