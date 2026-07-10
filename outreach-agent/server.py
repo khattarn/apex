@@ -618,6 +618,77 @@ async def resend_webhook(request: Request):
     return {"ok": True}
 
 
+# ── Cal.com webhook — captures self-serve demo bookings ─────────────────────
+# Catches bookings made by a lead clicking the demo link directly (email/dashboard),
+# never talking to Sophie. Without this, leads.demo_booked only ever got set via
+# _handle_book_demo() (the in-call auto-booking path) — self-serve bookings were
+# completely invisible to this system, only visible by checking the Cal.com
+# calendar directly.
+#
+# Configure in Cal.com: Settings -> Developer -> Webhooks -> Add -> Subscriber URL
+# = https://<railway-domain>/api/webhooks/cal, Event trigger = "Booking Created",
+# copy the generated secret into Railway as CAL_WEBHOOK_SECRET.
+@app.post("/api/webhooks/cal")
+async def cal_webhook(request: Request):
+    import hmac as _hmac, hashlib as _hashlib
+    body   = await request.body()
+    secret = os.getenv("CAL_WEBHOOK_SECRET", "")
+
+    if secret:
+        signature = request.headers.get("X-Cal-Signature-256", "")
+        computed  = _hmac.new(secret.encode(), body, _hashlib.sha256).hexdigest()
+        if not _hmac.compare_digest(computed, signature):
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    payload = json.loads(body)
+    if payload.get("triggerEvent") != "BOOKING_CREATED":
+        return {"ok": True}
+
+    data      = payload.get("payload", {})
+    attendees = data.get("attendees") or []
+    email     = (attendees[0].get("email", "") if attendees else "").strip().lower()
+    start_time  = data.get("startTime", "")
+    booking_uid = data.get("uid", "")
+
+    if not email:
+        return {"ok": True}
+
+    from database.client import get_client, update_lead, log_activity
+    db   = get_client()
+    rows = db.table("leads").select("id, name").ilike("email", email).limit(1).execute().data or []
+    if not rows:
+        log.info("Cal.com webhook: booking from %s — no matching lead", email)
+        return {"ok": True}
+
+    lead    = rows[0]
+    lead_id = str(lead["id"])
+
+    update_lead(lead_id, {
+        "demo_booked":    True,
+        "demo_booked_at": start_time or None,
+        "status":         "converted",
+    })
+    log_activity(lead_id, "booked_demo", {
+        "start_time":     start_time,
+        "booking_uid":    booking_uid,
+        "attendee_email": email,
+        "source":         "email_self_serve",
+    })
+
+    try:
+        from utils.notifier import notify_founder
+        notify_founder(
+            kind="call_outcome",
+            label="🎉 Demo booked (self-serve, no call)",
+            lead_line=f"{lead.get('name', '')} — {email}",
+            detail=f"Booked for {start_time}" if start_time else "",
+        )
+    except Exception:
+        pass
+
+    return {"ok": True}
+
+
 # ── Vapi webhook — Henry inbound only (number printed on outgoing emails) ───
 # Henry stays on Vapi until the printed number is retired. When a new inbound
 # number is set up in Dograh, update INBOUND_PHONE* in email_templates.py and
@@ -1020,6 +1091,12 @@ def _handle_book_demo(
             send_booking_whatsapp(phone, name, friendly)
 
             if lead_id:
+                from database.client import update_lead as _update_lead
+                _update_lead(lead_id, {
+                    "demo_booked":    True,
+                    "demo_booked_at": start_iso,
+                    "status":         "converted",
+                })
                 log_activity(lead_id, "demo_booked", {
                     "start_time":    start_iso,
                     "booking_uid":   result.get("booking_uid"),
