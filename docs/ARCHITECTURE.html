@@ -230,6 +230,23 @@
   </div>
 
   <div class="card">
+    <div class="card-title">Demo Booking Capture <span class="badge badge-fixed">FIXED 2026-07-10</span></div>
+    <div class="card-sub">
+      Two paths write to the same fields now: <strong>voice</strong> — Sophie books during a call via
+      <code>_handle_book_demo()</code> (Cal.com API); <strong>self-serve</strong> — a lead clicks the demo link in
+      an email/dashboard and books directly on Cal.com's page, captured by
+      <code>POST /api/webhooks/cal</code> (HMAC-verified, matches by attendee email).<br>
+      Both now set <code>leads.demo_booked</code>/<code>demo_booked_at</code>/<code>status="converted"</code> and
+      log a <code>booked_demo</code> activity (self-serve tagged <code>source: "email_self_serve"</code>) — before
+      this fix, <strong>neither path actually set the boolean field</strong>, only logged the activity, so
+      self-serve bookings (probably the higher-intent channel) were invisible to the system entirely.<br>
+      Manual step required: create the webhook in Cal.com (Settings → Developer → Webhooks → event "Booking
+      Created") and set <code>CAL_WEBHOOK_SECRET</code> on Railway from the generated secret — works unauthenticated
+      in the interim (graceful-degradation pattern, same as the Resend webhook).
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">Job-Ad Scout — <code>_job_jobad_scout</code> <span class="badge badge-live">LIVE 2026-07-10</span></div>
     <div class="card-sub">
       Daily 14:00 UTC. SerpAPI Google Jobs search (dentist + doctor front-desk/receptionist queries) → resolve each
@@ -620,6 +637,26 @@
   <div class="fix-entry">
     <div class="fix-date">2026-07-10</div>
     <div>
+      <div class="fix-title">leads.demo_booked never set anywhere — Cal.com webhook built for self-serve bookings</div>
+      <div class="fix-body">
+        Investigating a "demo link clicked" lead led to discovering <code>leads.demo_booked</code> was never set
+        to <code>True</code> anywhere in the codebase — not even by the existing voice-call auto-booking path,
+        which only logged a <code>demo_booked</code> activity. Self-serve bookings (a lead clicking the email link
+        and booking directly on Cal.com, never talking to Sophie) were completely invisible to this system —
+        wouldn't show in the CEO Report, wouldn't flip lead status, nothing.
+        Added <code>POST /api/webhooks/cal</code> (HMAC-SHA256 verified, same pattern as the Resend webhook) that
+        matches Cal.com's <code>BOOKING_CREATED</code> event to a lead by attendee email and sets
+        <code>demo_booked</code>/<code>demo_booked_at</code>/<code>status="converted"</code> + logs the activity.
+        Fixed the same gap in the voice-booking path for consistency. Tested end-to-end against a throwaway lead
+        (created → verified → deleted) plus signature verification (correct/wrong/missing all behave correctly).
+      </div>
+      <div class="fix-files">outreach-agent/server.py → cal_webhook(), _handle_book_demo()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
       <div class="fix-title">Change #11 — Job-ad scout built end-to-end (SerpAPI → Places → job_ad_frontdesk)</div>
       <div class="fix-body">
         New daily cron finds clinics actively hiring a front-desk receptionist (SerpAPI Google Jobs), resolves each
@@ -882,6 +919,46 @@
       session (each commit triggered an immediate build, verified via <code>railway status</code> showing the
       matching commit hash mid-build). The manual <code>railway up</code> workaround described here is unnecessary
       now; leaving this entry for history but it should not be followed.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Live Activity dashboard "ready" list doesn't match real call-eligibility rules <span class="badge badge-issue">ISSUE — found 2026-07-10</span></div>
+    <div class="card-sub">
+      <code>/api/activity/live</code>'s click-calls preview (used by <code>LiveActivity.jsx</code>) computes
+      candidates from raw <code>email_clicked</code> activity history minus already-called — it does NOT apply
+      the <code>status not in (dead, converted)</code> exclusion or the "clicked before today UTC" next-working-day
+      rule that the <em>actual</em> calling logic (<code>get_clicked_uncalled_leads()</code>) uses. Result: leads
+      show as "ready" that the real cron will never call (dead leads) or won't call until tomorrow (same-day
+      clicks) — misleading, reads as "waiting on timezone" when it's really "waiting on tomorrow" or "never".
+      Confirmed on a real 9-lead sample: only 1 of 9 shown as ready/pending was an actual candidate for the next run.
+      Not yet fixed — needs <code>/api/activity/live</code>'s click-pending logic aligned with
+      <code>get_clicked_uncalled_leads()</code>.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Possible bot/security-scanner false-positive email clicks <span class="badge badge-issue">ISSUE — found 2026-07-10, not investigated further</span></div>
+    <div class="card-sub">
+      Multiple leads in the same email batch showed email opened + demo-link clicked within 13–32 seconds of the
+      send — an unusually fast pattern for a human to read and deliberately click, and a known signature of
+      corporate email security scanners (Microsoft Safe Links, Proofpoint URL Defense, etc.) that pre-fetch/"click"
+      every link in an inbound email before a human sees it. If widespread, this pollutes click-tracking data and
+      the voice priority queue (which ranks "clicked" leads as tier-1) with false positives. Not yet quantified
+      across the full lead base or fixed — candidate fix: a "click happened within N seconds of send" filter to
+      exclude likely-bot clicks from prioritization.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">No audit trail for manual lead status changes <span class="badge badge-issue">ISSUE — found 2026-07-10</span></div>
+    <div class="card-sub">
+      Found via a lead ("209 NYC Dental") that showed <code>status="dead"</code> with zero recorded reason —
+      no notes, no <code>marked_not_interested</code> activity, no call outcome — despite having just clicked the
+      demo-booking link (the highest-intent action possible). <code>LeadsTable.jsx</code>'s status dropdown calls
+      <code>patchLead()</code> directly with no <code>log_activity()</code> call for the transition itself, so
+      there's no way to trace who changed a status or why. Isolated case (not a wider pattern — checked), but a
+      real traceability gap. Not yet fixed.
     </div>
   </div>
 
