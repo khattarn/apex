@@ -691,6 +691,52 @@ async def vapi_webhook(request: Request):
             "cost_info":     {"total_cost": call_cost},
         })
 
+        # ── CA trunk fallback: retry once via Ontario if Aria hit a SIP/provider
+        # fault (never a real "prospect didn't answer" outcome — the call never
+        # connected). One retry only, guarded by a lead_activities marker so a
+        # second Ontario failure doesn't loop.
+        phone_number_id_used = call.get("phoneNumberId", "")
+        aria_ca_id    = os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
+        ontario_ca_id = os.getenv("VAPI_CA_ONTARIO_PHONE_NUMBER_ID", "94e7fccf-03c2-4442-a99b-d992b01b3a2f")
+        is_provider_fault = ended_reason.startswith("call.in-progress.error-providerfault") or \
+                             ended_reason.startswith("call.start.error")
+        if is_provider_fault and phone_number_id_used == aria_ca_id:
+            from database.client import get_client as _gc2
+            existing = _gc2().table("lead_activities").select("id").eq("lead_id", lead_id).eq("type", "ca_fallback_retry").limit(1).execute()
+            if not existing.data:
+                try:
+                    from agents.vapi_caller import place_sophie_call
+                    from agents.voice_outreach import _get_script, _pricing_line
+                    from agents.email_personalizer import detect_market
+                    from database.client import get_lead_by_id
+                    lead_rec = get_lead_by_id(lead_id)
+                    if lead_rec and lead_rec.get("phone"):
+                        script = _get_script(lead_rec.get("business_type", "").lower(), lead_rec.get("pain_signal", ""))
+                        mkt = detect_market(lead_rec.get("phone", ""), lead_rec.get("address", "") or "")
+                        retry_result = place_sophie_call(
+                            phone=lead_rec["phone"],
+                            business_name=lead_rec.get("name", ""),
+                            business_type=lead_rec.get("business_type", ""),
+                            city=lead_rec.get("city", ""),
+                            opener=script.get("firstMessage", ""),
+                            insight=script.get("insight", ""),
+                            pain_question=script.get("pain_question", ""),
+                            lead_id=lead_id,
+                            phone_number_id=ontario_ca_id,
+                            pain_signal=lead_rec.get("pain_signal", "") or "",
+                            pain_finding=lead_rec.get("pain_finding", "") or "",
+                            pricing_line=_pricing_line(mkt),
+                            address=lead_rec.get("address", ""),
+                        )
+                        log_activity(lead_id, "ca_fallback_retry", {
+                            "reason": ended_reason,
+                            "retry_vapi_call_id": retry_result.get("id", ""),
+                            "retry_number_id": ontario_ca_id,
+                        })
+                        log.info("CA fallback: retried lead %s via Ontario after Aria %s", lead_id, ended_reason)
+                except Exception as exc:
+                    log.warning("CA fallback retry failed for lead %s: %s", lead_id, exc)
+
         # ── Route by extracted call_outcome (mirrors dograh_webhook) ───────────
         if call_outcome == "booked_demo":
             booking_result = _handle_book_demo(
