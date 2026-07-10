@@ -1833,6 +1833,43 @@ async def signalwire_recording_callback(request: Request, to: str = Query(defaul
     return {"ok": True}
 
 
+class StartRecordingRequest(BaseModel):
+    call_id: str
+    to: str = ""
+
+
+@app.post("/api/signalwire/start-recording")
+async def signalwire_start_recording(req: StartRecordingRequest, _=Depends(verify_token)):
+    """Starts recording on an already-connected International-dialpad call via the
+    Compatibility REST API. Works regardless of how the call was dialed (direct PSTN
+    dial via the Fabric SDK, not just calls routed through the dialpad-swml resource) —
+    confirmed by probing a past Fabric-dialed call's id against this same endpoint and
+    getting error 21220 (call not in-progress) rather than a not-found error."""
+    from urllib.parse import quote as _quote
+    space      = os.getenv("SIGNALWIRE_SPACE", "")
+    project_id = os.getenv("SIGNALWIRE_PROJECT_ID", "")
+    sw_token   = os.getenv("SIGNALWIRE_TOKEN", "")
+    base_url   = os.getenv("PUBLIC_BASE_URL", "https://serene-passion-production-cd82.up.railway.app")
+    if not all([space, project_id, sw_token]):
+        raise HTTPException(status_code=500, detail="SIGNALWIRE_PROJECT_ID / SIGNALWIRE_TOKEN / SIGNALWIRE_SPACE not set")
+
+    status_url = f"{base_url}/api/signalwire/recording-callback?to={_quote(req.to)}"
+    resp = requests.post(
+        f"https://{space}/api/laml/2010-04-01/Accounts/{project_id}/Calls/{req.call_id}/Recordings.json",
+        auth=(project_id, sw_token),
+        data={
+            "RecordingChannels": "dual",
+            "RecordingStatusCallback": status_url,
+            "RecordingStatusCallbackEvent": "completed",
+        },
+        timeout=10,
+    )
+    log.info("start-recording: call_id=%s status=%s body=%s", req.call_id, resp.status_code, resp.text[:300])
+    if not resp.ok:
+        return {"ok": False, "status_code": resp.status_code, "error": resp.text}
+    return {"ok": True, "recording": resp.json()}
+
+
 @app.get("/api/signalwire/henry-inbound-swml")
 @app.post("/api/signalwire/henry-inbound-swml")
 async def henry_inbound_swml(request: Request):

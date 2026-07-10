@@ -207,6 +207,11 @@ function InternationalDialpad() {
           // the sync getter will have the value.
           const existing = call.remoteStream
           if (existing) attachAudio(existing)
+          // Fire-and-forget: start server-side recording now that the call is live.
+          request('/api/signalwire/start-recording', {
+            method: 'POST',
+            body: JSON.stringify({ call_id: call.id, to: dest }),
+          }).catch(err => console.warn('[Dialpad] start-recording failed:', err))
         } else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
           if (s === 'failed') { setStatus('error'); setErrMsg('Call failed') }
           else setStatus('ended')
