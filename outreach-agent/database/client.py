@@ -447,7 +447,7 @@ def get_leads_due_callback() -> list[dict]:
 
     result = (
         db.table("leads")
-        .select("id, name, phone, city, business_type, status")
+        .select("id, name, phone, address, city, business_type, status")
         .in_("id", remaining)
         .not_.in_("status", ["dead", "converted"])
         .execute()
@@ -602,7 +602,7 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
     candidates = (
         db.table("leads")
         .select(
-            "id, name, phone, city, market, business_type, status, "
+            "id, name, phone, address, city, market, business_type, status, "
             "email_clicked, email_clicked_at, email_opened, email_sent, "
             "email_last_sent_at, outreach_sent, pain_score, pain_signal, pain_finding"
         )

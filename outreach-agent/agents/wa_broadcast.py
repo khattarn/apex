@@ -70,7 +70,7 @@ def _get_pending_leads(limit: int = 300) -> list[dict]:
     db = get_client()
     return (
         db.table("leads")
-        .select("id, name, phone, city, business_type, status")
+        .select("id, name, phone, address, city, business_type, status")
         .or_("outreach_sent.eq.false,outreach_sent.is.null")
         .not_.in_("status", ["dead", "converted"])
         .not_.is_("phone", "null")
@@ -98,20 +98,26 @@ def run_wa_broadcast() -> dict:
         if sent >= MAX_PER_RUN:
             break
 
-        city = lead.get("city", "")
-        if not is_wa_window(city):
-            skipped_hours += 1
-            continue
-
+        city  = lead.get("city", "")
         phone = lead.get("phone", "")
         if not phone:
             skipped_no_phone += 1
             continue
 
-        # US/CA: WA penetration is low (~23%/lower); cold WA risks spam complaints.
-        # Only send after opt-in (lead replied or expressed interest). AU (~33%)
-        # is viable as a secondary cold channel and is not gated here.
+        # Compute market before the window check — "Newcastle" alone is
+        # ambiguous (NSW Australia, Washington State, and Newcastle upon
+        # Tyne UK all use that bare city name), and get_tz_name needs the
+        # market to disambiguate UK leads from the Australian city of the
+        # same name.
         market = detect_market(phone, lead.get("address", "") or "")
+
+        if not is_wa_window(city, market):
+            skipped_hours += 1
+            continue
+
+        # US/CA: WA penetration is low (~23%/lower); cold WA risks spam complaints.
+        # Only send after opt-in (lead replied or expressed interest). AU and UK
+        # are viable as a secondary cold channel and are not gated here.
         if market in ("US", "CA") and lead.get("status", "new") not in ("replied", "interested"):
             skipped_market_gate += 1
             log.info("WA broadcast: skip %s — %s market, not opted-in", lead.get("name"), market)

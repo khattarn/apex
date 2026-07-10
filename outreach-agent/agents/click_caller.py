@@ -325,12 +325,16 @@ def place_click_call(lead: dict) -> dict:
     """
     from utils.timezone import is_canadian
     from agents.vapi_caller import place_sophie_call
+    from agents.email_personalizer import detect_market
     phone = lead.get("phone", "")
     if not phone:
         raise RuntimeError(f"Lead {lead.get('id')} has no phone number")
 
     city       = lead.get("city", "")
-    market     = lead.get("market", "")
+    address    = lead.get("address", "") or ""
+    # lead.market (the DB column) is unpopulated for almost all leads — compute
+    # it fresh from phone+address instead of trusting the stored column.
+    market     = detect_market(phone, address)
     business_type = lead.get("business_type", "")
     business_name = lead.get("name", "")
     lead_id    = str(lead.get("id", ""))
@@ -363,6 +367,7 @@ def place_click_call(lead: dict) -> dict:
         pain_signal=lead.get("pain_signal", ""),
         pain_finding=lead.get("pain_finding", ""),
         pricing_line=_pricing_line(market),
+        address=lead.get("address", ""),
     )
 
 
@@ -407,13 +412,20 @@ def run_click_campaign() -> dict:
     leads = get_voice_priority_queue(cap=remaining_cap) if remaining_cap else []
     called, skipped_tz, skipped_no_phone, errors = 0, 0, 0, 0
 
-    for lead in leads:
-        if not is_voice_window(lead.get("city", ""), lead.get("market", "")):
-            skipped_tz += 1
-            continue
+    from agents.email_personalizer import detect_market
 
+    for lead in leads:
         if not lead.get("phone"):
             skipped_no_phone += 1
+            continue
+
+        # lead.market (DB column) is unpopulated for almost all leads — compute
+        # fresh from phone+address so ambiguous city names (e.g. "Newcastle" is
+        # NSW Australia, Washington State, and Newcastle upon Tyne UK) resolve
+        # to the correct timezone window instead of defaulting to the wrong one.
+        market = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
+        if not is_voice_window(lead.get("city", ""), market):
+            skipped_tz += 1
             continue
 
         tier = _lead_tier_label(lead, today_utc, cutoff_24h)

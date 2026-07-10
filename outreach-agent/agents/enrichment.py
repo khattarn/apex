@@ -200,6 +200,7 @@ def compute_pain(place_details: dict, website_html: str | None) -> dict:
 
 # Field list the prospector must pass to Places Details so this module has inputs.
 PLACES_DETAIL_FIELDS = [
-    "name", "formatted_address", "formatted_phone_number", "website", "place_id",
-    "user_ratings_total", "rating", "reviews", "opening_hours", "business_status",
+    "name", "formatted_address", "formatted_phone_number", "international_phone_number",
+    "website", "place_id", "user_ratings_total", "rating", "reviews", "opening_hours",
+    "business_status",
 ]

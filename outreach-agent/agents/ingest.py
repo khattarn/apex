@@ -131,8 +131,10 @@ def ingest_rows(
         else:
             has_online_booking = True
 
-        # 7. Phone: Places is canonical; fall back to pre-researched value
-        phone = details.get("formatted_phone_number") or known_phone
+        # 7. Phone: Places is canonical; fall back to pre-researched value.
+        # international_phone_number is unambiguous E.164 once whitespace is
+        # stripped — formatted_phone_number is local-format only.
+        phone = details.get("international_phone_number") or details.get("formatted_phone_number") or known_phone
 
         # 8. Email: use pre-researched value; only regex-scrape if not provided
         email = known_email or None

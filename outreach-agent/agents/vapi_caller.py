@@ -8,13 +8,24 @@ log = logging.getLogger(__name__)
 VAPI_BASE = "https://api.vapi.ai"
 
 
-def _to_e164(phone: str) -> str:
-    """Normalize any phone format to E.164. Handles (xxx) xxx-xxxx, +1xxx, bare 10-digit, etc."""
+def _to_e164(phone: str, address: str = "") -> str:
+    """Normalize any phone format to E.164. Handles (xxx) xxx-xxxx, +1xxx, bare 10-digit, etc.
+
+    A bare 10-digit number is ambiguous — NANP local format (504) 482-1000 and
+    Australian local format (07) 5606 0211 both come out to 10 digits once
+    punctuation is stripped. Blindly prefixing +1 silently mis-dials every AU
+    lead (e.g. "0756060211" -> "+10756060211", which Vapi rejects as invalid
+    E.164). Use the lead's address, when available, to disambiguate.
+    """
     digits = "".join(c for c in phone if c.isdigit())
     if phone.strip().startswith("+"):
         return f"+{digits}"
-    if len(digits) == 10:          # bare NANP: (504) 482-1000
-        return f"+1{digits}"
+    is_au = "australia" in (address or "").lower()
+    if len(digits) == 10:
+        if is_au:
+            local = digits[1:] if digits.startswith("0") else digits  # drop AU trunk 0
+            return f"+61{local}"
+        return f"+1{digits}"   # bare NANP: (504) 482-1000
     if len(digits) == 11 and digits.startswith("1"):
         return f"+{digits}"
     if len(digits) >= 11 and not digits.startswith("1"):
@@ -86,6 +97,7 @@ def place_sophie_call(
     pain_signal: str = "",
     pain_finding: str = "",
     pricing_line: str = "Starter: $49/month · Growth: $99/month · Pro: $180/month · Setup: $180 (waived until 29 Jul 2026)",
+    address: str = "",
 ) -> dict:
     """
     Trigger Sophie (PracticeDesk outbound sales) via Vapi.
@@ -98,7 +110,7 @@ def place_sophie_call(
     if not phone_number_id:
         phone_number_id = os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
 
-    phone = _to_e164(phone)
+    phone = _to_e164(phone, address)
 
     server_url = os.getenv(
         "RAILWAY_PUBLIC_DOMAIN",

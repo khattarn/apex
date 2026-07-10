@@ -89,7 +89,11 @@ def find_businesses(business_type: str, city: str, max_results: int = 10,
                     "name":               details.get("name", place.get("name")),
                     "address":            details.get("formatted_address", ""),
                     "place_id":           place_id,
-                    "phone":              details.get("formatted_phone_number", ""),
+                    # international_phone_number ("+61 7 5606 0211") is unambiguous E.164
+                    # once whitespace is stripped; formatted_phone_number ("(07) 5606 0211")
+                    # is local-format and indistinguishable from a NANP number by digit count
+                    # alone, which used to cause Vapi to mis-dial every AU lead with +1.
+                    "phone":              details.get("international_phone_number") or details.get("formatted_phone_number", ""),
                     "website":            website,
                     "rating":             details.get("rating"),
                     "user_ratings_total": details.get("user_ratings_total"),

@@ -19,6 +19,9 @@ _CA_TOKENS = {
 # Australian state abbreviations
 _AU_STATES = {"NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT", "AUSTRALIA"}
 
+# UK country/nation tokens
+_UK_TOKENS = {"UNITED KINGDOM", "UK", "ENGLAND", "SCOTLAND", "WALES", "NORTHERN IRELAND"}
+
 # Tokens that must never appear in non-dental email copy
 _DENTAL_TOKENS = {"dentist", "dental", "patient", "doctor", "cdcp", "cdbs"}
 
@@ -40,8 +43,21 @@ def detect_market(phone: str, address: str = "") -> str:
     phone = re.sub(r"[^\d+]", "", phone or "")
     addr = (address or "").upper()
 
-    if phone.startswith("+61") or phone.startswith("0061"):
+    # Full country names / phone country codes are unambiguous — check these
+    # before any state/province short code. Short codes can collide across
+    # countries (e.g. "WA" is both Western Australia and Washington State),
+    # so a bare "12835 Newcastle Way, Newcastle, WA 98056, USA" would
+    # otherwise match _AU_STATES' "WA" and get misclassified as Australian.
+    if phone.startswith("+61") or phone.startswith("0061") or _addr_has_token(addr, "AUSTRALIA"):
         return "AU"
+    if phone.startswith("+44") or phone.startswith("0044") or any(_addr_has_token(addr, tok) for tok in _UK_TOKENS):
+        return "UK"
+    if _addr_has_token(addr, "CANADA"):
+        return "CA"
+    if _addr_has_token(addr, "USA") or _addr_has_token(addr, "UNITED STATES"):
+        return "US"
+
+    # No unambiguous country name in the address — fall back to short codes.
     if any(_addr_has_token(addr, tok) for tok in _AU_STATES):
         return "AU"
 
@@ -50,8 +66,6 @@ def detect_market(phone: str, address: str = "") -> str:
             return "CA"
         return "US"
 
-    if _addr_has_token(addr, "CANADA"):
-        return "CA"
     return "US"  # safe default for unrecognised numbers
 
 

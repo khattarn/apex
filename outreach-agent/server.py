@@ -1383,6 +1383,7 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
             insight=script.get("insight", ""),
             pain_question=script.get("pain_question", ""),
             lead_id=lead_id,
+            address=lead.get("address", ""),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
@@ -2706,6 +2707,7 @@ async def _job_voice_followup():
                     insight=script.get("insight", ""),
                     pain_question=script.get("pain_question", ""),
                     lead_id=str(lead["id"]),
+                    address=lead.get("address", ""),
                 )
                 call_id = result.get("id", "")
                 _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
@@ -2802,6 +2804,7 @@ async def _job_scheduled_callbacks():
                     insight=script.get("insight", ""),
                     pain_question=script.get("pain_question", ""),
                     lead_id=str(lead["id"]),
+                    address=lead.get("address", ""),
                 )
                 call_id = result.get("id", "")
                 _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
@@ -3734,6 +3737,7 @@ async def cron_voice_followup(request: Request):
                 insight=script.get("insight", ""),
                 pain_question=script.get("pain_question", ""),
                 lead_id=str(lead["id"]),
+                address=lead.get("address", ""),
             )
             call_id = result.get("id", "")
             _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")

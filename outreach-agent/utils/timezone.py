@@ -217,6 +217,12 @@ VOICE_HOUR_END = 17
 
 
 def get_tz_name(city: str, market: str = "") -> str:
+    # UK is a single timezone nationally, and city names can collide with
+    # identically-named cities elsewhere (e.g. "Newcastle" also exists in
+    # NSW Australia and in Washington State, both mapped in CITY_TZ) — when
+    # the market is confidently UK, skip the ambiguous city lookup entirely.
+    if (market or "").upper() == "UK":
+        return "Europe/London"
     return CITY_TZ.get(city) or MARKET_TZ.get(market, "America/Toronto")
 
 
