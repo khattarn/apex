@@ -3761,7 +3761,7 @@ async def cron_click_calls(request: Request):
 
 @app.post("/api/cron/voice-followup")
 async def cron_voice_followup(request: Request):
-    """Place Dograh outbound call to leads silent for 5+ days."""
+    """Place outbound follow-up call to leads silent for 5+ days."""
     import asyncio as _asyncio
     cron_secret = os.getenv("CRON_SECRET", "")
     if cron_secret:
@@ -3769,8 +3769,11 @@ async def cron_voice_followup(request: Request):
         if auth.removeprefix("Bearer ").strip() != cron_secret:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-    from agents.vapi_caller import place_sophie_call
-    from agents.voice_outreach import _get_script, _pricing_line
+    # Delegate to voice_outreach.place_outbound_call() rather than calling Vapi
+    # directly — that function already has the correct India/CA/AU/US routing
+    # (this endpoint used to always default to the US Platform number, which
+    # is what caused the Edmonton CA lead's 24 repeated wrong-number failures).
+    from agents.voice_outreach import place_outbound_call
     from agents.email_personalizer import detect_market
     from database.client import get_leads_for_voice_followup, log_activity
 
@@ -3779,23 +3782,16 @@ async def cron_voice_followup(request: Request):
 
     for lead in leads:
         try:
-            script = {}
-            try:
-                script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
-            except Exception:
-                pass
-            _mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
-            result = place_sophie_call(
+            mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
+            result = place_outbound_call(
                 phone=lead["phone"],
-                business_name=lead.get("name", ""),
                 business_type=lead.get("business_type", ""),
-                city=lead.get("city", ""),
-                opener=script.get("firstMessage", ""),
-                insight=script.get("insight", ""),
-                pain_question=script.get("pain_question", ""),
+                business_name=lead.get("name", ""),
                 lead_id=str(lead["id"]),
-                address=lead.get("address", ""),
-                pricing_line=_pricing_line(_mkt),
+                city=lead.get("city", ""),
+                market=mkt,
+                pain_signal=lead.get("pain_signal", "") or "",
+                pain_finding=lead.get("pain_finding", "") or "",
             )
             call_id = result.get("id", "")
             _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
