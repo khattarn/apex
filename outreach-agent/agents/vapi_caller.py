@@ -127,10 +127,13 @@ def place_sophie_call(
         "maxDurationSeconds": 300,
         "assistantOverrides": {
             "server": {"url": f"{server_url}/api/webhooks/vapi"},
+            # "transcript" (content-based) catches both classic voicemail greetings and
+            # scripted AI/automated answering systems — "audio" (beep-only) would miss
+            # the latter entirely, since there's no beep to detect (see the Adelaide
+            # Family Dental "Artorial AI" test call, 2026-07-10).
             "voicemailDetection": {
                 "provider": "vapi",
-                "type": "audio",
-                "beepMaxAwaitSeconds": 30,
+                "type": "transcript",
             },
             "endCallPhrases": ["goodbye", "have a great day", "take care"],
             "variableValues": {

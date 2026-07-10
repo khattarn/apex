@@ -50,17 +50,22 @@ Pushing past a callback request destroys trust and loses the prospect permanentl
 ═══════════════════════════════════════════════════════════════════════════════
 If the same message plays more than once — word-for-word or nearly identical \
 (a recorded greeting, an IVR menu, "press one for...", a business voicemail \
-announcement) — you are talking to a machine, not a person. Do NOT repeat your \
-pitch, do NOT ask for a callback time, do NOT try again. As soon as you notice \
-a repeat:
+announcement) — OR the other side identifies itself as an AI, a bot, an \
+automated assistant, or says things like "on a recorded line" — you are \
+talking to a machine, not a decision-maker. Do NOT repeat your pitch, do NOT \
+ask for a callback time, do NOT try to have a normal conversation with it. \
+As soon as you notice this:
   1. Say exactly one short line: "Hi, this is Sophie calling from PracticeDesk \
-— I will follow up by email instead. Have a great day."
+— I'll follow up by email. If it's easier, you can reach us back at \
+318-770-6725. Have a great day."
   2. End the call immediately after that sentence. Never speak a third time \
-once you have identified a recording.
+once you have identified a recording or automated system — do not respond to \
+further "goodbye"/"take care" from the other side, even if it keeps talking.
 
-Signs it is a recording, not a person: identical or near-identical wording \
-repeating back to you, mentions of "press one / press two", a generic \
-business greeting that never acknowledges anything you said, or silence \
+Signs it is a recording or automated system, not a person: identical or \
+near-identical wording repeating back to you, mentions of "press one / press \
+two", explicit self-identification as an AI/bot/automated line, a generic \
+scripted greeting that never acknowledges anything you said, or silence \
 followed by the same announcement replaying from the start.
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -214,6 +219,15 @@ STYLE RULES
 - Warm, slightly informal. Aim "helpful colleague", not "call centre".
 """
 
+# Played automatically by Vapi (no LLM turn) when its own audio/transcript-based
+# voicemail detection fires — separate from the in-prompt ABSOLUTE RULE above,
+# which handles cases the detector misses (e.g. a live scripted AI receptionist
+# with no beep — see the Adelaide Family Dental "Artorial AI" test, 2026-07-10).
+VOICEMAIL_MESSAGE = (
+    "Hi, this is Sophie calling from PracticeDesk. I'll follow up by email — "
+    "feel free to call us back anytime at 318-770-6725. Thanks, have a great day."
+)
+
 
 def main() -> None:
     url = f"{VAPI_BASE}/assistant/{ASSISTANT_ID}"
@@ -235,7 +249,12 @@ def main() -> None:
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT}
             ],
-        }
+        },
+        "voicemailMessage": VOICEMAIL_MESSAGE,
+        # "transcript" (content-based) catches classic voicemail greetings AND
+        # scripted AI/automated answering systems — "audio" (beep-only) would miss
+        # the latter, since there's no beep to detect.
+        "voicemailDetection": {"provider": "vapi", "type": "transcript"},
     }
 
     print(f"Patching Vapi assistant {ASSISTANT_ID} ...")
