@@ -159,7 +159,7 @@
 <body>
 
 <h1>Apex <span class="gold">—</span> System Architecture</h1>
-<p class="subtitle">Internal multi-agent platform · Promotes and sells PracticeDesk + LegalAidAI · Last updated 2026-06-30</p>
+<p class="subtitle">Internal multi-agent platform · Promotes and sells PracticeDesk + LegalAidAI · Last updated 2026-07-10</p>
 
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="section">
@@ -228,11 +228,33 @@
       Deduplication by <code>place_id</code> (Google Maps unique ID).
     </div>
   </div>
+
+  <div class="card">
+    <div class="card-title">Job-Ad Scout — <code>_job_jobad_scout</code> <span class="badge badge-live">LIVE 2026-07-10</span></div>
+    <div class="card-sub">
+      Daily 14:00 UTC. SerpAPI Google Jobs search (dentist + doctor front-desk/receptionist queries) → resolve each
+      company via Google Places Find Place → Details → dedupe by <code>place_id</code> → save with
+      <code>pain_signal="job_ad_frontdesk"</code>, <code>pain_score=100</code> (forced — tops the voice priority queue),
+      <code>source="job_ad_serpapi"</code>.<br>
+      City list: settings key <code>jobad_cities</code> (falls back to <code>cron_prospect_cities</code>), 1 city/run
+      (~6 SerpAPI searches/day ≈ 180/mo, under the 250/mo free-tier cap). Quota persisted in
+      <code>jobad_calls_month</code> / <code>jobad_calls_count</code> settings, resets monthly, alerts founder at 80%.<br>
+      Manual batches (e.g. from Indeed screenshots) use <code>source="job_ad_indeed"</code> via the same
+      <code>ingest_rows()</code> helper — <code>agents/ingest.py</code>.<br>
+      Reliability: <code>misfire_grace_time=3600</code>, <code>coalesce=True</code>, registered in the job registry +
+      watchdog cadence (26h), CRON_SECRET-authenticated <code>/api/cron/jobad-scout</code> for external triggering.<br><br>
+      <strong>These leads get different outreach content</strong> — a 3-email "application" sequence (Claire's voice,
+      Day 1/3/6, NOT the usual 6-step vertical drip — see <code>email_sequence_cap()</code>) and Sophie's
+      hiring-specific opener ("I saw you're hiring for the front desk…", alongside-not-replacement framing).
+      Files: <code>agents/serpapi_client.py</code>, <code>assets/email_copy.yaml → job_ad</code> block,
+      <code>assets/copy.yaml → verticals.*.sophie_signal_openers.job_ad_frontdesk</code>.
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="section">
-  <h2>Voice / Telephony Routing <span class="badge badge-fixed">FIXED 2026-06-30</span></h2>
+  <h2>Voice / Telephony Routing <span class="badge badge-fixed">UPDATED 2026-07-10</span></h2>
 
   <table>
     <thead>
@@ -246,10 +268,17 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Canada</strong></td>
+        <td><strong>Canada</strong> (primary)</td>
         <td>Vapi + SignalWire (Alberta)</td>
         <td>+1 587-209-0343</td>
         <td><code>a513803a-5229-4ac1-881d-6c89ae708738</code></td>
+        <td>Sophie</td>
+      </tr>
+      <tr>
+        <td><strong>Canada</strong> (auto-fallback)</td>
+        <td>Vapi + SignalWire (Ontario)</td>
+        <td>+1 289-236-5317</td>
+        <td><code>94e7fccf-03c2-4442-a99b-d992b01b3a2f</code></td>
         <td>Sophie</td>
       </tr>
       <tr>
@@ -260,10 +289,10 @@
         <td>Sophie</td>
       </tr>
       <tr>
-        <td><strong>Australia / UK</strong></td>
-        <td>Vapi free number</td>
-        <td>+1 312-940-8233</td>
-        <td><code>50d7061b-ac77-4a4f-b2d5-7430df39b9d5</code></td>
+        <td><strong>Australia</strong></td>
+        <td>Vapi + Twilio (native)</td>
+        <td>+1 385-363-3720</td>
+        <td><code>84240117-99a8-462a-8480-40bac571bf26</code></td>
         <td>Sophie</td>
       </tr>
       <tr>
@@ -281,11 +310,82 @@
   </div>
 
   <div class="card" style="margin-top:16px;">
+    <div class="card-title">AU routing — why it's a Twilio number, not a dedicated SignalWire one <span class="badge badge-fixed">2026-07-10</span></div>
+    <div class="card-sub">
+      Vapi's free/platform number (<code>50d7061b…</code>) blocks ALL international calls outright — confirmed at scale
+      (64 of the last 100 outbound calls were AU destinations, all failing
+      <code>call.start.error-vapi-number-international</code>). AU is the largest lead segment, so this was the single
+      biggest source of outbound call failures.<br><br>
+      <strong>+1 385-363-3720 already reaches AU</strong> — verified with two live test calls (raw Twilio + full
+      Vapi/Sophie), including a real connected + recorded call to Adelaide Family Dental. Registered in Vapi as a
+      native <code>provider: "twilio"</code> phone-number resource (simpler than SignalWire's BYO-SIP-trunk pattern —
+      just needs <code>twilioAccountSid</code> + <code>twilioAuthToken</code>, no separate gateway/credential setup).<br><br>
+      <strong>Note:</strong> this is the same number used for WA outreach broadcast (Meta-verified,
+      <code>OUTREACH_WA_PHONE_NUMBER_ID=1131796990021193</code>). Voice (Twilio) and WhatsApp (Meta Cloud API) are
+      independent systems on the same underlying number — no conflict for outbound calling.<br><br>
+      <strong>Not yet used:</strong> +1 208-441-4485 (a paid SignalWire number, also tested and confirmed working for
+      basic connectivity) was registered as a candidate AU number first, then superseded by the 385 number once its
+      AU reachability was proven. Left registered in Vapi but unwired from any routing — a dedicated AU number will
+      be requisitioned once the first AU client signs up.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">CA — Aria trunk SIP-407 fault, fixed 2026-07-07, Ontario fallback added 2026-07-10</div>
+    <div class="card-sub">
+      Full call-history audit (30 calls, 06-30 through 07-10) showed a clean before/after: 25 calls before
+      <strong>2026-07-07 18:25 UTC</strong> all failed with
+      <code>error-providerfault-outbound-sip-407-proxy-authentication-required</code> (SignalWire SIP trunk auth
+      fault); every call since — a new credential named "SW Outbound CA - Aria (fixed)" — has succeeded (5/5,
+      including live calls the same day this was documented). Not intermittent — a real fix landed 07-07.<br><br>
+      Added a second layer of resilience regardless: <code>+1 289-236-5317</code> (Ontario) was sitting provisioned
+      in Vapi with <strong>zero calls ever placed through it</strong> — now wired as an automatic webhook-triggered
+      fallback. On <code>end-of-call-report</code>, if the call used Aria and ended with a
+      <code>call.start.error*</code> or <code>call.in-progress.error-providerfault*</code> reason, it retries once
+      via Ontario (guarded by a <code>ca_fallback_retry</code> activity marker so a second failure doesn't loop).
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
     <div class="card-title">Sophie — Vapi Assistant</div>
     <div class="card-sub">
-      Assistant ID: <code>bfecad5e-dce4-469f-8570-d44efc49de15</code><br>
+      Assistant ID: <code>bfecad5e-dce4-469f-8570-d44efc49de15</code> · pushed via
+      <code>scripts/update_vapi_sophie_prompt.py</code> (PATCHes <code>model.messages</code> — must fetch+merge
+      current <code>model</code> first, Vapi replaces the whole object rather than merging).<br>
       7-phase playbook: open → discover → insight pitch → trial offer → objections → 3-close → exit<br>
-      Max call length: 5 minutes. Pricing injected per-call (USD vs CAD based on market).
+      Max call length: 5 minutes. Pricing injected per-call (USD vs CAD based on market).<br>
+      Opening line = <code>firstMessage: "{{opener}}"</code> at the assistant level — per-call
+      <code>variableValues.opener</code> in <code>vapi_caller.py</code> supplies the actual text.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Signal-aware openers — bug fixed 2026-07-10 <span class="badge badge-fixed">FIXED</span></div>
+    <div class="card-sub">
+      <code>assets/copy.yaml</code>'s <code>sophie_signal_openers</code> table (per-<code>pain_signal</code> openers,
+      e.g. <code>job_ad_frontdesk</code>, <code>new_business</code>, <code>after_hours_voicemail</code>) was written
+      under Change #9 but <code>_get_script()</code> never actually read it — every outbound call used the generic
+      vertical opener regardless of <code>pain_signal</code>, silently, for every signal, the whole time.<br>
+      Fixed in <code>agents/voice_outreach.py → _get_script(business_type, pain_signal)</code> (now checks the
+      signal table first); <code>agents/click_caller.py</code>'s byte-for-byte duplicate of the same function now
+      delegates to it instead. <code>pain_signal</code> threaded through all 6 call sites that trigger Sophie.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Automated-system / voicemail detection <span class="badge badge-fixed">FIXED 2026-07-10</span></div>
+    <div class="card-sub">
+      <strong>Bug found:</strong> per-call <code>assistantOverrides.voicemailDetection</code> in
+      <code>vapi_caller.py</code> forced <code>type: "audio"</code> (beep-detection only), silently downgrading the
+      assistant's better base-level <code>type: "transcript"</code> (content-based) default. Audio-only would never
+      catch a live scripted AI answering system — no beep to detect. Fixed to <code>type: "transcript"</code>.<br>
+      <strong>voicemailMessage</strong> added at the assistant level — Vapi auto-plays it (no LLM turn) when true
+      beep-detected voicemail fires, includes a callback number.<br>
+      <strong>In-conversation ABSOLUTE RULE</strong> (system prompt) now also explicitly covers a callee
+      self-identifying as an AI/bot/automated line (not just repeated audio/IVR patterns) — confirmed working
+      live: a test call reached "Artorial AI" (Adelaide Family Dental's own AI receptionist), Sophie correctly
+      recognized it wasn't a live conversation and exited gracefully. Exit line now includes the callback number
+      (318-770-6725, same as email/inbound) — it previously said "I'll follow up by email" with no way to call back.
     </div>
   </div>
 
@@ -445,7 +545,7 @@
   <div class="grid-3">
     <div class="card">
       <div class="card-title"><code>leads</code></div>
-      <div class="card-sub">id, name, address, place_id (unique), phone, email, website, business_type, city, market, status, outreach_sent, outreach_message, outreach_date, notes, email_sent, email_opened, email_clicked, email_opened_at, email_clicked_at, email_last_sent_at, email_sequence_step, pain_score, pain_signal, pain_finding, voice_called, created_at</div>
+      <div class="card-sub">id, name, address, place_id (unique), phone, email, website, business_type, city, market, status, outreach_sent, outreach_message, outreach_date, notes, email_sent, email_opened, email_clicked, email_opened_at, email_clicked_at, email_last_sent_at, email_sequence_step, pain_score, pain_signal, pain_finding, voice_called, created_at, <strong>source, rating, user_ratings_total</strong> <span class="badge badge-fixed">ADDED 2026-07-10</span></div>
     </div>
     <div class="card">
       <div class="card-title"><code>lead_activities</code></div>
@@ -472,6 +572,14 @@
       </div>
     </div>
   </div>
+
+  <div class="warn" style="margin-top:12px;">
+    ⚠️ 2026-07-10 — <code>leads.source</code>/<code>rating</code>/<code>user_ratings_total</code> were referenced in
+    <code>agents/prospector.py</code> and <code>agents/ingest.py</code>'s <code>save_lead()</code> calls but never
+    existed as columns — every insert through either path was failing with a Postgrest 42703 error. Fixed via
+    <code>supabase/migrations/20260707182041_leads_source_rating.sql</code>. <code>source</code> doubles as the
+    category/tag column (values: <code>job_ad_serpapi</code>, <code>job_ad_indeed</code>, <code>new_business_manual</code>).
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ -->
@@ -485,8 +593,11 @@
     <div class="env-row"><span class="env-key">GOOGLE_MAPS_API_KEY</span><span class="env-val">AIza…</span></div>
     <div class="env-row"><span class="env-key">VAPI_API_KEY</span><span class="env-val">…</span></div>
     <div class="env-row"><span class="env-key">VAPI_SOPHIE_ASSISTANT_ID</span><span class="env-val">bfecad5e-dce4-469f-8570-d44efc49de15</span></div>
-    <div class="env-row"><span class="env-key">VAPI_PLATFORM_PHONE_ID</span><span class="env-val">50d7061b-ac77-4a4f-b2d5-7430df39b9d5 (US/AU)</span></div>
-    <div class="env-row"><span class="env-key">VAPI_CA_PHONE_NUMBER_ID</span><span class="env-val">a513803a-5229-4ac1-881d-6c89ae708738 (CA)</span></div>
+    <div class="env-row"><span class="env-key">VAPI_PLATFORM_PHONE_ID</span><span class="env-val">50d7061b-ac77-4a4f-b2d5-7430df39b9d5 (US)</span></div>
+    <div class="env-row"><span class="env-key">VAPI_CA_PHONE_NUMBER_ID</span><span class="env-val">a513803a-5229-4ac1-881d-6c89ae708738 (CA primary — Aria)</span></div>
+    <div class="env-row"><span class="env-key">VAPI_CA_ONTARIO_PHONE_NUMBER_ID</span><span class="env-val">94e7fccf-03c2-4442-a99b-d992b01b3a2f (CA fallback)</span></div>
+    <div class="env-row"><span class="env-key">VAPI_AU_PHONE_NUMBER_ID</span><span class="env-val">84240117-99a8-462a-8480-40bac571bf26 (AU — Twilio 385)</span></div>
+    <div class="env-row"><span class="env-key">SERPAPI_KEY</span><span class="env-val">… (job-ad scout)</span></div>
     <div class="env-row"><span class="env-key">OUTREACH_WA_PHONE_NUMBER_ID</span><span class="env-val">1131796990021193</span></div>
     <div class="env-row"><span class="env-key">WHATSAPP_TOKEN</span><span class="env-val">…</span></div>
     <div class="env-row"><span class="env-key">OUTREACH_FROM_EMAIL</span><span class="env-val">Henry from PracticeDesk</span></div>
@@ -505,6 +616,119 @@
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="section">
   <h2>Fix Log — Problems Solved</h2>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">Change #11 — Job-ad scout built end-to-end (SerpAPI → Places → job_ad_frontdesk)</div>
+      <div class="fix-body">
+        New daily cron finds clinics actively hiring a front-desk receptionist (SerpAPI Google Jobs), resolves each
+        via Google Places, dedupes by <code>place_id</code>, and tags with <code>pain_signal="job_ad_frontdesk"</code>
+        + <code>pain_score=100</code> (forced, tops the voice priority queue). These leads get different content on
+        both channels: a 3-email Claire-voiced "application" sequence (not the usual 6-step vertical drip) and
+        Sophie's hiring-specific opener. See Outreach Pipeline section above for full detail.
+        Manually-sourced batches (screenshotted job postings) use the same <code>ingest_rows()</code> helper with
+        <code>source="job_ad_indeed"</code>.
+      </div>
+      <div class="fix-files">outreach-agent/agents/serpapi_client.py (new) · agents/ingest.py · server.py → _job_jobad_scout() · assets/email_copy.yaml · assets/copy.yaml · database/client.py → email_sequence_cap()</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">leads.source/rating/user_ratings_total columns never existed — every prospector/ingest insert was silently broken</div>
+      <div class="fix-body">
+        <code>agents/prospector.py</code> and <code>agents/ingest.py</code> had been inserting these three fields on
+        every <code>save_lead()</code> call, but none existed as columns on the live table — Postgrest rejected the
+        inserts with a 42703 error. Fixed via a migration; <code>source</code> now doubles as the lead category/tag
+        (surfaced as a filter + badge on the admin dashboard's Leads table).
+      </div>
+      <div class="fix-files">supabase/migrations/20260707182041_leads_source_rating.sql · admin-dashboard/src/views/LeadsTable.jsx</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">AU outbound calls failing 100% of the time — Vapi blocks international on its free number</div>
+      <div class="fix-body">
+        Audited the last 100 Vapi calls: 64 were AU destinations, all via the US Platform number, all failing
+        <code>call.start.error-vapi-number-international</code>. AU is the largest lead segment, so this was the
+        single biggest source of call failures. Fixed by registering +1 385-363-3720 (already the WA outreach
+        number, also proven to reach AU) as a native Twilio number in Vapi, and adding
+        <code>is_australian()</code> routing (mirrors <code>is_canadian()</code>/<code>is_american()</code>) to
+        every outbound call site. See Voice/Telephony Routing section for full detail.
+      </div>
+      <div class="fix-files">outreach-agent/utils/timezone.py → is_australian() · agents/click_caller.py · agents/voice_outreach.py</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">4 outbound call sites defaulting to the wrong caller ID for CA/AU leads (found on full audit)</div>
+      <div class="fix-body">
+        A CA lead ("South Central Dentistry", Edmonton) got called 24 times in one day, always via the US Platform
+        number, always failing — traced to <code>/api/cron/voice-followup</code> never passing
+        <code>phone_number_id</code> at all. Auditing every <code>place_sophie_call()</code> call site found 3 more
+        with the identical gap: the manual "Call now" dashboard button, the in-process hourly
+        <code>_job_voice_followup</code> (correctly skipped US/CA but AU leads fell through unrouted), and
+        <code>_job_scheduled_callbacks</code> — leads who explicitly asked Sophie for a callback at a specific
+        time, the worst of the four since it broke an explicit promise. All four now delegate to
+        <code>voice_outreach.place_outbound_call()</code> for consistent India/CA/AU/US routing — the same helper
+        every other call site already used.
+      </div>
+      <div class="fix-files">outreach-agent/server.py → /api/cron/voice-followup, /api/leads/&#123;id&#125;/call, _job_voice_followup, _job_scheduled_callbacks</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">CA Aria trunk SIP-407 fault confirmed fixed 07-07; Ontario added as automatic fallback</div>
+      <div class="fix-body">
+        Full call-history audit showed a clean before/after at 2026-07-07 18:25 UTC — 25/25 calls failed before that
+        exact moment, 5/5 succeeded after (a new SignalWire credential named "SW Outbound CA - Aria (fixed)").
+        Added <code>+1 289-236-5317</code> (Ontario — provisioned but had zero calls ever placed through it) as a
+        webhook-triggered automatic fallback: on <code>end-of-call-report</code>, a SIP/provider-fault ending on
+        the Aria number triggers one retry via Ontario, guarded against looping.
+      </div>
+      <div class="fix-files">outreach-agent/server.py → vapi_webhook() (ca_fallback_retry logic)</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">sophie_signal_openers written but never read — every pain_signal opener was silently ignored</div>
+      <div class="fix-body">
+        <code>assets/copy.yaml</code>'s per-signal opener table (Change #9) was fully written but
+        <code>_get_script()</code> never checked it — every outbound call used the generic vertical opener
+        regardless of <code>pain_signal</code>, for every signal, since the table was added. Fixed in
+        <code>voice_outreach._get_script()</code>; deduped <code>click_caller.py</code>'s byte-for-byte copy of the
+        same function to delegate instead; threaded <code>pain_signal</code> through all 6 call sites.
+      </div>
+      <div class="fix-files">outreach-agent/agents/voice_outreach.py · agents/click_caller.py · server.py (4 call sites)</div>
+    </div>
+  </div>
+
+  <div class="fix-entry">
+    <div class="fix-date">2026-07-10</div>
+    <div>
+      <div class="fix-title">Automated-answering-system detection: audio-only voicemail detection, no callback number</div>
+      <div class="fix-body">
+        Found via a live test call (reached "Artorial AI", Adelaide Family Dental's own AI receptionist) that the
+        per-call <code>voicemailDetection</code> override forced <code>type: "audio"</code> (beep-only), silently
+        downgrading the assistant's better base <code>type: "transcript"</code> default — audio-only can never
+        catch a live talking AI with no beep. Fixed to <code>transcript</code>. Also added a <code>voicemailMessage</code>
+        (auto-played by Vapi on true voicemail, no LLM turn) and updated the in-conversation ABSOLUTE RULE for
+        recognizing automated systems to explicitly cover self-identifying AI/bots, and to include a callback
+        number in the exit line (previously just said "I'll follow up by email," no way to call back).
+      </div>
+      <div class="fix-files">outreach-agent/agents/vapi_caller.py · scripts/update_vapi_sophie_prompt.py</div>
+    </div>
+  </div>
 
   <div class="fix-entry">
     <div class="fix-date">2026-07-01</div>
@@ -652,18 +876,23 @@
   </div>
 
   <div class="card">
-    <div class="card-title">Railway: no auto-deploy from GitHub <span class="badge badge-issue">ISSUE</span></div>
+    <div class="card-title">Railway: no auto-deploy from GitHub <span class="badge badge-fixed">RESOLVED — no longer true, 2026-07-10</span></div>
     <div class="card-sub">
-      Railway does not auto-deploy when code is pushed to GitHub. Every deploy requires manually running:
-      <code>cd outreach-agent && railway up --service apex</code>
+      No longer accurate — confirmed Railway auto-deploys on every push to <code>master</code> throughout today's
+      session (each commit triggered an immediate build, verified via <code>railway status</code> showing the
+      matching commit hash mid-build). The manual <code>railway up</code> workaround described here is unnecessary
+      now; leaving this entry for history but it should not be followed.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">Twilio outbound blocked (US/CA) <span class="badge badge-issue">ISSUE</span></div>
+    <div class="card-title">Twilio outbound compliance (account ACecbb29b) — partially clarified 2026-07-10</div>
     <div class="card-sub">
-      Twilio account in compliance review. Error 21216 blocks all outbound calls from Twilio.
-      The Twilio browser dialpad tab is disabled. Workaround: Vapi+SignalWire handles all US/CA outbound calls.
+      +1 318-770-6725 (Henry) was previously blocked for outbound with error 21216 (compliance "In Review") —
+      status not re-verified today. +1 385-363-3720, on the <strong>same Twilio account</strong>, placed successful
+      outbound calls today (both direct Twilio and via Vapi), so the block is evidently not account-wide. Treat each
+      number's outbound capability as independently verified, not assumed from account-level compliance status.
+      The Twilio browser dialpad tab (using 318) may still be affected — not re-tested.
     </div>
   </div>
 </div>
@@ -692,7 +921,7 @@
 </div>
 
 <p style="color:#334155; font-size:0.78rem; margin-top:40px; text-align:center;">
-  Apex Architecture · Generated 2026-06-30 · <code>docs/ARCHITECTURE.html</code>
+  Apex Architecture · Generated 2026-07-10 · <code>docs/ARCHITECTURE.html</code>
 </p>
 
 </body>
