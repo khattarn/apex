@@ -5,7 +5,7 @@ import yaml
 from functools import lru_cache
 from agents.email_templates import (
     DEMO_LINK, PRODUCT_URL, INBOUND_PHONE, INBOUND_PHONE_RAW, YOUTUBE_INTRO,
-    VOICE_PRICE_USD, VOICE_PRICE_CAD,
+    VOICE_PRICE_USD, VOICE_PRICE_CAD, VOICE_PRICE_GBP,
 )
 
 # Canadian provinces — used to distinguish +1 CA from +1 US
@@ -300,7 +300,7 @@ def generate_email(lead: dict, email_number: int = None) -> tuple[str, str, int,
         "SENDER_NAME": os.getenv("SENDER_NAME", "Henry"),
         "LEAD_ID": str(lead.get("id", "")),
         "UNSUBSCRIBE_LINK": f"{_tracking_base()}/unsubscribe?id={lead.get('id', '')}",
-        "VOICE_PRICE": VOICE_PRICE_CAD if market == "CA" else VOICE_PRICE_USD,
+        "VOICE_PRICE": VOICE_PRICE_CAD if market == "CA" else VOICE_PRICE_GBP if market == "UK" else VOICE_PRICE_USD,
     }
 
     variant, subject_tpl = pick_subject(entry["subject_a"], entry["subject_b"])

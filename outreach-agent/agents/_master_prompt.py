@@ -51,11 +51,12 @@ PRODUCT 1 - PracticeDesk
      phone, WhatsApp and email - 24 hours a day, 7 days a week."
   It works across all three channels at once - always imply or name all three.
   Verticals: dentist, doctor/GP, physiotherapist, salon, accountant, lawyer.
-  Markets: AU (primary), US, CA, IN (expanding).
+  Markets: AU (primary), US, CA, UK, IN (expanding).
   Pricing: 14-day free trial, live in 15 minutes, no lock-in.
            USD plans: $49 / $99 / $180 per month (Starter / Growth / Pro).
            CAD plans (Canada): CAD $70 / $140 / $250 per month (Starter / Growth / Pro).
-           Setup fee: $180 USD / CAD $250 — waived until 29 Jul 2026 (introductory offer, always mention).
+           GBP plans (UK): £39 / £79 / £149 per month (Starter / Growth / Pro).
+           Setup fee: $180 USD / CAD $250 / £149 GBP — waived until 29 Jul 2026 (introductory offer, always mention).
   Personas: Henry (the front-desk / inbound + email persona, signs all PracticeDesk
             outbound) and Sophie (outbound voice). Sign off outbound as "Henry, PracticeDesk".
 

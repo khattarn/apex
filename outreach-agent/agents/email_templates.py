@@ -7,6 +7,7 @@ INBOUND_PHONE_RAW = "+13187706725"
 # approximate monthly figure, not the full tier breakdown used elsewhere (click_caller.py).
 VOICE_PRICE_USD = "$180/month"
 VOICE_PRICE_CAD = "CA $200/month"
+VOICE_PRICE_GBP = "£149/month"
 
 # YouTube intro video — shown for all medical/professional verticals
 YOUTUBE_INTRO = "https://youtu.be/zHVLE5ek7jY"

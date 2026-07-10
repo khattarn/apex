@@ -1359,7 +1359,8 @@ async def preview_message(body: PreviewRequest, _=Depends(verify_token)):
 async def call_lead(lead_id: str, _=Depends(verify_token)):
     from database.client import get_lead_by_id, update_lead
     from agents.vapi_caller import place_sophie_call
-    from agents.voice_outreach import _get_script
+    from agents.voice_outreach import _get_script, _pricing_line
+    from agents.email_personalizer import detect_market
 
     lead = get_lead_by_id(lead_id)
     if not lead:
@@ -1373,6 +1374,7 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     except Exception:
         pass
 
+    market = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
     try:
         result = place_sophie_call(
             phone=lead["phone"],
@@ -1384,6 +1386,7 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
             pain_question=script.get("pain_question", ""),
             lead_id=lead_id,
             address=lead.get("address", ""),
+            pricing_line=_pricing_line(market),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
@@ -2673,7 +2676,7 @@ async def _job_wa_followup():
 async def _job_voice_followup():
     try:
         from agents.vapi_caller import place_sophie_call
-        from agents.voice_outreach import _get_script
+        from agents.voice_outreach import _get_script, _pricing_line
         from agents.email_personalizer import detect_market
         from database.client import get_leads_for_voice_followup, log_activity
         leads = get_leads_for_voice_followup()
@@ -2708,6 +2711,7 @@ async def _job_voice_followup():
                     pain_question=script.get("pain_question", ""),
                     lead_id=str(lead["id"]),
                     address=lead.get("address", ""),
+                    pricing_line=_pricing_line(_mkt),
                 )
                 call_id = result.get("id", "")
                 _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
@@ -2781,11 +2785,15 @@ async def _job_scheduled_callbacks():
     try:
         from database.client import get_leads_due_callback, log_activity
         from agents.vapi_caller import place_sophie_call
-        from agents.voice_outreach import _get_script
+        from agents.voice_outreach import _get_script, _pricing_line
+        from agents.email_personalizer import detect_market
         from utils.timezone import is_voice_window
         leads = get_leads_due_callback()
         for lead in leads:
-            if not is_voice_window(lead.get("city", ""), lead.get("market", "")):
+            # leads.market (DB column) is unpopulated for almost all leads —
+            # compute fresh from phone+address instead of trusting it.
+            _mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
+            if not is_voice_window(lead.get("city", ""), _mkt):
                 continue
             if not lead.get("phone"):
                 continue
@@ -2804,6 +2812,7 @@ async def _job_scheduled_callbacks():
                     insight=script.get("insight", ""),
                     pain_question=script.get("pain_question", ""),
                     lead_id=str(lead["id"]),
+                    pricing_line=_pricing_line(_mkt),
                     address=lead.get("address", ""),
                 )
                 call_id = result.get("id", "")
@@ -3715,7 +3724,8 @@ async def cron_voice_followup(request: Request):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     from agents.vapi_caller import place_sophie_call
-    from agents.voice_outreach import _get_script
+    from agents.voice_outreach import _get_script, _pricing_line
+    from agents.email_personalizer import detect_market
     from database.client import get_leads_for_voice_followup, log_activity
 
     leads = get_leads_for_voice_followup()
@@ -3728,6 +3738,7 @@ async def cron_voice_followup(request: Request):
                 script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
             except Exception:
                 pass
+            _mkt = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
             result = place_sophie_call(
                 phone=lead["phone"],
                 business_name=lead.get("name", ""),
@@ -3738,6 +3749,7 @@ async def cron_voice_followup(request: Request):
                 pain_question=script.get("pain_question", ""),
                 lead_id=str(lead["id"]),
                 address=lead.get("address", ""),
+                pricing_line=_pricing_line(_mkt),
             )
             call_id = result.get("id", "")
             _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")

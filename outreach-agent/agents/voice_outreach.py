@@ -2,9 +2,15 @@ import os
 
 _PRICING_USD = "Starter: $49/month · Growth: $99/month · Pro: $180/month · Setup: $180 (waived until 29 Jul 2026)"
 _PRICING_CAD = "Starter: CAD $70/month · Growth: CAD $140/month · Pro: CAD $250/month · Setup: CAD $250 (waived until 29 Jul 2026)"
+_PRICING_GBP = "Starter: £39/month · Growth: £79/month · Pro: £149/month · Setup: £149 (waived until 29 Jul 2026)"
 
 def _pricing_line(market: str) -> str:
-    return _PRICING_CAD if (market or "").upper() == "CA" else _PRICING_USD
+    market = (market or "").upper()
+    if market == "CA":
+        return _PRICING_CAD
+    if market == "UK":
+        return _PRICING_GBP
+    return _PRICING_USD
 
 # ── Load copy assets ──────────────────────────────────────────────────────────
 
