@@ -1404,8 +1404,7 @@ async def preview_message(body: PreviewRequest, _=Depends(verify_token)):
 @app.post("/api/leads/{lead_id}/call")
 async def call_lead(lead_id: str, _=Depends(verify_token)):
     from database.client import get_lead_by_id, update_lead
-    from agents.vapi_caller import place_sophie_call
-    from agents.voice_outreach import _get_script, _pricing_line
+    from agents.voice_outreach import place_outbound_call
     from agents.email_personalizer import detect_market
 
     lead = get_lead_by_id(lead_id)
@@ -1414,25 +1413,17 @@ async def call_lead(lead_id: str, _=Depends(verify_token)):
     if not lead.get("phone"):
         raise HTTPException(status_code=400, detail="Lead has no phone number")
 
-    script = {}
-    try:
-        script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
-    except Exception:
-        pass
-
     market = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
     try:
-        result = place_sophie_call(
+        result = place_outbound_call(
             phone=lead["phone"],
-            business_name=lead.get("name", ""),
             business_type=lead.get("business_type", ""),
-            city=lead.get("city", ""),
-            opener=script.get("firstMessage", ""),
-            insight=script.get("insight", ""),
-            pain_question=script.get("pain_question", ""),
+            business_name=lead.get("name", ""),
             lead_id=lead_id,
-            address=lead.get("address", ""),
-            pricing_line=_pricing_line(market),
+            city=lead.get("city", ""),
+            market=market,
+            pain_signal=lead.get("pain_signal", "") or "",
+            pain_finding=lead.get("pain_finding", "") or "",
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
@@ -2721,8 +2712,7 @@ async def _job_wa_followup():
 
 async def _job_voice_followup():
     try:
-        from agents.vapi_caller import place_sophie_call
-        from agents.voice_outreach import _get_script, _pricing_line
+        from agents.voice_outreach import place_outbound_call
         from agents.email_personalizer import detect_market
         from database.client import get_leads_for_voice_followup, log_activity
         leads = get_leads_for_voice_followup()
@@ -2742,22 +2732,15 @@ async def _job_voice_followup():
                 )
                 continue
             try:
-                script = {}
-                try:
-                    script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
-                except Exception:
-                    pass
-                result = place_sophie_call(
+                result = place_outbound_call(
                     phone=lead["phone"],
-                    business_name=lead.get("name", ""),
                     business_type=lead.get("business_type", ""),
-                    city=lead.get("city", ""),
-                    opener=script.get("firstMessage", ""),
-                    insight=script.get("insight", ""),
-                    pain_question=script.get("pain_question", ""),
+                    business_name=lead.get("name", ""),
                     lead_id=str(lead["id"]),
-                    address=lead.get("address", ""),
-                    pricing_line=_pricing_line(_mkt),
+                    city=lead.get("city", ""),
+                    market=_mkt,
+                    pain_signal=lead.get("pain_signal", "") or "",
+                    pain_finding=lead.get("pain_finding", "") or "",
                 )
                 call_id = result.get("id", "")
                 _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
@@ -2830,8 +2813,7 @@ async def _job_scheduled_callbacks():
     called = errors = 0
     try:
         from database.client import get_leads_due_callback, log_activity
-        from agents.vapi_caller import place_sophie_call
-        from agents.voice_outreach import _get_script, _pricing_line
+        from agents.voice_outreach import place_outbound_call
         from agents.email_personalizer import detect_market
         from utils.timezone import is_voice_window
         leads = get_leads_due_callback()
@@ -2844,22 +2826,15 @@ async def _job_scheduled_callbacks():
             if not lead.get("phone"):
                 continue
             try:
-                script = {}
-                try:
-                    script = _get_script(lead.get("business_type", "").lower(), lead.get("pain_signal", ""))
-                except Exception:
-                    pass
-                result = place_sophie_call(
+                result = place_outbound_call(
                     phone=lead["phone"],
-                    business_name=lead.get("name", ""),
                     business_type=lead.get("business_type", ""),
-                    city=lead.get("city", ""),
-                    opener=script.get("firstMessage", ""),
-                    insight=script.get("insight", ""),
-                    pain_question=script.get("pain_question", ""),
+                    business_name=lead.get("name", ""),
                     lead_id=str(lead["id"]),
-                    pricing_line=_pricing_line(_mkt),
-                    address=lead.get("address", ""),
+                    city=lead.get("city", ""),
+                    market=_mkt,
+                    pain_signal=lead.get("pain_signal", "") or "",
+                    pain_finding=lead.get("pain_finding", "") or "",
                 )
                 call_id = result.get("id", "")
                 _track_active_call(call_id, str(lead["id"]), lead.get("name", ""), lead["phone"], "outbound")
