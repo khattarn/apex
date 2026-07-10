@@ -260,12 +260,13 @@ def place_outbound_call(
     pain_finding: str = "",
 ) -> dict:
     """Trigger an outbound call (cold / voice-followup trigger).
-    CA  → Vapi + SignalWire Alberta (+15872090343).
-    US/AU/UK → Vapi free number (+13129408233).
+    CA → Vapi + SignalWire Alberta (+15872090343).
+    AU → Vapi + Twilio (+13853633720) — the free Vapi number can't dial international.
+    US/UK → Vapi free number (+13129408233).
     India → Dograh + Vobiz (only remaining Dograh path).
     pain_signal / pain_finding passed into Vapi variableValues.
     """
-    from utils.timezone import is_canadian
+    from utils.timezone import is_canadian, is_australian
     from agents.vapi_caller import place_sophie_call
 
     # India: still on Dograh + Vobiz
@@ -278,11 +279,12 @@ def place_outbound_call(
         )
 
     script = _get_script(business_type, pain_signal)
-    phone_number_id = (
-        os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
-        if is_canadian(city, market)
-        else os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
-    )
+    if is_canadian(city, market):
+        phone_number_id = os.getenv("VAPI_CA_PHONE_NUMBER_ID", "a513803a-5229-4ac1-881d-6c89ae708738")
+    elif is_australian(city, market):
+        phone_number_id = os.getenv("VAPI_AU_PHONE_NUMBER_ID", "84240117-99a8-462a-8480-40bac571bf26")
+    else:
+        phone_number_id = os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
     return place_sophie_call(
         phone=phone,
         business_name=business_name,

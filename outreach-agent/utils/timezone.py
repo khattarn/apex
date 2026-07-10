@@ -92,6 +92,12 @@ US_CITIES = {
     "Sacramento", "Long Beach", "Fresno",
 }
 
+AU_CITIES = {
+    "Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Canberra",
+    "Gold Coast", "Newcastle", "Wollongong", "Hobart", "Geelong",
+    "Townsville", "Cairns", "Darwin", "Toowoomba", "Ballarat", "Bendigo",
+}
+
 # ── Fixed-date public holidays ────────────────────────────────────────────────
 # (month, day) → set of markets where outreach is blocked (treated as weekend)
 HOLIDAYS_FIXED = {
@@ -179,6 +185,10 @@ def is_canadian(city: str, market: str = "") -> bool:
 
 def is_american(city: str, market: str = "") -> bool:
     return (market or "").upper() == "US" or city in US_CITIES
+
+
+def is_australian(city: str, market: str = "") -> bool:
+    return (market or "").upper() == "AU" or city in AU_CITIES
 
 
 def _is_holiday(city: str, market: str = "") -> bool:
