@@ -2561,6 +2561,63 @@ async def anthropic_spend(_=Depends(verify_token)):
         return {"error": str(exc), "total_usd": None}
 
 
+# ── Railway spend (current billing period) ───────────────────────────────────
+
+@app.get("/api/railway/spend")
+async def railway_spend(_=Depends(verify_token)):
+    """Return current Railway billing-period usage + renewal date via the Railway GraphQL API."""
+    import asyncio
+    import requests as req
+
+    token = os.getenv("RAILWAY_API_TOKEN", "")
+    workspace_id = os.getenv("RAILWAY_WORKSPACE_ID", "")
+    if not token or not workspace_id:
+        return {"error": "RAILWAY_API_TOKEN / RAILWAY_WORKSPACE_ID not set", "current_usage_usd": None}
+
+    query = """
+    query($workspaceId: String!) {
+      workspace(workspaceId: $workspaceId) {
+        plan
+        customer {
+          currentUsage
+          creditBalance
+          state
+          billingPeriod { start end }
+        }
+      }
+    }
+    """
+
+    def _fetch():
+        return req.post(
+            "https://backboard.railway.app/graphql/v2",
+            json={"query": query, "variables": {"workspaceId": workspace_id}},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=8,
+        )
+
+    try:
+        r = await asyncio.to_thread(_fetch)
+        if r.status_code == 200:
+            data = r.json()
+            if data.get("errors"):
+                return {"error": data["errors"][0]["message"], "current_usage_usd": None}
+            ws = data["data"]["workspace"]
+            customer = ws["customer"]
+            return {
+                "plan": ws["plan"],
+                "current_usage_usd": round(customer["currentUsage"], 2),
+                "credit_balance_usd": round(customer["creditBalance"], 2),
+                "state": customer["state"],
+                "billing_period_start": customer["billingPeriod"]["start"],
+                "billing_period_end": customer["billingPeriod"]["end"],
+                "source": "railway_graphql_api",
+            }
+        return {"error": f"Railway API returned {r.status_code}", "current_usage_usd": None}
+    except Exception as exc:
+        return {"error": str(exc), "current_usage_usd": None}
+
+
 # ── Danger zone ───────────────────────────────────────────────────────────────
 
 @app.delete("/api/admin/leads")

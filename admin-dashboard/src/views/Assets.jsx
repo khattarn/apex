@@ -90,6 +90,52 @@ function AnthropicBalance() {
   )
 }
 
+function RailwayUsage() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const token = localStorage.getItem('pd_token')
+
+  const load = useCallback(() => {
+    setLoading(true)
+    fetch(`${API_BASE}/api/railway/spend`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false))
+  }, [token])
+
+  useEffect(() => { load() }, [load])
+
+  const colour = data?.current_usage_usd == null ? 'text-slate-500'
+    : data.current_usage_usd > 4 ? 'text-red-400'
+    : data.current_usage_usd > 2 ? 'text-yellow-400'
+    : 'text-emerald-400'
+
+  const renewalDate = data?.billing_period_end
+    ? new Date(data.billing_period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null
+
+  return (
+    <>
+      <Row label="This period">
+        <span className={`font-mono font-semibold ${colour}`}>
+          {loading ? '…' : data?.current_usage_usd != null ? `$${data.current_usage_usd.toFixed(2)} used` : 'unavailable'}
+        </span>
+        {!loading && (
+          <button onClick={load} className="ml-1 text-slate-600 hover:text-slate-400 transition-colors">
+            <RefreshCw size={10} />
+          </button>
+        )}
+      </Row>
+      <Row label="Renews">
+        <span className="text-slate-300">{renewalDate || '—'}</span>
+      </Row>
+    </>
+  )
+}
+
 function Card({ name, status, cost, provider, accountId, usedFor, products, notes, warning, consoleUrl, extra }) {
   return (
     <div className="bg-[#1e293b] border border-slate-700/50 rounded-lg p-4 flex flex-col gap-2.5">
@@ -275,6 +321,18 @@ const WA_NUMBERS = [
 ]
 
 const APIS = [
+  {
+    name: 'Railway',
+    status: 'pay-per-use',
+    provider: 'Railway',
+    cost: '$5/mo base (Hobby plan) + usage',
+    consoleUrl: 'https://railway.com/project/af997b52-d578-4363-90e2-712e61686faf',
+    extra: <RailwayUsage />,
+    accountId: 'RAILWAY_API_TOKEN',
+    usedFor: 'Hosts Apex FastAPI backend (outreach pipeline, cron jobs, SSE)',
+    products: 'Apex',
+    notes: 'Upgraded from trial 2026-07-11 · billing period renews monthly · watch usage meter to top up before renewal',
+  },
   {
     name: 'Anthropic Claude',
     status: 'active',
