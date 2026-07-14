@@ -6,6 +6,12 @@ log = logging.getLogger(__name__)
 
 _client = None
 
+# A click older than this is treated as cold, not warm — Sophie calling someone
+# about an email they clicked over 2 weeks ago reads as stale/out of context.
+# Applies to the voice priority queue's tier-1 "clicked" ranking and the
+# Live Activity click-calls preview; does not affect email/WA sequences.
+CLICK_EXPIRY_DAYS = 14
+
 # Email sequence: (template_number, day_from_start)
 EMAIL_SEQUENCE = [
     (1,  0),
@@ -470,8 +476,9 @@ def get_clicked_uncalled_leads() -> list[dict]:
       - clicked before today's UTC date (next-working-day rule — never call same day)
       - have not already received an outbound_call activity
     """
-    from datetime import date as _date
+    from datetime import date as _date, datetime, timezone, timedelta
     today_utc = _date.today().isoformat()  # "YYYY-MM-DD"
+    expiry_cutoff = (datetime.now(timezone.utc) - timedelta(days=CLICK_EXPIRY_DAYS)).isoformat()
 
     db = get_client()
 
@@ -484,10 +491,12 @@ def get_clicked_uncalled_leads() -> list[dict]:
         .data
     ) or []
 
-    # Only call leads whose click was recorded before today (UTC) — ensures next-working-day minimum gap
+    # Only call leads whose click was recorded before today (UTC) — ensures next-working-day
+    # minimum gap — and not so long ago that the click is no longer "warm" (see CLICK_EXPIRY_DAYS).
     clicked = [
         r for r in clicked
-        if r.get("email_clicked_at") and r["email_clicked_at"][:10] < today_utc
+        if r.get("email_clicked_at")
+        and expiry_cutoff < r["email_clicked_at"] < today_utc
     ]
 
     if not clicked:
@@ -583,7 +592,8 @@ def get_voice_priority_calls_today() -> int:
 def get_voice_priority_queue(cap: int = 50) -> list[dict]:
     """
     Returns up to `cap` leads ranked for voice outreach in this priority order:
-      Tier 1: clicked an email (email_clicked=True, click was before today UTC)
+      Tier 1: clicked an email (email_clicked=True, click was before today UTC
+              and within the last CLICK_EXPIRY_DAYS — older clicks are cold, not warm)
       Tier 2: opened but not clicked (email_opened=True, email_clicked=False/null)
       Tier 3: emailed >24h ago, not opened
       Tier 4: never contacted (no email sent, no WA sent)
@@ -593,8 +603,9 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
     """
     from datetime import datetime, timezone, timedelta
     db = get_client()
-    today_utc   = datetime.now(timezone.utc).date().isoformat()
-    cutoff_24h  = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    today_utc      = datetime.now(timezone.utc).date().isoformat()
+    cutoff_24h     = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    click_expiry   = (datetime.now(timezone.utc) - timedelta(days=CLICK_EXPIRY_DAYS)).isoformat()
 
     called_rows = (
         db.table("lead_activities")
@@ -605,42 +616,85 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
     )
     called_ids = {str(r["lead_id"]) for r in called_rows}
 
-    candidates = (
-        db.table("leads")
-        .select(
-            "id, name, phone, address, city, market, business_type, status, "
-            "email_clicked, email_clicked_at, email_opened, email_sent, "
-            "email_last_sent_at, outreach_sent, pain_score, pain_signal, pain_finding"
+    cols = (
+        "id, name, phone, address, city, market, business_type, status, "
+        "email_clicked, email_clicked_at, email_opened, email_sent, "
+        "email_last_sent_at, outreach_sent, pain_score, pain_signal, pain_finding"
+    )
+
+    def _base():
+        return (
+            db.table("leads")
+            .select(cols)
+            .not_.in_("status", ["dead", "converted"])
+            .not_.is_("phone", "null")
+            .neq("phone", "")
         )
-        .not_.in_("status", ["dead", "converted"])
-        .not_.is_("phone", "null")
-        .neq("phone", "")
-        .limit(cap * 10)
+
+    # Each tier is queried and ordered (by pain_score) independently, rather than
+    # pulling one unordered `limit(cap*10)` slice of the whole leads table and
+    # tier-classifying in Python. With thousands of leads and no ORDER BY,
+    # Postgrest returned an arbitrary (effectively oldest-first) slice, which
+    # silently excluded almost every recently-clicked/opened lead from the
+    # queue — they simply never appeared in the unordered slice, so they sat
+    # as "ready" on the dashboard forever without ever being dialed.
+    # pain_score is null for the large majority of leads (enrichment hasn't
+    # backfilled them), so ordering by pain_score alone leaves most rows tied —
+    # Postgres then breaks ties by physical scan order, which re-introduces the
+    # same oldest-first starvation bug one level down. Each tier adds a second
+    # sort key (oldest engagement timestamp first) so ties clear in a fair,
+    # deterministic FIFO order instead of silently favoring whichever rows
+    # happen to sit earliest in the table.
+    tier1 = (
+        _base()
+        .eq("email_clicked", True)
+        .lt("email_clicked_at", today_utc)
+        .gt("email_clicked_at", click_expiry)
+        .order("pain_score", desc=True, nullsfirst=False)
+        .order("email_clicked_at")
+        .limit(cap)
+        .execute()
+        .data or []
+    )
+    tier2 = (
+        _base()
+        .eq("email_opened", True)
+        .eq("email_clicked", False)
+        .order("pain_score", desc=True, nullsfirst=False)
+        .order("email_opened_at")
+        .limit(cap)
+        .execute()
+        .data or []
+    )
+    tier3 = (
+        _base()
+        .eq("email_sent", True)
+        .eq("email_opened", False)
+        .lt("email_last_sent_at", cutoff_24h)
+        .order("pain_score", desc=True, nullsfirst=False)
+        .order("email_last_sent_at")
+        .limit(cap)
+        .execute()
+        .data or []
+    )
+    tier4 = (
+        _base()
+        .eq("email_sent", False)
+        .eq("outreach_sent", False)
+        .order("pain_score", desc=True, nullsfirst=False)
+        .order("created_at")
+        .limit(cap)
         .execute()
         .data or []
     )
 
-    def _tier(lead: dict) -> int:
-        if lead.get("email_clicked") and (lead.get("email_clicked_at") or "")[:10] < today_utc:
-            return 1
-        if lead.get("email_opened") and not lead.get("email_clicked"):
-            return 2
-        last_sent = lead.get("email_last_sent_at") or ""
-        if lead.get("email_sent") and last_sent and last_sent < cutoff_24h:
-            return 3
-        if not lead.get("email_sent") and not lead.get("outreach_sent"):
-            return 4
-        return 99
-
     scored = []
-    for lead in candidates:
-        if str(lead["id"]) in called_ids:
-            continue
-        tier = _tier(lead)
-        if tier == 99:
-            continue
-        pain = lead.get("pain_score") or 0
-        scored.append((tier, -pain, lead))
+    for tier_num, rows in ((1, tier1), (2, tier2), (3, tier3), (4, tier4)):
+        for lead in rows:
+            if str(lead["id"]) in called_ids:
+                continue
+            pain = lead.get("pain_score") or 0
+            scored.append((tier_num, -pain, lead))
 
     scored.sort(key=lambda x: (x[0], x[1]))
     return [item[2] for item in scored[:cap]]

@@ -2221,12 +2221,16 @@ async def activity_live():
 
     # Click calls — per-lead status. Must mirror the real eligibility rules used
     # by database.client.get_clicked_uncalled_leads()/get_voice_priority_queue():
-    # exclude dead/converted leads, and exclude same-day clicks (next-working-day
-    # rule — a lead clicked today is never callable until tomorrow UTC). Without
-    # these two filters this list previously showed leads as "ready"/"outside
-    # hours" that could in fact never be dialed (dead) or wouldn't be dialed
-    # until the following day (clicked today).
-    today_utc_str = now_utc.date().isoformat()
+    # exclude dead/converted leads, exclude same-day clicks (next-working-day
+    # rule — a lead clicked today is never callable until tomorrow UTC), and
+    # drop clicks older than CLICK_EXPIRY_DAYS (no longer warm — get_voice_
+    # priority_queue's tier-1 stops considering them too). Without these filters
+    # this list previously showed leads as "ready"/"outside hours" that could in
+    # fact never be dialed (dead), wouldn't be dialed until the following day
+    # (clicked today), or were stale weeks-old clicks no longer part of the queue.
+    from database.client import CLICK_EXPIRY_DAYS
+    today_utc_str      = now_utc.date().isoformat()
+    click_expiry_cutoff = (now_utc - timedelta(days=CLICK_EXPIRY_DAYS)).isoformat()
     click_pending_ids = email_clicked_ids - called_ids
     click_leads: list[dict] = []
     if click_pending_ids:
@@ -2243,6 +2247,8 @@ async def activity_live():
         for r in raw:
             city = r.get("city", "")
             clicked_at = r.get("email_clicked_at") or ""
+            if clicked_at and clicked_at < click_expiry_cutoff:
+                continue  # expired — no longer part of the voice priority queue
             if clicked_at[:10] >= today_utc_str:
                 call_status = "clicked today — eligible tomorrow"
             else:
