@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { ArrowLeft, ExternalLink, Clock, Zap } from 'lucide-react'
-import { AGENTS } from './Agents'
+import { AGENTS, resolveStatus } from './Agents'
 import { fetchAgentStats } from '../api'
 
 const STATUS_STYLE = {
   live:     { dot: 'bg-green-400',               text: 'text-green-400',  label: 'Live' },
   building: { dot: 'bg-amber-400 animate-pulse', text: 'text-amber-400', label: 'Building' },
   planned:  { dot: 'bg-slate-500',               text: 'text-slate-400', label: 'Planned' },
+  stale:    { dot: 'bg-red-400',                 text: 'text-red-400',   label: 'Overdue' },
+  unknown:  { dot: 'bg-slate-500',               text: 'text-slate-400', label: 'No data yet' },
 }
 
 function timeAgo(iso) {
@@ -167,11 +169,12 @@ export default function AgentDetail() {
     )
   }
 
-  const s = STATUS_STYLE[agent.status]
+  const { status: effectiveStatus, healthRow } = resolveStatus(agent, stats?.health)
+  const s = STATUS_STYLE[effectiveStatus]
   const { Icon } = agent
   const isRunning = agent.runningKey && stats?.running?.[agent.runningKey]
   const agentStats = stats && agent.statsKey ? stats[agent.statsKey] : null
-  const lastRun = agentStats?.last_run
+  const lastRun = healthRow?.last_success_at || agentStats?.last_run
 
   const recentRuns = agent.statsKey === 'email_campaign'
     ? stats?.email_campaign?.recent_runs
@@ -223,7 +226,7 @@ export default function AgentDetail() {
       </div>
 
       {/* Stats */}
-      {agent.status === 'live' && (
+      {(effectiveStatus === 'live' || effectiveStatus === 'stale') && (
         <div className="space-y-2">
           <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Lifetime Stats</p>
           {(agent.statsKey === 'pipeline') && <PipelineStats stats={stats} />}

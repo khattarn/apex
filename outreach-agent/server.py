@@ -1719,6 +1719,8 @@ async def preview_email(
 @app.get("/api/agents/stats")
 async def agents_stats(_=Depends(verify_token)):
     from database.client import get_client, get_stats
+    from utils.monitoring import CADENCE_HOURS
+    from datetime import datetime, timezone
 
     db = get_client()
     all_runs = db.table("campaign_runs").select("*").order("created_at", desc=True).execute().data or []
@@ -1727,8 +1729,33 @@ async def agents_stats(_=Depends(verify_token)):
 
     lead_stats = get_stats()
 
+    # Real per-cron-job health, driven by the same agent_health heartbeats /
+    # CADENCE_HOURS config the watchdog uses — not a hardcoded dashboard status.
+    health_rows = db.table("agent_health").select("*").execute().data or []
+    now = datetime.now(timezone.utc)
+    health = {}
+    for row in health_rows:
+        job          = row["job"]
+        last_success = row.get("last_success_at")
+        gap_hours    = None
+        status       = "unknown"
+        if last_success:
+            ts = datetime.fromisoformat(str(last_success).replace("Z", "+00:00"))
+            gap_hours = (now - ts).total_seconds() / 3600
+            max_hours = CADENCE_HOURS.get(job)
+            status = "ok" if (max_hours is None or gap_hours <= max_hours) else "stale"
+        health[job] = {
+            "status":          status,
+            "last_success_at": last_success,
+            "last_run_at":     row.get("last_run_at"),
+            "last_result":     row.get("last_result"),
+            "gap_hours":       round(gap_hours, 1) if gap_hours is not None else None,
+            "cadence_hours":   CADENCE_HOURS.get(job),
+        }
+
     return {
         "running": _running,
+        "health": health,
         "pipeline": {
             "runs": len(wa_runs),
             "prospects_found": sum((r.get("prospects_found") or 0) for r in wa_runs),
