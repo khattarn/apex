@@ -6,11 +6,10 @@ log = logging.getLogger(__name__)
 
 _client = None
 
-# A click older than this is treated as cold, not warm — Sophie calling someone
-# about an email they clicked over 2 weeks ago reads as stale/out of context.
-# Applies to the voice priority queue's tier-1 "clicked" ranking and the
-# Live Activity click-calls preview; does not affect email/WA sequences.
-CLICK_EXPIRY_DAYS = 14
+# Founder mandate (2026-07-15): a clicked lead is always called eventually, no
+# matter how old the click is — reverses the 14-day CLICK_EXPIRY_DAYS rule from
+# 2026-07-14. Still subject to the daily voice_dial_cap, the local calling-hours
+# window, and dead/converted/opted-out status — none of those are overridden.
 
 # Email sequence: (template_number, day_from_start)
 EMAIL_SEQUENCE = [
@@ -207,12 +206,15 @@ def advance_email_sequence(lead_id: str, step_just_sent: int, sequence_length: i
         "email_last_sent_at": now.isoformat(),
         "email_sent": True,
         "email_sent_date": now.isoformat(),
-        # Reset per-email engagement so opens/clicks reflect the current email only
-        "email_opened": False,
-        "email_opened_at": None,
-        "email_clicked": False,
-        "email_clicked_at": None,
-        "email_clicked_link": None,
+        # Do NOT reset email_opened/email_clicked here. This used to wipe them on
+        # every subsequent send ("so opens/clicks reflect the current email
+        # only"), but get_voice_priority_queue()'s tier-1 ranking reads these
+        # same columns as "has this lead ever clicked" — the reset silently
+        # dropped leads out of the voice queue mid-sequence, before Sophie ever
+        # called them (confirmed 2026-07-14: 8/48 ever-clicked leads had lost
+        # their flag this way). Per-email-send granularity is already tracked
+        # independently in email_sends.opened_at/clicked_at, so nothing else
+        # depends on this reset.
     }
 
     if next_step <= cap:
@@ -476,9 +478,8 @@ def get_clicked_uncalled_leads() -> list[dict]:
       - clicked before today's UTC date (next-working-day rule — never call same day)
       - have not already received an outbound_call activity
     """
-    from datetime import date as _date, datetime, timezone, timedelta
+    from datetime import date as _date
     today_utc = _date.today().isoformat()  # "YYYY-MM-DD"
-    expiry_cutoff = (datetime.now(timezone.utc) - timedelta(days=CLICK_EXPIRY_DAYS)).isoformat()
 
     db = get_client()
 
@@ -492,11 +493,11 @@ def get_clicked_uncalled_leads() -> list[dict]:
     ) or []
 
     # Only call leads whose click was recorded before today (UTC) — ensures next-working-day
-    # minimum gap — and not so long ago that the click is no longer "warm" (see CLICK_EXPIRY_DAYS).
+    # minimum gap. No expiry — a clicked lead is called eventually no matter how old the click
+    # is (founder mandate 2026-07-15), as long as it isn't dead/converted.
     clicked = [
         r for r in clicked
-        if r.get("email_clicked_at")
-        and expiry_cutoff < r["email_clicked_at"] < today_utc
+        if r.get("email_clicked_at") and r["email_clicked_at"] < today_utc
     ]
 
     if not clicked:
@@ -592,8 +593,10 @@ def get_voice_priority_calls_today() -> int:
 def get_voice_priority_queue(cap: int = 50) -> list[dict]:
     """
     Returns up to `cap` leads ranked for voice outreach in this priority order:
-      Tier 1: clicked an email (email_clicked=True, click was before today UTC
-              and within the last CLICK_EXPIRY_DAYS — older clicks are cold, not warm)
+      Tier 1: clicked an email (email_clicked=True, click was before today UTC).
+              No expiry — a clicked lead is called eventually no matter how old
+              the click is, as long as it isn't dead/converted (founder mandate
+              2026-07-15). Still subject to `cap` and the calling-hours window.
       Tier 2: opened but not clicked (email_opened=True, email_clicked=False/null)
       Tier 3: emailed >24h ago, not opened
       Tier 4: never contacted (no email sent, no WA sent)
@@ -605,7 +608,6 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
     db = get_client()
     today_utc      = datetime.now(timezone.utc).date().isoformat()
     cutoff_24h     = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    click_expiry   = (datetime.now(timezone.utc) - timedelta(days=CLICK_EXPIRY_DAYS)).isoformat()
 
     called_rows = (
         db.table("lead_activities")
@@ -649,7 +651,6 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
         _base()
         .eq("email_clicked", True)
         .lt("email_clicked_at", today_utc)
-        .gt("email_clicked_at", click_expiry)
         .order("pain_score", desc=True, nullsfirst=False)
         .order("email_clicked_at")
         .limit(cap)
