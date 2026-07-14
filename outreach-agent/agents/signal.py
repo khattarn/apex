@@ -830,7 +830,7 @@ def _sync_email_ab_stats() -> None:
     a_lead_ids = {str(r["lead_id"]) for r in sends if (r.get("variant") or "").upper() == "A"}
     b_lead_ids = {str(r["lead_id"]) for r in sends if (r.get("variant") or "").upper() == "B"}
 
-    replies = db.table("lead_activities").select("lead_id").eq("type", "wa_reply_received").execute().data or []
+    replies = db.table("lead_activities").select("lead_id").eq("type", "email_reply_received").execute().data or []
     reply_ids = {str(r["lead_id"]) for r in replies}
 
     db.table("ab_tests").update({

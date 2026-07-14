@@ -1,5 +1,8 @@
+import logging
 import os
 from supabase import create_client
+
+log = logging.getLogger(__name__)
 
 _client = None
 
@@ -329,7 +332,8 @@ def update_campaign_run(run_id: str, data: dict):
 
 
 def save_email_send(lead_id: str, campaign_run_id: str, resend_email_id: str,
-                    email_number: int, sequence_step: int, market: str | None = None):
+                    email_number: int, sequence_step: int, market: str | None = None,
+                    variant: str | None = None):
     """Record a sent email and store resend_email_id on the lead for webhook lookup."""
     try:
         payload = {
@@ -341,9 +345,11 @@ def save_email_send(lead_id: str, campaign_run_id: str, resend_email_id: str,
         }
         if market:
             payload["market"] = market
+        if variant:
+            payload["variant"] = variant
         get_client().table("email_sends").insert(payload).execute()
     except Exception:
-        pass
+        log.exception("save_email_send failed for lead %s", lead_id)
     update_lead(lead_id, {"resend_email_id": resend_email_id})
 
 

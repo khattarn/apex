@@ -527,7 +527,7 @@ async def email_campaign(_=Depends(verify_token)):
                 send_result = await asyncio.to_thread(send_email, lead["email"], subject, html)
                 resend_id   = (send_result or {}).get("id", "")
                 if resend_id and run_id:
-                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market)
+                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market, variant=variant)
                 advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used, "subject": subject,
@@ -1211,7 +1211,7 @@ async def cron_email_sequence(request: Request):
             send_result = send_email(lead["email"], subject, html)
             resend_id   = (send_result or {}).get("id", "")
             if resend_id and run_id:
-                save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market)
+                save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market, variant=variant)
             advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
             log_activity(lead["id"], "email_sent", {
                 "email_number": email_num_used,
@@ -2192,25 +2192,45 @@ async def activity_live():
     wa_broadcast_by_city = _broadcast_by_city()
     wa_broadcast_total = sum(wa_broadcast_by_city.values())
 
-    # Click calls — per-lead status
+    # Click calls — per-lead status. Must mirror the real eligibility rules used
+    # by database.client.get_clicked_uncalled_leads()/get_voice_priority_queue():
+    # exclude dead/converted leads, and exclude same-day clicks (next-working-day
+    # rule — a lead clicked today is never callable until tomorrow UTC). Without
+    # these two filters this list previously showed leads as "ready"/"outside
+    # hours" that could in fact never be dialed (dead) or wouldn't be dialed
+    # until the following day (clicked today).
+    today_utc_str = now_utc.date().isoformat()
     click_pending_ids = email_clicked_ids - called_ids
-    click_pending = len(click_pending_ids)
     click_leads: list[dict] = []
     if click_pending_ids:
-        raw = db.table("leads").select("id, name, city, phone, business_type").in_("id", list(click_pending_ids)).not_.is_("phone", "null").neq("phone", "").execute().data or []
+        raw = (
+            db.table("leads")
+            .select("id, name, city, phone, business_type, status, email_clicked_at")
+            .in_("id", list(click_pending_ids))
+            .not_.is_("phone", "null")
+            .neq("phone", "")
+            .not_.in_("status", ["dead", "converted"])
+            .execute()
+            .data or []
+        )
         for r in raw:
             city = r.get("city", "")
-            tz_name = CITY_TZ.get(city, "")
-            in_window = is_voice_window(city, "")
-            if not in_window:
-                if tz_name:
-                    local_t = now_utc.astimezone(pytz.timezone(tz_name))
-                    call_status = f"outside hours ({local_t.strftime('%H:%M')} {local_t.strftime('%Z')})"
-                else:
-                    call_status = "outside hours"
+            clicked_at = r.get("email_clicked_at") or ""
+            if clicked_at[:10] >= today_utc_str:
+                call_status = "clicked today — eligible tomorrow"
             else:
-                call_status = "ready"
+                tz_name = CITY_TZ.get(city, "")
+                in_window = is_voice_window(city, "")
+                if not in_window:
+                    if tz_name:
+                        local_t = now_utc.astimezone(pytz.timezone(tz_name))
+                        call_status = f"outside hours ({local_t.strftime('%H:%M')} {local_t.strftime('%Z')})"
+                    else:
+                        call_status = "outside hours"
+                else:
+                    call_status = "ready"
             click_leads.append({"id": str(r["id"]), "name": r.get("name",""), "city": city, "business_type": r.get("business_type",""), "call_status": call_status})
+    click_pending = len(click_leads)
 
     email_due = db.table("leads").select("id", count="exact").not_.is_("email", "null").neq("email", "").not_.is_("email_sequence_step", "null").eq("status", "contacted").execute()
     email_pending = email_due.count or 0
@@ -3103,7 +3123,7 @@ async def _job_email_campaign():
                 send_result = send_email(lead["email"], subject, html)
                 resend_id   = (send_result or {}).get("id", "")
                 if resend_id and run_id:
-                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market)
+                    save_email_send(lead["id"], run_id, resend_id, email_num_used, next_step, market=market, variant=variant)
                 advance_email_sequence(lead["id"], next_step, sequence_length=seq_cap)
                 log_activity(lead["id"], "email_sent", {
                     "email_number": email_num_used,
@@ -3472,7 +3492,7 @@ async def start_scheduler():
         from agents.signal import register_hook_ab_test
         register_hook_ab_test()
     except Exception:
-        pass  # non-fatal — Signal tables may not be migrated yet in fresh deploys
+        log.exception("register_hook_ab_test failed — Signal tables may not be migrated yet")
 
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     # misfire_grace_time: max seconds past due-time a job can still fire after a restart.

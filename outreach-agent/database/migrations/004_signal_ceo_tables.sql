@@ -113,7 +113,11 @@ CREATE TABLE IF NOT EXISTS learnings (
   created_at   TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_base (
+-- Named signal_knowledge_base, not knowledge_base: that name is already taken by
+-- PracticeDesk's per-practice FAQ table (professional_id/question/answer) in the
+-- same shared Supabase project. This table stores a different shape of data
+-- (topic/content summaries) for the Signal agent.
+CREATE TABLE IF NOT EXISTS signal_knowledge_base (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   topic      TEXT UNIQUE NOT NULL,        -- 'top_performing_messages_AU_dentist', 'objection_map_CA'
   content    TEXT,                        -- markdown or structured JSON summary
