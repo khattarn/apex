@@ -397,27 +397,34 @@ def run_click_campaign() -> dict:
     """
     Voice priority queue — ranked by engagement tier then pain_score.
     Tier order: clicked > opened (no click) > emailed >24h (no open) > never-contacted.
-    Cap: voice_dial_cap setting (default 50). Respects 11am–5pm local window.
+    Cap: per-market voice_dial_cap_by_market setting (falls back to voice_dial_cap
+    split evenly across markets — see database.client.get_voice_dial_caps). Splitting
+    per market stops AU's calling window (which opens first in the UTC day) from
+    burning through the whole day's budget before CA gets a turn.
+    Markets: AU and CA only (founder decision 2026-07-14 — US/UK on hold pending
+    compliance review and better market data). Leads in other markets get 0 cap
+    and are simply never surfaced by get_voice_priority_queue.
+    Respects 11am–5pm local window.
     """
     from datetime import datetime, timezone, timedelta
-    from database.client import get_voice_priority_queue, get_voice_priority_calls_today, get_setting, log_activity
+    from database.client import (
+        get_voice_priority_queue, get_voice_priority_calls_today_by_market,
+        get_voice_dial_caps, log_activity,
+    )
     from utils.monitoring import upsert_heartbeat
 
-    try:
-        cap = int(get_setting("voice_dial_cap") or 50)
-    except Exception:
-        cap = 50
+    caps = get_voice_dial_caps()
 
-    # voice_dial_cap is a daily cap, but this job runs hourly — subtract what's
-    # already gone out today so repeated runs can't each independently use the
-    # full cap.
-    already_called_today = get_voice_priority_calls_today()
-    remaining_cap = max(0, cap - already_called_today)
+    # Each market's cap is a daily cap, but this job runs hourly — subtract what's
+    # already gone out today per market so repeated runs can't each independently
+    # use the full cap.
+    already_called_today = get_voice_priority_calls_today_by_market()
+    remaining_caps = {m: max(0, caps.get(m, 0) - already_called_today.get(m, 0)) for m in caps}
 
     today_utc  = datetime.now(timezone.utc).date().isoformat()
     cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
-    leads = get_voice_priority_queue(cap=remaining_cap) if remaining_cap else []
+    leads = get_voice_priority_queue(remaining_caps) if any(v > 0 for v in remaining_caps.values()) else []
     called, skipped_tz, skipped_no_phone, errors = 0, 0, 0, 0
 
     from agents.email_personalizer import detect_market
@@ -443,16 +450,20 @@ def run_click_campaign() -> dict:
                 "dograh_run_id": call.get("workflow_run_id", ""),
                 "trigger":       "voice_priority_queue",
                 "tier":          tier,
+                "market":        market,
                 "pain_signal":   lead.get("pain_signal", ""),
                 "phone":         lead["phone"],
             })
             called += 1
-            log.info("Priority call placed: lead=%s tier=%s pain=%s", lead["id"], tier, lead.get("pain_score"))
+            log.info("Priority call placed: lead=%s tier=%s market=%s pain=%s", lead["id"], tier, market, lead.get("pain_score"))
         except Exception as exc:
             log.error("Priority call failed: lead=%s: %s", lead.get("id"), exc)
             errors += 1
 
-    upsert_heartbeat("click_calls", {"called": called, "skipped_tz": skipped_tz, "errors": errors})
+    upsert_heartbeat("click_calls", {
+        "called": called, "skipped_tz": skipped_tz, "errors": errors,
+        "remaining_caps": remaining_caps,
+    })
     return {
         "called": called,
         "skipped_outside_hours": skipped_tz,

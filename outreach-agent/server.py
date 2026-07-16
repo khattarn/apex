@@ -696,7 +696,15 @@ async def cal_webhook(request: Request):
 
 @app.post("/api/webhooks/vapi")
 async def vapi_webhook(request: Request):
-    payload    = await request.json()
+    raw_payload = await request.json()
+    # Vapi nests the actual event under a top-level "message" key —
+    # {"message": {"type": "end-of-call-report", "call": {...}, "artifact": {...}, ...}}.
+    # This handler used to read `type`/`call`/`artifact` straight off raw_payload,
+    # which has none of those keys, so event_type was always "" and every webhook
+    # (hundreds/day, all returning 200) silently hit the early-return below without
+    # ever logging a completed call — confirmed against docs.vapi.ai/server-url/events
+    # 2026-07-16, no completed-call activity recorded since 2026-07-08.
+    payload    = raw_payload.get("message", raw_payload)
     event_type = payload.get("type", "")
 
     if event_type != "end-of-call-report":
@@ -709,7 +717,7 @@ async def vapi_webhook(request: Request):
         from datetime import datetime, timezone as _tz
         _gc().table("settings").upsert({
             "key": "vapi_last_webhook_payload",
-            "value": json.dumps(payload),
+            "value": json.dumps(raw_payload),
             "updated_at": datetime.now(_tz.utc).isoformat(),
         }).execute()
     except Exception:
@@ -717,11 +725,11 @@ async def vapi_webhook(request: Request):
 
     call          = payload.get("call", {})
     artifact      = payload.get("artifact", {})
-    # Field location isn't verified against a live payload yet — Vapi's docs were
-    # inconsistent on this. Check all three plausible spots defensively.
-    analysis      = call.get("analysis") or artifact.get("analysis") or payload.get("analysis") or {}
+    # Per Vapi docs, analysis lives at message.analysis — keep the call/artifact
+    # fallbacks defensively in case a future payload shape moves it.
+    analysis      = payload.get("analysis") or call.get("analysis") or artifact.get("analysis") or {}
     structured    = analysis.get("structuredData") or {}
-    ended_reason  = call.get("endedReason", "")
+    ended_reason  = payload.get("endedReason") or call.get("endedReason", "")
     recording_url = artifact.get("recordingUrl", "")
     summary       = (artifact.get("summary") or "")[:500]
     transcript    = (artifact.get("transcript") or "")[:1000]

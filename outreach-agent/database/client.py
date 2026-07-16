@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from supabase import create_client
@@ -571,11 +572,45 @@ def get_leads_for_followup(limit=20) -> list:
     return leads[:limit]
 
 
-def get_voice_priority_calls_today() -> int:
-    """Count outbound_call activities placed by the voice priority queue since UTC midnight —
-    used to turn voice_dial_cap into a real daily cap (the job runs hourly, so without this
-    each run independently allows up to `cap` fresh leads, letting the real daily total run
-    several times past the configured cap)."""
+# US and UK are deliberately excluded (founder decision 2026-07-14): compliance
+# review incomplete and market info too limited to pursue right now. Leads that
+# detect_market() classifies as US or UK simply get 0 cap below and are never
+# surfaced by get_voice_priority_queue() — re-add them here once compliance clears.
+VOICE_MARKETS = ("AU", "CA")
+
+
+def get_voice_dial_caps() -> dict[str, int]:
+    """Per-market daily voice-call caps, keyed by market (AU/CA only — see note above).
+
+    Reads `voice_dial_cap_by_market` (JSON, e.g. {"AU": 25, "CA": 25}) if set.
+    Otherwise falls back to splitting the legacy global `voice_dial_cap` setting
+    evenly across markets — before this split, a single shared cap let whichever
+    market's calling window opened first in the UTC day (AU) burn through the
+    whole day's budget before CA ever got a turn.
+    """
+    raw = get_setting("voice_dial_cap_by_market")
+    if raw:
+        try:
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            return {m: int(parsed.get(m, 0)) for m in VOICE_MARKETS}
+        except Exception:
+            log.warning("voice_dial_cap_by_market malformed, falling back to even split")
+
+    try:
+        total = int(get_setting("voice_dial_cap") or 50)
+    except Exception:
+        total = 50
+    per_market = max(1, total // len(VOICE_MARKETS))
+    return {m: per_market for m in VOICE_MARKETS}
+
+
+def get_voice_priority_calls_today_by_market() -> dict[str, int]:
+    """Count outbound_call activities placed by the voice priority queue since UTC
+    midnight, grouped by market — used to turn each market's cap into a real daily
+    cap (the job runs hourly, so without this each run independently allows a
+    fresh per-market cap, letting the real daily total run past the configured cap).
+    Activities logged before the market field existed (or for a market outside
+    VOICE_MARKETS) simply aren't counted against either tracked market's cap."""
     from datetime import datetime, timezone
     db = get_client()
     start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
@@ -587,27 +622,46 @@ def get_voice_priority_calls_today() -> int:
         .execute()
         .data or []
     )
-    return sum(1 for r in rows if (r.get("detail") or {}).get("trigger") == "voice_priority_queue")
+    counts = {m: 0 for m in VOICE_MARKETS}
+    for r in rows:
+        detail = r.get("detail") or {}
+        if detail.get("trigger") != "voice_priority_queue":
+            continue
+        market = detail.get("market") or "US"
+        if market in counts:
+            counts[market] += 1
+    return counts
 
 
-def get_voice_priority_queue(cap: int = 50) -> list[dict]:
+def get_voice_priority_queue(caps_by_market: dict[str, int]) -> list[dict]:
     """
-    Returns up to `cap` leads ranked for voice outreach in this priority order:
+    Returns leads ranked for voice outreach in this priority order:
       Tier 1: clicked an email (email_clicked=True, click was before today UTC).
               No expiry — a clicked lead is called eventually no matter how old
               the click is, as long as it isn't dead/converted (founder mandate
-              2026-07-15). Still subject to `cap` and the calling-hours window.
+              2026-07-15). Still subject to the per-market cap and calling-hours window.
       Tier 2: opened but not clicked (email_opened=True, email_clicked=False/null)
       Tier 3: emailed >24h ago, not opened
       Tier 4: never contacted (no email sent, no WA sent)
     Within each tier: sorted by pain_score DESC.
     Excludes leads already called (outbound_call or voice_followup_placed).
     Excludes dead/converted leads and leads with no phone.
+    Caps the result per market (`caps_by_market`, remaining budget for today) so
+    one market maxing out its cap doesn't starve the others' candidate pool.
     """
     from datetime import datetime, timezone, timedelta
+    from agents.email_personalizer import detect_market
     db = get_client()
     today_utc      = datetime.now(timezone.utc).date().isoformat()
     cutoff_24h     = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+    total_cap = sum(max(0, v) for v in caps_by_market.values())
+    if total_cap <= 0:
+        return []
+    # Overfetch per tier — candidates get filtered/bucketed by market below, so
+    # a plain `.limit(total_cap)` would (as before) let whichever market's leads
+    # happen to rank highest crowd out the others.
+    fetch_limit = min(500, max(total_cap * 10, 200))
 
     called_rows = (
         db.table("lead_activities")
@@ -653,7 +707,7 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
         .lt("email_clicked_at", today_utc)
         .order("pain_score", desc=True, nullsfirst=False)
         .order("email_clicked_at")
-        .limit(cap)
+        .limit(fetch_limit)
         .execute()
         .data or []
     )
@@ -663,7 +717,7 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
         .eq("email_clicked", False)
         .order("pain_score", desc=True, nullsfirst=False)
         .order("email_opened_at")
-        .limit(cap)
+        .limit(fetch_limit)
         .execute()
         .data or []
     )
@@ -674,7 +728,7 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
         .lt("email_last_sent_at", cutoff_24h)
         .order("pain_score", desc=True, nullsfirst=False)
         .order("email_last_sent_at")
-        .limit(cap)
+        .limit(fetch_limit)
         .execute()
         .data or []
     )
@@ -684,7 +738,7 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
         .eq("outreach_sent", False)
         .order("pain_score", desc=True, nullsfirst=False)
         .order("created_at")
-        .limit(cap)
+        .limit(fetch_limit)
         .execute()
         .data or []
     )
@@ -698,7 +752,19 @@ def get_voice_priority_queue(cap: int = 50) -> list[dict]:
             scored.append((tier_num, -pain, lead))
 
     scored.sort(key=lambda x: (x[0], x[1]))
-    return [item[2] for item in scored[:cap]]
+
+    remaining = {m: max(0, v) for m, v in caps_by_market.items()}
+    result = []
+    for _, _, lead in scored:
+        market = detect_market(lead.get("phone", ""), lead.get("address", "") or "")
+        # Markets outside VOICE_MARKETS (US, UK, or anything else detect_market
+        # returns, e.g. India) simply have no budget and are skipped.
+        if remaining.get(market, 0) <= 0:
+            continue
+        remaining[market] -= 1
+        result.append(lead)
+
+    return result
 
 
 def get_leads_for_voice_followup(limit=10) -> list:
