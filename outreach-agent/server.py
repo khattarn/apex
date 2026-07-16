@@ -689,6 +689,37 @@ async def cal_webhook(request: Request):
     return {"ok": True}
 
 
+# ── Vapi recording proxy ──────────────────────────────────────────────────
+# Vapi requires API-key auth to download recordings as of 2026-07-15; the old
+# public recordingUrl/stereoRecordingUrl stop resolving entirely from
+# 2026-07-25. This endpoint authenticates server-side with VAPI_API_KEY and
+# 302s the caller to Vapi's short-lived signed URL — so <audio>/<a> embeds in
+# the dashboard and links in WA/email founder alerts keep working unchanged.
+# Left unauthenticated on our side (same as the old public URL): call IDs are
+# opaque UUIDs, so this isn't a security downgrade from what it replaces.
+_VAPI_RECORDING_TYPES = {"mono", "stereo", "customer", "assistant", "video"}
+
+
+@app.get("/api/vapi/recording/{call_id}")
+async def vapi_recording_proxy(call_id: str, type: str = "mono"):
+    rec_type = type if type in _VAPI_RECORDING_TYPES else "mono"
+    api_key = os.getenv("VAPI_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="VAPI_API_KEY not configured")
+    resp = await asyncio.to_thread(
+        requests.get,
+        f"https://api.vapi.ai/call/{call_id}/{rec_type}-recording",
+        headers={"Authorization": f"Bearer {api_key}"},
+        allow_redirects=False,
+        timeout=15,
+    )
+    location = resp.headers.get("location")
+    if resp.status_code in (301, 302, 303, 307, 308) and location:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=location, status_code=302)
+    raise HTTPException(status_code=502, detail=f"Vapi recording fetch failed: HTTP {resp.status_code}")
+
+
 # ── Vapi webhook — Henry inbound only (number printed on outgoing emails) ───
 # Henry stays on Vapi until the printed number is retired. When a new inbound
 # number is set up in Dograh, update INBOUND_PHONE* in email_templates.py and
@@ -731,6 +762,15 @@ async def vapi_webhook(request: Request):
     structured    = analysis.get("structuredData") or {}
     ended_reason  = payload.get("endedReason") or call.get("endedReason", "")
     recording_url = artifact.get("recordingUrl", "")
+    vapi_call_id  = call.get("id", "")
+    if vapi_call_id:
+        # Vapi's raw recordingUrl requires API-key auth to fetch as of 2026-07-15
+        # (and stops resolving entirely from 2026-07-25 — see their "Action
+        # required" migration email). Point everywhere that stores/forwards this
+        # string (founder WA/email alerts, dashboard players, CEO report) at our
+        # own authenticated proxy instead, so nothing downstream needs to change.
+        base_url = os.getenv("PUBLIC_BASE_URL", "https://serene-passion-production-cd82.up.railway.app")
+        recording_url = f"{base_url}/api/vapi/recording/{vapi_call_id}"
     summary       = (artifact.get("summary") or "")[:500]
     transcript    = (artifact.get("transcript") or "")[:1000]
     call_type     = call.get("type", "")  # "outboundPhoneCall" | "inboundPhoneCall"
