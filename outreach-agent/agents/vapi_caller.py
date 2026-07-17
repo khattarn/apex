@@ -106,6 +106,10 @@ def place_sophie_call(
     Default caller ID: +13129408233 (Vapi free number, US/AU).
     CA caller ID: +15872090343 (SignalWire 587 Alberta).
     """
+    from database.client import get_setting
+    if str(get_setting("sophie_calls_paused") or "").lower() == "true":
+        raise RuntimeError("Sophie outbound calls are paused (settings.sophie_calls_paused=true)")
+
     assistant_id    = os.getenv("VAPI_SOPHIE_ASSISTANT_ID",   "bfecad5e-dce4-469f-8570-d44efc49de15")
     if not phone_number_id:
         phone_number_id = os.getenv("VAPI_PLATFORM_PHONE_ID", "50d7061b-ac77-4a4f-b2d5-7430df39b9d5")
