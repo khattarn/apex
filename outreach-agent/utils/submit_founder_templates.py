@@ -5,7 +5,15 @@ Run once from outreach-agent/:
     python utils/submit_founder_templates.py
 
 Templates:
-  apex_daily_brief   — daily digest with one body variable (the text)
+  apex_daily_ping    — short daily-report ping, four variables: date, new_leads,
+                       calls, emails_sent. Replaces apex_daily_brief (below),
+                       which Meta auto-recategorized MARKETING after approval —
+                       category can't be edited post-approval, and MARKETING
+                       templates get silently throttled by Meta's per-recipient
+                       engagement limits when the founder never replies. The
+                       full digest text still goes out over email every run.
+  apex_daily_brief   — LEGACY, do not use — stuck as MARKETING category, kept
+                       here only so its history isn't lost. See apex_daily_ping.
   apex_system_alert  — alert with three variables: icon, component, reason
   apex_call_outcome  — actionable Sophie call outcome with five variables:
                        label, lead_line, detail, summary, recording_url
@@ -34,17 +42,20 @@ if not (PHONE_NUMBER_ID and WA_TOKEN):
 # ── Template definitions ───────────────────────────────────────────────────────
 TEMPLATES = [
     {
-        "name":     "apex_daily_brief",
+        # Submitted 2026-07-16 as the UTILITY replacement for apex_daily_brief.
+        "name":     "apex_daily_ping",
         "category": "UTILITY",
         "language": "en",
         "components": [
             {
                 "type": "BODY",
-                "text": "Apex Daily Digest\n\n{{1}}",
+                "text": (
+                    "Apex Daily Report — {{1}}\n\n"
+                    "New leads: {{2}} | Calls placed: {{3}} | Emails sent: {{4}}\n\n"
+                    "Full report sent to your inbox and available on the Apex dashboard."
+                ),
                 "example": {
-                    "body_text": [[
-                        "Apex Daily — 28 Jun 2026\n\n── LAST 24 HOURS ──\nLeads added: 3\nEmails sent: 12\n..."
-                    ]]
+                    "body_text": [["16 Jul 2026", "8", "42", "37"]]
                 },
             }
         ],

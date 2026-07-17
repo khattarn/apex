@@ -151,7 +151,56 @@ def _get_leads_added(start: str, end: str) -> int:
     return result.count or 0
 
 
-def build_digest() -> str:
+def _get_call_log(start: str, end: str, limit: int = 25) -> tuple[list[dict], int]:
+    """Per-call detail for every Sophie outbound call completed in the window."""
+    db = get_client()
+    try:
+        rows = (
+            db.table("lead_activities")
+            .select("lead_id, detail, created_at")
+            .eq("type", "outbound_call_completed")
+            .gte("created_at", start)
+            .lte("created_at", end)
+            .order("created_at", desc=True)
+            .execute()
+            .data or []
+        )
+    except Exception:
+        return [], 0
+    if not rows:
+        return [], 0
+
+    lead_ids = list({r["lead_id"] for r in rows if r.get("lead_id")})
+    leads_by_id = {}
+    if lead_ids:
+        lead_rows = (
+            db.table("leads")
+            .select("id, name, business_type, city")
+            .in_("id", lead_ids)
+            .execute()
+            .data or []
+        )
+        leads_by_id = {l["id"]: l for l in lead_rows}
+
+    calls = []
+    for r in rows[:limit]:
+        lead   = leads_by_id.get(r.get("lead_id"), {})
+        detail = r.get("detail") or {}
+        cost   = (detail.get("cost_info") or {}).get("total_cost", 0)
+        calls.append({
+            "time":          (r.get("created_at") or "")[11:16],
+            "name":          lead.get("name") or "Unknown lead",
+            "business_type": lead.get("business_type") or "",
+            "city":          lead.get("city") or "",
+            "outcome":       detail.get("call_outcome") or "unknown",
+            "ended_reason":  detail.get("ended_reason") or "",
+            "cost":          float(cost or 0),
+            "recording_url": detail.get("recording_url") or "",
+        })
+    return calls, len(rows)
+
+
+def build_digest() -> tuple[str, dict]:
     start, end = _last_24h_range()
     stats = get_stats()
 
@@ -163,6 +212,7 @@ def build_digest() -> str:
     replies, interested, not_int = _get_wa_replies_detail(start, end)
     sprint                       = _get_sprint_funnel(start, end)
     last_run                     = _get_last_pipeline_run()
+    call_log, call_log_total     = _get_call_log(start, end)
 
     today = datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC")
 
@@ -183,6 +233,23 @@ def build_digest() -> str:
         f"Voice follow-up calls:   {vf_calls}",
         f"  Est. call cost:        ${cost:.4f}",
         "",
+        "── OUTBOUND CALL LOG (last 24h) ────────",
+    ]
+    if call_log:
+        for c in call_log:
+            loc = ", ".join(p for p in (c["business_type"], c["city"]) if p)
+            lines.append(
+                f"{c['time']} UTC  {c['name']} ({loc}) — {c['outcome']} "
+                f"[{c['ended_reason']}]  ${c['cost']:.4f}"
+            )
+            if c["recording_url"]:
+                lines.append(f"           {c['recording_url']}")
+        if call_log_total > len(call_log):
+            lines.append(f"... and {call_log_total - len(call_log)} more (see dashboard)")
+    else:
+        lines.append("No outbound calls completed.")
+    lines += [
+        "",
         "── CUMULATIVE TOTALS ───────────────────",
         f"Total leads:  {stats['total_leads']}  |  Replied: {stats['replied']}  |  Converted: {stats['converted']}",
         f"Email seq active: {stats.get('in_sequence', 0)}  |  Complete: {stats.get('sequence_complete', 0)}",
@@ -190,7 +257,12 @@ def build_digest() -> str:
         "── LAST PIPELINE RUN ───────────────────",
         last_run,
     ]
-    return "\n".join(lines)
+    summary = {
+        "new_leads":  new_leads,
+        "calls":      sophie_calls + vf_calls,
+        "emails_sent": emails_sent,
+    }
+    return "\n".join(lines), summary
 
 
 def _store_digest(digest: str) -> None:
@@ -207,13 +279,15 @@ def _store_digest(digest: str) -> None:
 
 
 def send_observatory_digest() -> str:
-    digest = build_digest()
+    digest, summary = build_digest()
 
     # Always persist to DB — readable from dashboard
     _store_digest(digest)
 
-    # Dual-channel delivery: email always fires; WA via approved template (best-effort)
+    # Dual-channel delivery: email always fires (full digest incl. call log);
+    # WA sends a short ping (see notifier.py) since the full digest triggered
+    # Meta's marketing-message classifier and got silently throttled.
     from utils.notifier import notify_founder
-    notify_founder(kind="daily_brief", body=digest)
+    notify_founder(kind="daily_brief", body=digest, summary=summary)
 
     return digest

@@ -18,7 +18,12 @@ log = logging.getLogger(__name__)
 _FOUNDER_EMAIL = os.getenv("FOUNDER_EMAIL", "khattarn3@yahoo.com")
 _FOUNDER_WA    = os.getenv("FOUNDER_WHATSAPP_NUMBER", "")
 
-_TEMPLATE_DAILY_BRIEF  = "apex_daily_brief"
+_TEMPLATE_DAILY_BRIEF  = "apex_daily_ping"   # apex_daily_brief was auto-recategorized
+                                              # MARKETING by Meta after approval (unappealable
+                                              # once approved) and got silently throttled by
+                                              # Meta's marketing-message engagement limits —
+                                              # this replacement is a short UTILITY-style ping
+                                              # instead of the full digest text.
 _TEMPLATE_SYSTEM_ALERT = "apex_system_alert"
 _TEMPLATE_CALL_OUTCOME = "apex_call_outcome"
 
@@ -34,19 +39,20 @@ def notify_founder(
     label: str = "",
     lead_line: str = "",
     detail: str = "",
-    summary: str = "",
+    summary=None,
     recording_url: str = "",
 ) -> None:
     """
     Send to email (always) + WhatsApp (best-effort via approved template).
 
-    kind="daily_brief"   — body = full digest text
+    kind="daily_brief"   — body = full digest text (email only); summary = dict with
+                            new_leads/calls/emails_sent counts for the short WA ping
     kind="system_alert"  — severity / component / reason filled in
     kind="call_outcome"  — label / lead_line / detail / summary / recording_url filled in
     """
     if kind == "daily_brief":
         _send_email_brief(body)
-        _send_wa_brief(body)
+        _send_wa_brief(summary or {})
     elif kind == "system_alert":
         msg = reason or f"{severity.upper()}: {component}"
         _send_email_alert(severity, component, msg)
@@ -168,9 +174,11 @@ def _wa_phone_id() -> str:
     return os.getenv("OUTREACH_WA_PHONE_NUMBER_ID", "")
 
 
-def _send_wa_brief(body: str) -> bool:
+def _send_wa_brief(summary: dict) -> bool:
     if not _FOUNDER_WA or not _wa_phone_id():
         return False
+    from datetime import datetime, timezone
+    date_str = datetime.now(timezone.utc).strftime("%-d %b %Y")
     try:
         resp = requests.post(
             f"https://graph.facebook.com/v19.0/{_wa_phone_id()}/messages",
@@ -184,8 +192,15 @@ def _send_wa_brief(body: str) -> bool:
                     "language": {"code": "en"},
                     "components": [{
                         "type": "body",
-                        # {{1}} = digest text; body: "Apex Daily — ...\n\n{{1}}\n\nReply..."
-                        "parameters": [{"type": "text", "text": body[:1000]}],
+                        # body: "Apex Daily Report — {{1}}\n\nNew leads: {{2}} |
+                        # Calls placed: {{3}} | Emails sent: {{4}}\n\nFull report
+                        # sent to your inbox and available on the Apex dashboard."
+                        "parameters": [
+                            {"type": "text", "text": date_str},
+                            {"type": "text", "text": str(summary.get("new_leads", 0))},
+                            {"type": "text", "text": str(summary.get("calls", 0))},
+                            {"type": "text", "text": str(summary.get("emails_sent", 0))},
+                        ],
                     }],
                 },
             },
