@@ -193,7 +193,13 @@ function InternationalDialpad() {
       // Dial the PSTN number directly
       let call
       try {
-        call = await client.dial(dest, { audio: true, video: false })
+        // Ask the browser for mic echo cancellation + noise suppression explicitly rather than
+        // relying on its defaults (iOS in particular) — cuts room/ambient noise on the way out.
+        call = await client.dial(dest, {
+          audio: true,
+          video: false,
+          inputAudioDeviceConstraints: { echoCancellation: true, noiseSuppression: true },
+        })
       } catch (e) {
         console.error('[Dialpad] dial() error:', e)
         throw new Error(e.message || 'Call creation failed')
