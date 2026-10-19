@@ -75,6 +75,14 @@ const QUICK_DIALS = [
   { label: 'Test Line 2',           number: '+12086884760', note: 'Inbound test number' },
 ]
 
+// Pasted numbers like "1 (888) 207-3363" must reach SignalWire as E.164 ("+18882073363");
+// it rejects URIs containing spaces/brackets/dashes with uri_does_not_resolve_to_address.
+function toE164(raw) {
+  const s = raw.trim()
+  const digits = s.replace(/\D/g, '')
+  return s.startsWith('+') ? `+${digits}` : `+${digits.replace(/^00/, '')}`
+}
+
 function InternationalDialpad() {
   const [number, setNumber]       = useState('')
   const [status, setStatus]       = useState('idle')
@@ -172,7 +180,7 @@ function InternationalDialpad() {
     }
 
     try {
-      const dest = number.startsWith('+') ? number : `+${number.replace(/^00/, '')}`
+      const dest = toE164(number)
 
       // Fetch a fresh Subscriber Access Token (SAT) from backend
       const { token } = await request('/api/signalwire/token')
