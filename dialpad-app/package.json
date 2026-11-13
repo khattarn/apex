@@ -25,6 +25,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "token.js",
       "renderer/index.html",
       "renderer/bundle.js"
     ],

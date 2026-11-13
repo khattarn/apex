@@ -1,13 +1,12 @@
 import { SignalWire, StaticCredentialProvider } from '@signalwire/js'
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const API_BASE  = 'https://serene-passion-production-cd82.up.railway.app'
-const API_TOKEN = 'Ne63ni71me01ja04!'
+// The login token now comes from the app's own main process (token.js), not from the old Railway server.
 const CALLER_ID = '+1 208-688-4760'
 
 const QUICK_DIALS = [
-  { label: 'Claire — Bright Smile Dental', number: '+12084414485', note: 'Inbound demo agent' },
-  { label: 'Test Line',                    number: '+12086884760', note: 'Echo / loopback'    },
+  { label: 'Claire — Bright Smile Dental', number: '+12895141951', note: 'Demo receptionist' },
+  { label: 'Test Line',                    number: '+12086884760', note: 'Echo / loopback'   },
 ]
 
 const KEYS = [
@@ -97,14 +96,12 @@ function cleanupCall() {
   stopTimer()
 }
 
-// ── Fetch SAT from Railway ────────────────────────────────────────────────────
+// ── Get a short-lived SignalWire login token from the main process ───────────
 async function fetchToken() {
-  const res = await fetch(`${API_BASE}/api/signalwire/token`, {
-    headers: { Authorization: `Bearer ${API_TOKEN}` },
-  })
-  if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`)
-  const data = await res.json()
-  if (!data.token) throw new Error('No SAT token in response')
+  if (!window.dialpad || !window.dialpad.getToken) throw new Error('Dialpad bridge missing. Close and reopen the app.')
+  const data = await window.dialpad.getToken()
+  if (!data || data.error) throw new Error((data && data.error) || 'No login token returned')
+  if (!data.token) throw new Error('No login token returned')
   return data.token
 }
 
