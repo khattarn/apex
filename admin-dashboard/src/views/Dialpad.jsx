@@ -91,7 +91,7 @@ const STATUS_META = {
 }
 
 const QUICK_DIALS = [
-  { label: 'Claire (Bright Smile)', number: '+12084414485', note: 'Dental inbound agent' },
+  { label: 'Claire (Bright Smile)', number: '+12895141951', note: 'Demo receptionist' },
   { label: 'Test Line 2',           number: '+12086884760', note: 'Inbound test number' },
 ]
 
