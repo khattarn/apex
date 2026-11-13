@@ -29,7 +29,10 @@ const safeEqual = (a, b) => {
   return x.length === y.length && crypto.timingSafeEqual(x, y)
 }
 
-exports.handler = async (event, _context, fetchImpl = fetch) => {
+// Tests can replace the network call by setting `exports.fetchImpl`. It must NOT be a third handler argument: Netlify's
+// runtime passes its own callback function in that slot.
+exports.handler = async (event) => {
+  const fetchImpl = exports.fetchImpl || fetch
   if (event.httpMethod !== 'GET' && event.httpMethod !== 'POST') return json(405, { detail: 'Method not allowed' })
 
   const key = process.env.DIALPAD_KEY || ''
