@@ -6,6 +6,10 @@
 [build.environment]
   VITE_API_URL = "https://serene-passion-production-cd82.up.railway.app"
 
+# Functions live under the base directory (admin-dashboard/netlify/functions).
+[functions]
+  directory = "netlify/functions"
+
 [[redirects]]
   from   = "/*"
   to     = "/index.html"

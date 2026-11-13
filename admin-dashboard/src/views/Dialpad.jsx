@@ -1,6 +1,26 @@
 import { useState, useRef, useEffect } from 'react'
 import { Phone, PhoneOff, Delete, Mic, MicOff } from 'lucide-react'
-import { request } from '../api'
+
+// The SignalWire login token comes from this site's own Netlify Function (netlify/functions/signalwire-token.js).
+// The old Railway backend that used to issue it is gone. The function wants the dialpad key (DIALPAD_KEY on
+// Netlify): it is asked for once and remembered in this browser.
+const KEY_STORE = 'pd_dialpad_key'
+async function fetchDialpadToken() {
+  let key = localStorage.getItem(KEY_STORE) || ''
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (!key) {
+      key = (window.prompt('Dialpad key (the DIALPAD_KEY value set on Netlify):') || '').trim()
+      if (!key) throw new Error('A dialpad key is needed to place calls')
+    }
+    const res = await fetch('/.netlify/functions/signalwire-token', { headers: { 'x-dialpad-key': key } })
+    if (res.status === 403) { localStorage.removeItem(KEY_STORE); key = ''; continue }   // wrong key: ask again once
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.token) throw new Error(data.detail || `Could not get a dialpad token (HTTP ${res.status})`)
+    localStorage.setItem(KEY_STORE, key)
+    return data.token
+  }
+  throw new Error('Wrong dialpad key')
+}
 
 const KEYS = [
   ['1', ''], ['2', 'ABC'], ['3', 'DEF'],
@@ -182,8 +202,8 @@ function InternationalDialpad() {
     try {
       const dest = toE164(number)
 
-      // Fetch a fresh Subscriber Access Token (SAT) from backend
-      const { token } = await request('/api/signalwire/token')
+      // Get a fresh Subscriber Access Token (SAT) from the Netlify Function
+      const token = await fetchDialpadToken()
 
       // Authenticate as the practicedesk-dialpad subscriber
       const { SignalWire, StaticCredentialProvider } = await import('@signalwire/js')
@@ -221,11 +241,8 @@ function InternationalDialpad() {
           // the sync getter will have the value.
           const existing = call.remoteStream
           if (existing) attachAudio(existing)
-          // Fire-and-forget: start server-side recording now that the call is live.
-          request('/api/signalwire/start-recording', {
-            method: 'POST',
-            body: JSON.stringify({ call_id: call.id, to: dest }),
-          }).catch(err => console.warn('[Dialpad] start-recording failed:', err))
+          // Server-side call recording (/api/signalwire/start-recording) lived on the Railway backend and is
+          // gone, so calls from this dialpad are not recorded for now.
         } else if (['disconnected', 'failed', 'destroyed'].includes(s)) {
           if (s === 'failed') { setStatus('error'); setErrMsg('Call failed') }
           else setStatus('ended')
