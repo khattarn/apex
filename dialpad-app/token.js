@@ -11,7 +11,8 @@
 //   1. environment variables SIGNALWIRE_SPACE, SIGNALWIRE_PROJECT_ID, SIGNALWIRE_API_TOKEN
 //   2. <userData>/config.json  ->  { "space": "...signalwire.com", "projectId": "...", "apiToken": "..." }
 //      (on Windows: %APPDATA%\practicedesk-dialpad\config.json)
-// Use a dedicated API token for this app, with only the "Fabric" scope.
+// Use a dedicated API token for this app, with only the "Voice" scope (SignalWire requires one of Voice, Messaging,
+// Fax or Video on the token that creates subscriber tokens; Voice is the narrowest sensible choice).
 
 const fs = require('fs')
 const path = require('path')
@@ -58,7 +59,7 @@ async function mintToken(userDataDir, fetchImpl = fetch) {
   }
   if (!res.ok || !data.token) {
     const why = res.status === 401 || res.status === 403
-      ? 'the API token was rejected: check it is correct and has the Fabric scope'
+      ? 'the API token was rejected: check it is correct and has the Voice scope'
       : String((data.errors && data.errors[0] && data.errors[0].detail) || data.error || data.message || '').slice(0, 160)
     throw new Error(`SignalWire would not give a login token (HTTP ${res.status}${why ? ': ' + why : ''}).`)
   }

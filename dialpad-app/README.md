@@ -21,8 +21,8 @@ On each call the app creates a one-hour login token with SignalWire. It needs th
 
    If the app cannot find credentials it shows the exact path of that file on screen.
 
-Use a **dedicated API token for this app** (SignalWire dashboard, API tab), with only the **Fabric** scope. Do not reuse a
-broad token. The token never reaches the dialpad window: `token.js` runs in the app's main process and the window only
+Use a **dedicated API token for this app** (SignalWire dashboard, API tab), with only the **Voice** scope (SignalWire
+needs one of Voice, Messaging, Fax or Video on the token that creates login tokens). Do not reuse a broad token. The token never reaches the dialpad window: `token.js` runs in the app's main process and the window only
 receives the one-hour login token.
 
 ## How it works
@@ -35,5 +35,5 @@ receives the one-hour login token.
 
 - **Crashes on launch with "Cannot read properties of undefined (reading 'handle')":** the environment variable
   `ELECTRON_RUN_AS_NODE` is set (VS Code sets it). `Launch Dialpad.bat` clears it; if you start the app another way, clear it first.
-- **"SignalWire would not give a login token":** the API token is wrong or lacks the Fabric scope.
+- **"SignalWire would not give a login token":** the API token is wrong or lacks the Voice scope.
 - **"Could not reach SignalWire":** no internet connection.

@@ -5,7 +5,8 @@
 // Netlify environment variables (Site configuration -> Environment variables):
 //   SIGNALWIRE_SPACE        e.g. uniqe-corporation.signalwire.com
 //   SIGNALWIRE_PROJECT_ID
-//   SIGNALWIRE_API_TOKEN    a DEDICATED token with only the "Fabric" scope
+//   SIGNALWIRE_API_TOKEN    a DEDICATED token with only the "Voice" scope (SignalWire needs one of Voice,
+//                           Messaging, Fax or Video on the token that creates login tokens)
 //   DIALPAD_KEY             a long random string; the Dialpad asks for it once and remembers it in the browser
 //
 // Anyone who can call this URL and knows DIALPAD_KEY can place calls on your SignalWire account, so keep the key
@@ -62,7 +63,7 @@ exports.handler = async (event, _context, fetchImpl = fetch) => {
   }
   if (!res.ok || !data.token) {
     const why = res.status === 401 || res.status === 403
-      ? 'the SignalWire API token was rejected: check it is correct and has the Fabric scope'
+      ? 'the SignalWire API token was rejected: check it is correct and has the Voice scope'
       : String((data.errors && data.errors[0] && data.errors[0].detail) || data.error || data.message || '').slice(0, 160)
     return json(502, { detail: `SignalWire would not give a login token (HTTP ${res.status}${why ? ': ' + why : ''})` })
   }
